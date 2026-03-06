@@ -13,7 +13,7 @@
 
 [功能特性](#功能特性) •
 [快速开始](#快速开始) •
-[使用文档](/thesis-creator/docs/usage_guide.md) •
+[使用文档](docs/usage_guide.md) •
 [贡献指南](CONTRIBUTING.md)
 
 </div>
