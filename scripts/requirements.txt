@@ -1,0 +1,12 @@
+# 论文创作 Agent 系统 - Python 依赖
+
+# 核心依赖（默认安装，约 50 MB）
+jieba>=0.42.1               # 中文分词
+synonyms>=3.18.0            # 中文同义词
+rich>=13.0.0                # 命令行美化输出
+click>=8.1.0                # CLI 参数解析
+
+# 可选依赖（完整版 AIGC 检测，约 2.5 GB）
+# 取消注释以下行以启用困惑度检测
+# transformers>=4.30.0      # 中文 GPT-2 困惑度计算
+# torch>=2.0.0              # PyTorch（CPU 版即可）

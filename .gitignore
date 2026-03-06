@@ -1,0 +1,74 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Project Specific
+thesis-workspace/
+workspace/drafts/*.md
+workspace/reduced/*.md
+workspace/final/*.md
+workspace/history/
+logs/
+.thesis-status.json
+
+# Keep empty directories
+!workspace/drafts/README.md
+!workspace/reduced/README.md
+!workspace/final/README.md
+!workspace/history/README.md
+
+# Models (optional, if using GPT-2)
+models/
+*.bin
+*.pt
+
+# Logs
+*.log
+
+# Test files
+test_*.py
+*_test.py
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
