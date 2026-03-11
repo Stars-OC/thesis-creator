@@ -245,21 +245,31 @@ flowchart TD
 
 ### Step 4: 分章节撰写 🛡️
 
-> 详见 `prompts/writing_standards.md`
+> **必须加载的 Prompt 文件**（写作前先读取）：
+> - `prompts/writer_guidelines.md` — 写作规范（两阶段写作法）
+> - `prompts/aigc_reducer_prompt.md` — **AIGC 降重核心策略** ⭐
+> - `prompts/humanizer_guidelines.md` — 人性化改写指南
+> - `prompts/reference_format_gbt7714.md` — 参考文献格式规范
 
 **规则**：
 - 每段 150-300 字，包含论点+论据+小结
 - 每千字至少 2 个文献引用（GB/T 7714-2015）
 - 代码片段不超过 20 行，需有设计说明和效果分析
 - 使用图表占位符标记图表位置
+- **AIGC 降重要求**（写作时同步执行）：
+  - 禁用「首先…其次…最后」「此外」「综上所述」等 AI 模板词
+  - 句长波动：目标句长标准差 > 10
+  - 段落结构多样：避免连续 3 段使用相同的「总分」结构
+  - 穿插主观视角：「笔者认为」「据观察」等
 
 **执行**：
 ```
 for 每个章节 in outline:
+    0. 📖 加载 AIGC 降重 prompt（aigc_reducer_prompt.md）
     1. 检查是否为"规定动作"章节
-    2. 生成内容
+    2. 生成内容（同步应用 AIGC 降重策略）
     3. 生成图表占位符
-    4. 🛡️ 执行防错检查
+    4. 🛡️ 执行防错检查（含 AIGC 特征检查）
     5. 保存到 workspace/drafts/
     6. 记录日志
 ```
@@ -272,6 +282,9 @@ for 每个章节 in outline:
 | 代码长度 | ≤20 行，且需设计说明+效果分析 | 拆分或精简 |
 | 参考文献标记 | 引用需标注来源 | 标记缺失位置 |
 | 段落结构 | 论点+论据+小结 | 提示优化 |
+| **AI 模板词** | **无「首先…其次…最后」「此外」「综上所述」** | **自动替换** |
+| **句长波动** | **句长标准差 > 10** | **调整句式** |
+| **段落开头** | **相邻段落首词不得相同** | **修改开头** |
 
 **日志记录**：
 - `logs/<timestamp>/step_4_chapter_N.log`（每章一个日志）
@@ -280,6 +293,8 @@ for 每个章节 in outline:
 **警告记录**：
 - 代码过长 → 记录到 `warnings.log`
 - 图表不足 → 记录到 `warnings.log`
+- **AI 模板词超标** → 记录到 `warnings.log`
+- **句长波动不足** → 记录到 `warnings.log`
 
 ---
 
@@ -523,14 +538,23 @@ logs/
 
 ## 相关文件
 
+### Prompt 文件（写作时加载）
+
+| 文件 | 说明 | 加载时机 |
+|------|------|----------|
+| `prompts/writer_guidelines.md` | 论文编写提示词（两阶段写作法） | Step 4 写作前 |
+| `prompts/aigc_reducer_prompt.md` | **AIGC 降重核心策略** ⭐ | Step 4 写作前 |
+| `prompts/humanizer_guidelines.md` | AIGC 人性化改写指南 | Step 4 写作前 |
+| `prompts/reducer_guidelines.md` | 降重提示词 | Step 5 降重前 |
+| `prompts/reference_format_gbt7714.md` | GB/T 7714-2015 参考文献格式 | 写作引用时 |
+| `prompts/thesis_structure.md` | 论文结构模板 | Step 3 大纲生成 |
+| `prompts/discussion_guide.md` | 背景信息讨论指南 | Step 1.5 讨论 |
+| `prompts/writing_standards.md` | 写作规范 | Step 4 写作前 |
+
+### Script 文件（工具脚本）
+
 | 文件 | 说明 |
 |------|------|
-| `prompts/thesis_structure.md` | 论文结构模板 |
-| `prompts/writing_standards.md` | 写作规范 |
-| `prompts/discussion_guide.md` | 背景信息讨论指南 |
-| `prompts/writer_guidelines.md` | 论文编写提示词 |
-| `prompts/reducer_guidelines.md` | 降重提示词 |
-| `prompts/humanizer_guidelines.md` | AIGC 降低提示词 |
 | `scripts/aigc_detect.py` | AIGC 本地检测 |
 | `scripts/aigc_detect_technical.py` | AIGC 技术文档检测 |
 | `scripts/synonym_replace.py` | 同义词替换 |
