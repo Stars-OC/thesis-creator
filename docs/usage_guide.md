@@ -1,6 +1,7 @@
 # 论文创作 Agent 系统 - 使用指南
 
 > 面向中国本科生的毕业论文全流程写作辅助系统
+> **最后更新：2026-04-11**
 
 ---
 
@@ -10,13 +11,15 @@
 
 | 功能 | 说明 |
 |------|------|
-| 全流程覆盖 | 从选题到交稿的端到端 8 步工作流 |
+| 全流程覆盖 | 从选题到交稿的端到端工作流 |
 | 降重优化 | 句式重构、同义替换、段落重组 |
 | AIGC 降低 | 模拟人类写作特征，降低检测风险 |
 | 本地检测 | 轻量级 AIGC 检测工具，快速预估 |
 | 格式检查 | 自动检查论文结构规范性 |
 | 智能讨论 | 三轮深入讨论充分理解论文需求 |
-| 文档导出 | 支持 Word/PDF 格式一键导出 |
+| **图片生成** ⭐ NEW | 自动生成架构图、流程图、E-R图等 |
+| **图片插入** ⭐ NEW | Word 文档自动插入图片和图注 |
+| 文档导出 | 支持 Word/PDF 格式一键导出（含图片）|
 
 ### 1.2 系统要求
 
@@ -124,7 +127,10 @@ Step 8: 文档导出（Word/PDF）
 | 「帮我生成论文大纲」 | Step 0-3 |
 | 「分析这段文字的特征」 | 仅调用文本分析 |
 | 「检查论文格式」 | 仅调用格式检查 |
+| 「生成图片」/「生成图表」/「生成架构图」 | 图片生成 ⭐ NEW |
+| 「为第X章配图」 | 为指定章节生成图表 ⭐ NEW |
 | 「导出 Word」/「导出 PDF」 | 文档格式转换 |
+| 「一键导出」 | 图片生成 + 文档导出 ⭐ NEW |
 
 ---
 
@@ -277,16 +283,82 @@ Step 8: 文档导出（Word/PDF）
 - `workspace/final/论文终稿.md`
 - `workspace/final/quality_report.md`
 
-### 4.10 Step 8：文档导出
+---
 
-**触发方式**：
+### 4.8 Step 8：图片生成与渲染 🖼️ ⭐ NEW
+
+> **一键生成论文图表并插入到 Word 文档**
+
+**触发条件**：
+- 用户说「生成图片」「生成图表」「生成架构图」
+- 用户说「为第X章配图」
 - AIGC 检测通过后自动提示
-- 用户说「导出 Word」或「导出 PDF」
+- 导出文档前自动执行
+
+**支持的图片类型**：
+
+| 图片类型 | Mermaid 语法 | 适用章节 |
+|----------|-------------|----------|
+| 系统架构图 | `graph TB` | 第4章 系统设计 |
+| 流程图 | `flowchart TD` | 第4-5章 功能设计/实现 |
+| E-R 图 | `erDiagram` | 第4章 数据库设计 |
+| 用例图 | `graph LR` | 第4章 需求分析 |
+| 时序图 | `sequenceDiagram` | 第5章 接口调用 |
+| 类图 | `classDiagram` | 第5章 类设计 |
 
 **使用方法**：
 
 ```powershell
-# 导出 Word 文档
+# 方式1: 分步执行（可调试）
+# Step 1: 从占位符生成 Mermaid 代码
+python scripts/chart_generator.py workspace/drafts/ -o workspace/final/images/
+
+# Step 2: 渲染 Mermaid 为 PNG
+python scripts/chart_renderer.py --input workspace/final/论文终稿.md --output workspace/final/images/
+
+# 方式2: 一键生成（推荐）
+# AI 自动执行：扫描 → 生成 → 渲染 → 更新引用
+```
+
+**渲染方法选项**：
+
+| 方法 | 说明 | 依赖 |
+|------|------|------|
+| `mmdc` | Mermaid CLI（本地） | `npm install -g @mermaid-js/mermaid-cli` |
+| `playwright` | 浏览器渲染（本地） | `pip install playwright && playwright install` |
+| `kroki` | 在线 API | 需要网络 |
+| `auto` | 自动选择 | 按优先级尝试 |
+
+**输出文件**：
+- `workspace/final/images/图X-X.png` - 渲染后的图片
+- `workspace/final/images/image_manifest.md` - 图片清单
+- `workspace/final/images/chart_report.md` - 图表生成报告
+
+---
+
+### 4.9 Step 9：文档导出与图片插入 📄 ⭐ NEW
+
+> **Word 文档自动插入图片和图注**
+
+**触发方式**：
+- AIGC 检测通过后自动提示
+- 用户说「导出 Word」「导出文档」「生成Word」
+- 用户说「一键导出」（图片+文档）
+
+**图片插入特性**：
+
+| 特性 | 说明 | 格式标准 |
+|------|------|----------|
+| 自动居中 | 图片居中显示 | 符合论文规范 |
+| 尺寸控制 | 默认宽度 12cm | 适合 A4 纸张 |
+| 图注格式 | 五号宋体、居中 | 符合学术论文规范 |
+| 路径解析 | 支持相对路径 | 自动转换为绝对路径 |
+| 失败处理 | 图片不存在时记录警告 | 不中断导出流程 |
+
+**使用方法**：
+
+```powershell
+# 导出 Word 文档（含图片）
 python scripts/document_exporter.py --input workspace/final/论文终稿.md --format docx
 
 # 导出 PDF 文档
@@ -294,6 +366,24 @@ python scripts/document_exporter.py --input workspace/final/论文终稿.md --fo
 
 # 同时导出两种格式
 python scripts/document_exporter.py --input workspace/final/论文终稿.md --format both
+```
+
+**导出成功示例**：
+
+```
+[信息] 正在读取: workspace/final/论文终稿.md
+[成功] Word 文档已保存: workspace/final/论文终稿.docx
+[信息] 成功插入 12 张图片
+==================================================
+[文档导出报告]
+输入文件: workspace/final/论文终稿.md
+输出目录: workspace/final/
+导出时间: 20260411_194041
+--------------------------------------------------
+DOCX: [成功]
+  路径: workspace/final/论文终稿.docx
+  图片: 12 张已插入
+==================================================
 ```
 
 **文档格式规范**：
@@ -389,7 +479,59 @@ python scripts/format_checker.py --input workspace/final/论文终稿.md
 python scripts/format_checker.py --dir workspace/drafts/
 ```
 
-### 5.5 文档导出（`document_exporter.py`）
+### 5.6 图表生成（`chart_generator.py`）⭐ NEW
+
+```powershell
+# 从 Markdown 文件中的占位符生成 Mermaid 代码
+python scripts/chart_generator.py workspace/drafts/ -o workspace/final/images/
+
+# 指定输出目录
+python scripts/chart_generator.py workspace/final/论文终稿.md --output workspace/final/images/
+
+# 详细模式
+python scripts/chart_generator.py workspace/drafts/ --verbose
+```
+
+**支持的图表类型**：
+
+| 图表类型 | Mermaid 语法 | 适用场景 |
+|----------|-------------|----------|
+| 系统架构图 | `graph TB` | 系统整体架构 |
+| 流程图 | `flowchart TD` | 业务流程、操作流程 |
+| E-R 图 | `erDiagram` | 数据库设计 |
+| 用例图 | `graph LR` | 功能需求分析 |
+| 时序图 | `sequenceDiagram` | 接口调用流程 |
+| 类图 | `classDiagram` | 类结构设计 |
+
+### 5.7 图表渲染（`chart_renderer.py`）⭐ NEW
+
+```powershell
+# 渲染 Markdown 中引用的 Mermaid 图片
+python scripts/chart_renderer.py --input workspace/final/论文终稿.md --output workspace/final/images/
+
+# 指定渲染方法
+python scripts/chart_renderer.py --input paper.md --method mmdc
+
+# 渲染方法选项
+# mmdc: Mermaid CLI（需安装 @mermaid-js/mermaid-cli）
+# playwright: 浏览器渲染（需安装 playwright）
+# kroki: 在线 API（需网络）
+# auto: 自动选择（推荐）
+```
+
+**渲染依赖安装**：
+
+```powershell
+# Mermaid CLI
+npm install -g @mermaid-js/mermaid-cli
+
+# Playwright
+pip install playwright && playwright install
+
+# Kroki 无需安装，直接使用在线 API
+```
+
+### 5.8 文档导出（`document_exporter.py`）
 
 ```powershell
 # 导出 Word
@@ -402,6 +544,8 @@ python scripts/document_exporter.py --input paper.md --format pdf
 python scripts/document_exporter.py --input paper.md --format both
 ```
 
+> ⭐ 图片插入功能已集成：导出 Word 时自动解析 Markdown 图片引用并插入到文档中。
+
 ---
 
 ## 六、日志系统
@@ -410,7 +554,7 @@ python scripts/document_exporter.py --input paper.md --format both
 
 ```
 logs/
-├── 20260306_150000/           # 按时间戳分目录
+├── 20260411_150000/           # 按时间戳分目录
 │   ├── step_0_init.log        # 初始化日志
 │   ├── step_1_env.log         # 环境准备
 │   ├── step_1.5_discussion.log # 背景讨论
@@ -423,10 +567,11 @@ logs/
 │   ├── step_6_humanize.log    # AIGC 人性化
 │   ├── step_7_aigc.log        # AIGC 检测详情
 │   ├── step_7_final.log       # 最终检查
-│   ├── step_8_export.log      # 文档导出
+│   ├── step_8_chart.log       # 图片生成与渲染 ⭐ NEW
+│   ├── step_9_export.log      # 文档导出（含图片插入） ⭐ NEW
 │   ├── warnings.log           # ⚠️ 警告汇总
 │   └── session_summary.md     # 会话总结报告
-└── latest -> 20260306_150000/ # 最新日志快捷访问
+└── latest -> 20260411_150000/ # 最新日志快捷访问
 ```
 
 ### 6.2 日志格式
@@ -538,4 +683,4 @@ cat logs/latest/session_summary.md
 
 ---
 
-> 最后更新：2026-03-06
+> 最后更新：2026-04-11
