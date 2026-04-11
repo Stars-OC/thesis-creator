@@ -363,7 +363,7 @@ for 每个章节 in outline:
 
 ---
 
-### Step 7: AIGC 检测与章节合并 🛠️
+### Step 7: AIGC 检测 🛠️
 
 **检查项**：
 
@@ -400,99 +400,167 @@ python scripts/merge_drafts.py -i workspace/drafts/ -o workspace/final/论文终
 
 ---
 
-### Step 8: 图表渲染 ⭐ NEW
+### Step 8: 图片生成与渲染 🖼️ ⭐ NEW
+
+> **整合流程：图片生成 → 渲染 → 插入到 Word**
 
 **触发**：
-- 用户说「渲染图表」或「生成图表」
+- 用户说「生成图片」「为第X章配图」「生成系统架构图」等
+- 或在 AIGC 检测通过后自动提示
 - 或在导出文档前自动执行
 
-**执行流程**：
+**完整工作流**：
 
 ```mermaid
 flowchart TD
-    A[解析论文中的图表代码] --> B{图表类型?}
-    B -->|Mermaid| C[使用 mermaid-cli 渲染]
-    B -->|PlantUML| D[使用 PlantUML 渲染]
-    C --> E[生成 PNG 图片]
-    D --> E
-    E --> F[保存到 images/ 目录]
-    F --> G[更新 Markdown 图片引用]
-    G --> H[✅ 完成]
+    A[扫描论文占位符] --> B[chart_generator.py 解析]
+    B --> C[生成 Mermaid 代码]
+    C --> D[chart_renderer.py 渲染]
+    D --> E{渲染方法选择}
+    E -->|mmdc| F[Mermaid CLI]
+    E -->|playwright| G[浏览器渲染]
+    E -->|kroki| H[在线API]
+    F --> I[生成 PNG 图片]
+    G --> I
+    H --> I
+    I --> J[更新 Markdown 图片引用]
+    J --> K[document_exporter.py 导出]
+    K --> L[插入图片到 Word]
+    L --> M[添加图注]
+    M --> N[✅ 完成]
 ```
 
-**使用方法**：
+**支持的图片类型**：
+
+| 图片类型 | Mermaid 语法 | 适用章节 | 示例 |
+|----------|-------------|----------|------|
+| 系统架构图 | `graph TB` | 第4章 系统设计 | 三层架构、模块关系 |
+| 流程图 | `flowchart TD` | 第4-5章 功能设计/实现 | 登录流程、业务流程 |
+| E-R 图 | `erDiagram` | 第4章 数据库设计 | 实体关系图 |
+| 用例图 | `graph LR` | 第4章 需求分析 | 用户用例 |
+| 时序图 | `sequenceDiagram` | 第5章 接口调用 | API交互时序 |
+| 类图 | `classDiagram` | 第5章 类设计 | 类结构关系 |
+
+**一键执行命令**：
 
 ```bash
-# 渲染论文中的所有图表
-python scripts/chart_renderer.py --input workspace/final/论文终稿.md --output workspace/final/images/
+# 方式1: 分步执行（可单独调试）
+# Step 1: 从占位符生成 Mermaid 代码
+python scripts/chart_generator.py workspace/drafts/ --output workspace/final/images/
 
-# 指定渲染方法
-python scripts/chart_renderer.py --input workspace/final/论文终稿.md --output workspace/final/images/ --method mmdc
+# Step 2: 渲染 Mermaid 为 PNG
+python scripts/chart_renderer.py --input workspace/final/论文终稿.md --output workspace/final/images/ --method auto
 
-# 生成渲染报告
-python scripts/chart_renderer.py --input workspace/final/论文终稿.md --output workspace/final/images/ --report
+# Step 3: 导出 Word（自动插入图片）
+python scripts/document_exporter.py --input workspace/final/论文终稿.md --output workspace/final/ --format docx
 
-# 更新 Markdown 文件中的图片引用
-python scripts/chart_renderer.py --input workspace/final/论文终稿.md --output workspace/final/images/ --update
+# 方式2: 一键完成（推荐）
+# AI 自动执行完整流程：扫描 → 生成 → 渲染 → 插入 → 导出
 ```
 
 **渲染方法选项**：
 
-| 方法 | 说明 | 依赖 |
-|------|------|------|
-| `mmdc` | Mermaid CLI（推荐） | `npm install -g @mermaid-js/mermaid-cli` |
-| `playwright` | Playwright 浏览器渲染 | `pip install playwright && playwright install` |
-| `kroki` | 在线 API（需要网络） | 无需本地安装 |
-| `auto` | 自动选择（按优先级尝试） | - |
+| 方法 | 说明 | 优先级 | 依赖 |
+|------|------|--------|------|
+| `mmdc` | Mermaid CLI（本地） | 1 | `npm install -g @mermaid-js/mermaid-cli` |
+| `playwright` | 浏览器渲染（本地） | 2 | `pip install playwright && playwright install` |
+| `kroki` | 在线 API | 3 | 需要网络 |
+| `auto` | 自动选择（按优先级尝试） | - | 已安装的优先 |
 
 **输出文件**：
 - `workspace/final/images/图X-X.png` - 渲染后的图片
-- `workspace/final/images/render_report.md` - 渲染报告
+- `workspace/final/images/image_manifest.md` - 图片清单
+- `workspace/final/images/chart_report.md` - 图表生成报告
+
+**日志记录**：
+- `logs/<timestamp>/step_8_image_gen.log`
+
+**🛡️ 防错检查**：
+
+| 检查项 | 要求 | 不达标处理 |
+|--------|------|-----------|
+| 图片分辨率 | ≥ 72 DPI（电子稿） | 重新生成 |
+| 图片格式 | PNG | 自动转换 |
+| 图片命名 | 按「图X-X 说明」格式 | 自动重命名 |
+| 图片引用 | 每章至少 2 张图 | 提示补充 |
+| 图片插入 | Word 中正确显示 | 检查路径 |
 
 ---
 
-### Step 9: 文档导出 ⭐
+### Step 9: 文档导出与图片插入 📄 ⭐ 优化
+
+> **自动将图片插入到 Word 文档，并添加规范图注**
 
 **触发**：
 - AIGC 检测通过后自动提示
-- 用户说「导出 Word」或「导出 PDF」
+- 用户说「导出 Word」「导出 PDF」「生成文档」
 
 **执行流程**：
 
 ```mermaid
 flowchart TD
-    A[读取终稿 MD 文件] --> B{选择导出格式}
-    B -->|Word| C[调用 document_exporter.py]
-    B -->|PDF| D[转换为 Word 后转 PDF]
-    B -->|两者| E[同时导出 Word 和 PDF]
-    C --> F[生成 .docx 文件]
-    D --> G[生成 .pdf 文件]
-    E --> F
-    E --> G
-    F --> H[输出导出报告]
-    G --> H
-    H --> I[✅ 完成]
+    A[读取终稿 Markdown] --> B[解析文档结构]
+    B --> C[识别图片引用]
+    C --> D[创建 Word 文档]
+    D --> E[写入标题/正文]
+    E --> F{遇到图片引用?}
+    F -->|是| G[插入图片居中显示]
+    G --> H[添加图注五号宋体]
+    H --> F
+    F -->|否| I[继续下一个元素]
+    I --> J[处理表格/代码块]
+    J --> K[保存文档]
+    K --> L[输出导出报告]
+    L --> M[✅ 完成]
 ```
+
+**图片插入特性**：
+
+| 特性 | 说明 | 格式标准 |
+|------|------|----------|
+| 自动居中 | 图片居中显示 | `WD_ALIGN_PARAGRAPH.CENTER` |
+| 尺寸控制 | 默认宽度 12cm | 适合 A4 纸张 |
+| 图注格式 | 五号宋体、居中 | 符合学术论文规范 |
+| 路径解析 | 支持相对路径 | 自动转换为绝对路径 |
+| 失败处理 | 图片不存在时记录警告 | 不中断导出流程 |
 
 **导出格式选项**：
 
 | 选项 | 说明 | 输出文件 |
 |------|------|----------|
-| `docx` | Word 文档 | `论文终稿.docx` |
+| `docx` | Word 文档（含图片） | `论文终稿.docx` |
 | `pdf` | PDF 文档 | `论文终稿.pdf` |
 | `both` | 同时导出两种格式 | `.docx` 和 `.pdf` |
 
 **使用方法**：
 
 ```bash
-# 导出 Word 文档
-python scripts/document_exporter.py --input workspace/final/论文终稿.md --format docx
+# 导出 Word 文档（自动插入图片）
+python scripts/document_exporter.py --input workspace/final/论文终稿.md --output workspace/final/ --format docx
 
 # 导出 PDF 文档
-python scripts/document_exporter.py --input workspace/final/论文终稿.md --format pdf
+python scripts/document_exporter.py --input workspace/final/论文终稿.md --output workspace/final/ --format pdf
 
 # 同时导出两种格式
-python scripts/document_exporter.py --input workspace/final/论文终稿.md --format both
+python scripts/document_exporter.py --input workspace/final/论文终稿.md --output workspace/final/ --format both
+```
+
+**导出成功示例**：
+
+```
+[信息] 正在读取: workspace/final/论文终稿.md
+[成功] Word 文档已保存: workspace/final/论文终稿.docx
+[信息] 成功插入 12 张图片
+==================================================
+[文档导出报告]
+输入文件: workspace/final/论文终稿.md
+输出目录: workspace/final/
+导出时间: 20260411_194041
+--------------------------------------------------
+DOCX: [成功]
+  路径: workspace/final/论文终稿.docx
+  图片: 12 张已插入
+==================================================
 ```
 
 **PDF 转换依赖**（选择其一）：
@@ -501,11 +569,12 @@ python scripts/document_exporter.py --input workspace/final/论文终稿.md --fo
 - Microsoft Word（仅 Windows）
 
 **日志记录**：
-- `logs/<timestamp>/step_8_export.log`
+- `logs/<timestamp>/step_9_export.log`
 
 **输出文件**：
-- `workspace/final/论文终稿.docx`（Word 文档）
+- `workspace/final/论文终稿.docx`（Word 文档，含图片）
 - `workspace/final/论文终稿.pdf`（PDF 文档）
+- `workspace/final/导出报告.md`
 - `workspace/final/导出报告.md`
 
 **文档格式规范**：
@@ -523,12 +592,14 @@ python scripts/document_exporter.py --input workspace/final/论文终稿.md --fo
 |--------|----------|
 | 「帮我降重这段文字：…」 | 仅 Step 5 |
 | 「降低这段的 AIGC 率：…」 | 仅 Step 6 |
-| 「用成语降重这段文字：…」 | Step 6（侧重成语替换） ⭐ 新增 |
+| 「用成语降重这段文字：…」 | Step 6（侧重成语替换） ⭐ |
 | 「检测这段文字的 AIGC 率」 | 调用 `aigc_detect.py` |
 | 「帮我生成论文大纲」 | Step 1-3 |
-| 「导出 Word」或「导出 Word 文档」 | Step 8（仅 Word） |
-| 「导出 PDF」或「导出 PDF 文档」 | Step 8（仅 PDF） |
-| 「导出文档」 | Step 8（Word + PDF） |
+| 「生成图片」「生成图表」「生成系统架构图」 | Step 8（图片生成+渲染） ⭐ |
+| 「为第X章配图」 | Step 8（图片生成+渲染） ⭐ |
+| 「导出 Word」「导出文档」「生成Word」 | Step 9（导出Word+插入图片） ⭐ |
+| 「导出 PDF」「生成PDF」 | Step 9（导出PDF） |
+| 「一键导出」 | Step 8+9（图片+文档） ⭐ 推荐 |
 
 ---
 
@@ -539,6 +610,8 @@ python scripts/document_exporter.py --input workspace/final/论文终稿.md --fo
 | 模型下载失败 | 回退到轻量版检测 |
 | PDF 无法解析 | 提示手动提取 |
 | 3轮改写未达标 | 输出最佳版本+风险标记 |
+| 图片文件不存在 | 记录警告，继续导出 |
+| 图片渲染失败 | 尝试其他渲染方法 |
 
 ---
 
@@ -561,7 +634,8 @@ logs/
 │   ├── step_6_humanize.log    # AIGC 人性化
 │   ├── step_7_aigc.log        # AIGC 检测详情
 │   ├── step_7_final.log       # 最终检查
-│   ├── step_8_export.log      # 文档导出
+│   ├── step_8_image_gen.log   # 图片生成与渲染 ⭐ 整合
+│   ├── step_9_export.log      # 文档导出与图片插入 ⭐ 整合
 │   ├── warnings.log           # ⚠️ 警告汇总
 │   └── session_summary.md     # 会话总结报告
 └── latest -> 20260306_150000/ # 最新日志快捷访问
@@ -608,14 +682,16 @@ logs/
 - [x] Step 5: 降重处理
 - [x] Step 6: AIGC 人性化
 - [x] Step 7: AIGC 检测
-- [x] Step 8: 文档导出
+- [x] Step 8: 图片生成与渲染 ⭐ 整合
+- [x] Step 9: 文档导出与图片插入 ⭐ 整合
 
 ## 产出文件
 - `workspace/outline.md` - 论文大纲
 - `workspace/drafts/` - 初稿（5章）
 - `workspace/reduced/` - 降重版
 - `workspace/final/论文终稿.md` - 终稿（Markdown）
-- `workspace/final/论文终稿.docx` - 终稿（Word）
+- `workspace/final/images/` - 论文图片（PNG）
+- `workspace/final/论文终稿.docx` - 终稿（Word，含图片） ⭐
 - `workspace/final/论文终稿.pdf` - 终稿（PDF）
 
 ## 警告汇总
@@ -652,6 +728,7 @@ logs/
 | `prompts/thesis_structure.md` | 论文结构模板 | Step 3 大纲生成 |
 | `prompts/discussion_guide.md` | 背景信息讨论指南 | Step 1.5 讨论 |
 | `prompts/writing_standards.md` | 写作规范 | Step 4 写作前 |
+| `prompts/image_generation.md` | **图片生成指南** ⭐ 新增 | Step 8 图片生成 |
 
 ### Script 文件（工具脚本）
 
@@ -664,8 +741,9 @@ logs/
 | `scripts/text_analysis.py` | 文本特征分析 |
 | `scripts/format_checker.py` | 格式检查 |
 | `scripts/reduce_workflow.py` | 降重工作流 |
-| `scripts/document_exporter.py` | 文档导出（Word/PDF） |
+| `scripts/document_exporter.py` | **文档导出（Word/PDF + 图片插入）** ⭐ 优化 |
 | `scripts/md_to_docx.py` | Markdown 转 Word |
 | `scripts/merge_drafts.py` | 章节合并工具 |
+| `scripts/chart_generator.py` | 图表生成（占位符 → Mermaid 代码） |
 | `scripts/chart_renderer.py` | 图表渲染（Mermaid/PlantUML → PNG） |
 | `scripts/reference_validator.py` | 参考文献验证 |

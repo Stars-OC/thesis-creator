@@ -22,7 +22,7 @@ from typing import Optional, Tuple
 
 try:
     from docx import Document
-    from docx.shared import Pt, Inches, Cm, RGBColor
+    from docx.shared import Pt, Inches, Cm, RGBColor, Twips
     from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
     from docx.enum.style import WD_STYLE_TYPE
     from docx.enum.table import WD_TABLE_ALIGNMENT
@@ -183,6 +183,70 @@ def add_list_item(doc, text: str, ordered: bool = False):
     set_chinese_font(run, '宋体', 12)
 
 
+def add_image(doc, image_path: str, width_cm: float = 12.0, base_dir: str = ''):
+    """
+    添加图片到文档
+
+    Args:
+        doc: Word 文档对象
+        image_path: 图片路径（相对路径或绝对路径）
+        width_cm: 图片宽度（厘米），默认12cm（适合A4纸张）
+        base_dir: 基础目录，用于解析相对路径
+
+    Returns:
+        bool: 是否成功添加图片
+    """
+    from pathlib import Path
+
+    # 处理路径
+    if base_dir and not Path(image_path).is_absolute():
+        full_path = Path(base_dir) / image_path
+    else:
+        full_path = Path(image_path)
+
+    # 检查文件是否存在
+    if not full_path.exists():
+        print(f"[警告] 图片文件不存在: {full_path}")
+        return False
+
+    try:
+        # 创建居中段落
+        para = doc.add_paragraph()
+        para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        para.paragraph_format.first_line_indent = Cm(0)
+        para.paragraph_format.space_before = Pt(6)
+        para.paragraph_format.space_after = Pt(3)
+
+        # 插入图片
+        run = para.add_run()
+        run.add_picture(str(full_path), width=Cm(width_cm))
+
+        return True
+    except Exception as e:
+        print(f"[警告] 插入图片失败: {e}")
+        return False
+
+
+def add_figure_caption(doc, caption: str):
+    """
+    添加图注（图片说明）
+
+    格式：居中、宋体、五号（10.5pt）
+
+    Args:
+        doc: Word 文档对象
+        caption: 图注文本，如 "图4-1 系统架构图"
+    """
+    para = doc.add_paragraph()
+    para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    para.paragraph_format.first_line_indent = Cm(0)
+    para.paragraph_format.space_before = Pt(3)
+    para.paragraph_format.space_after = Pt(12)
+
+    run = para.add_run(caption)
+    set_chinese_font(run, '宋体', 10.5)  # 五号字体
+
+
 def clean_markdown_content(content: str) -> str:
     """
     清理 Markdown 内容中的无意义字符
@@ -260,6 +324,14 @@ def parse_markdown(content: str) -> list:
                 table_rows = []
                 in_table = False
 
+        # 图片处理 - 格式: ![alt](path) 或 ![图X-X 说明](images/xxx.png)
+        img_match = re.match(r'^!\[([^\]]*)\]\(([^)]+)\)\s*$', line)
+        if img_match:
+            alt_text = img_match.group(1)  # 图片说明/alt文本
+            img_path = img_match.group(2)  # 图片路径
+            elements.append(('image', img_path, alt_text))
+            continue
+
         # 标题
         if line.startswith('# ') and not line.startswith('## '):
             elements.append(('title', line[2:].strip()))
@@ -305,6 +377,10 @@ def convert_md_to_docx(input_path: str, output_path: str) -> Tuple[bool, str]:
     try:
         print(f"[信息] 正在读取: {input_path}")
 
+        # 获取输入文件所在目录，用于解析图片相对路径
+        input_file = Path(input_path)
+        base_dir = input_file.parent
+
         with open(input_path, 'r', encoding='utf-8') as f:
             content = f.read()
 
@@ -316,6 +392,10 @@ def convert_md_to_docx(input_path: str, output_path: str) -> Tuple[bool, str]:
 
         # 创建文档
         doc = create_thesis_document()
+
+        # 统计信息
+        image_count = 0
+        image_failed = []
 
         # 处理各元素
         for elem in elements:
@@ -337,10 +417,28 @@ def convert_md_to_docx(input_path: str, output_path: str) -> Tuple[bool, str]:
                 add_table(doc, elem[1])
             elif elem_type == 'list':
                 add_list_item(doc, elem[1], elem[2] if len(elem) > 2 else False)
+            elif elem_type == 'image':
+                # 处理图片
+                img_path = elem[1]
+                alt_text = elem[2] if len(elem) > 2 else ''
+                success = add_image(doc, img_path, width_cm=12.0, base_dir=str(base_dir))
+                if success:
+                    image_count += 1
+                    # 添加图注（如果有说明文字）
+                    if alt_text:
+                        add_figure_caption(doc, alt_text)
+                else:
+                    image_failed.append(img_path)
 
         # 保存文档
         doc.save(output_path)
         print(f"[成功] Word 文档已保存: {output_path}")
+
+        # 输出图片统计
+        if image_count > 0:
+            print(f"[信息] 成功插入 {image_count} 张图片")
+        if image_failed:
+            print(f"[警告] {len(image_failed)} 张图片插入失败: {image_failed}")
 
         return True, f"Word 文档已保存到 {output_path}"
 

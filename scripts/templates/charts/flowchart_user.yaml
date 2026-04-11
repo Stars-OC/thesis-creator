@@ -1,0 +1,57 @@
+# 用户业务流程图模板
+# 适用于描述用户操作流程
+
+id: "user_flow"
+name: "用户业务流程图"
+description: "适用于描述用户在系统中的主要操作流程"
+
+# 模板变量定义
+variables:
+  - name: "start_action"
+    description: "起始动作"
+    default: "用户发起请求"
+    extract_rule: "从描述开头提取起始动作"
+  - name: "steps"
+    description: "流程步骤列表"
+    type: "list"
+    default: []
+  - name: "end_action"
+    description: "结束动作"
+    default: "流程结束"
+
+# Mermaid 代码模板
+mermaid_template: |
+  %% {{chart_id}} {{chart_name}}
+  %% 自动生成于 {{timestamp}}
+  flowchart TD
+      A([开始]) --> B[{{start_action}}]
+      {% for step in steps %}
+      {% if step.type == 'decision' %}
+      {{step.node_id}}{ {{step.name}} }
+      {{step.node_id}} -->|是| {{step.next_node}}
+      {{step.node_id}} -->|否| Z([结束])
+      {% else %}
+      {{step.node_id}}[{{step.name}}]
+      {{step.node_id}} --> {{step.next_node}}
+      {% endif %}
+      {% endfor %}
+      Z([结束])
+
+# 步骤提取规则
+step_extraction:
+  # 数字序号模式
+  numbered_pattern: "[（(]?\\d+[）)、.．]\\s*(.+?)(?=[（(]?\\d+[）)、.．]|$)"
+  # 中文序号模式
+  chinese_pattern: "(第[一二三四五六七八九十]+步[：:]\\s*|首先[，,]?\\s*|然后[，,]?\\s*|最后[，,]?\\s*)(.+?)"
+  # 决策节点关键词
+  decision_keywords: ["判断", "检查", "验证", "确认", "是否"]
+  # 输入输出节点关键词
+  io_keywords: ["输入", "输出", "接收", "发送", "读取", "写入"]
+
+# 关键词匹配规则
+keywords:
+  - "用户"
+  - "业务流程"
+  - "操作流程"
+  - "流程"
+  - "步骤"

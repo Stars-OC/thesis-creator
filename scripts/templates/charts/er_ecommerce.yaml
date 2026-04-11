@@ -1,0 +1,88 @@
+# 电商系统 E-R 图模板
+# 适用于电商、订单、商品相关系统
+
+id: "ecommerce"
+name: "电商系统 E-R 图"
+description: "适用于电商系统，包含用户、商品、订单等核心实体"
+
+# 模板变量定义
+variables:
+  - name: "user_entity"
+    description: "用户实体名称"
+    default: "用户"
+  - name: "product_entity"
+    description: "商品实体名称"
+    default: "商品"
+  - name: "order_entity"
+    description: "订单实体名称"
+    default: "订单"
+  - name: "additional_entities"
+    description: "额外实体列表"
+    type: "list"
+    default: []
+
+# Mermaid 代码模板
+mermaid_template: |
+  %% {{chart_id}} {{chart_name}}
+  %% 自动生成于 {{timestamp}}
+  erDiagram
+      {{user_entity}} ||--o{ {{order_entity}} : "下单"
+      {{user_entity}} {
+          bigint id PK "用户ID"
+          varchar username "用户名"
+          varchar email "邮箱"
+          datetime created_at "创建时间"
+      }
+
+      {{order_entity}} ||--|{ ORDER_ITEM : "包含"
+      {{order_entity}} {
+          bigint id PK "订单ID"
+          bigint user_id FK "用户ID"
+          decimal total_amount "总金额"
+          varchar status "状态"
+          datetime created_at "创建时间"
+      }
+
+      ORDER_ITEM }}|--|| {{product_entity}} : "包含商品"
+      ORDER_ITEM {
+          bigint id PK "明细ID"
+          bigint order_id FK "订单ID"
+          bigint product_id FK "商品ID"
+          int quantity "数量"
+          decimal price "单价"
+      }
+
+      {{product_entity}} {
+          bigint id PK "商品ID"
+          varchar name "商品名称"
+          decimal price "价格"
+          int stock "库存"
+      }
+
+      {% for entity in additional_entities %}
+      {{entity.name}} {
+          {% for field in entity.fields %}
+          {{field.type}} {{field.name}} {{field.constraint}}
+          {% endfor %}
+      }
+      {% endfor %}
+
+# 关键词匹配规则
+keywords:
+  - "电商"
+  - "订单"
+  - "商品"
+  - "购物"
+  - "交易"
+  - "E-R"
+  - "实体关系"
+
+# 实体提取规则
+entity_extraction:
+  # 从描述中识别实体
+  patterns:
+    - "用户|会员|客户"
+    - "商品|产品|物品"
+    - "订单|交易|购买"
+    - "评论|评价"
+    - "分类|类别"

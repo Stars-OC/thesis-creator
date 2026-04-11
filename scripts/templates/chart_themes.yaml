@@ -1,0 +1,160 @@
+# 图表样式主题配置
+# 用于定制图表渲染的外观样式
+
+version: "1.0"
+last_updated: "2026-04-09"
+
+# 主题定义
+themes:
+  # 学术风格（默认）
+  academic:
+    name: "学术风格"
+    description: "适合学术论文，简洁专业"
+    colors:
+      background: "#FFFFFF"
+      node_fill: "#E8F4FD"
+      node_edge: "#333333"
+      text: "#000000"
+      arrow: "#666666"
+      decision_fill: "#FFF3E0"
+      io_fill: "#E8F5E9"
+      terminal_fill: "#E3F2FD"
+    fonts:
+      title_size: 14
+      node_size: 11
+      label_size: 9
+    shapes:
+      node_radius: 0.1
+      arrow_width: 1.5
+      line_width: 1.5
+
+  # 商务风格
+  business:
+    name: "商务风格"
+    description: "适合商业演示，色彩鲜明"
+    colors:
+      background: "#F5F5F5"
+      node_fill: "#2196F3"
+      node_edge: "#1976D2"
+      text: "#FFFFFF"
+      arrow: "#424242"
+      decision_fill: "#FF9800"
+      io_fill: "#4CAF50"
+      terminal_fill: "#607D8B"
+    fonts:
+      title_size: 14
+      node_size: 11
+      label_size: 9
+    shapes:
+      node_radius: 0.15
+      arrow_width: 2.0
+      line_width: 2.0
+
+  # 简约风格
+  minimal:
+    name: "简约风格"
+    description: "极简设计，黑白为主"
+    colors:
+      background: "#FFFFFF"
+      node_fill: "#FFFFFF"
+      node_edge: "#333333"
+      text: "#333333"
+      arrow: "#333333"
+      decision_fill: "#FFFFFF"
+      io_fill: "#FFFFFF"
+      terminal_fill: "#F5F5F5"
+    fonts:
+      title_size: 12
+      node_size: 10
+      label_size: 8
+    shapes:
+      node_radius: 0.0
+      arrow_width: 1.0
+      line_width: 1.0
+
+  # 暗黑风格
+  dark:
+    name: "暗黑风格"
+    description: "深色背景，适合夜间展示"
+    colors:
+      background: "#1E1E1E"
+      node_fill: "#2D2D2D"
+      node_edge: "#569CD6"
+      text: "#D4D4D4"
+      arrow: "#808080"
+      decision_fill: "#3E2723"
+      io_fill: "#1B5E20"
+      terminal_fill: "#37474F"
+    fonts:
+      title_size: 14
+      node_size: 11
+      label_size: 9
+    shapes:
+      node_radius: 0.1
+      arrow_width: 1.5
+      line_width: 1.5
+
+  # 彩色风格
+  colorful:
+    name: "彩色风格"
+    description: "丰富色彩，适合教学演示"
+    colors:
+      background: "#FAFAFA"
+      node_fill: "#BBDEFB"
+      node_edge: "#1565C0"
+      text: "#212121"
+      arrow: "#616161"
+      decision_fill: "#FFE082"
+      io_fill: "#C8E6C9"
+      terminal_fill: "#F8BBD9"
+    fonts:
+      title_size: 14
+      node_size: 11
+      label_size: 9
+    shapes:
+      node_radius: 0.15
+      arrow_width: 2.0
+      line_width: 2.0
+
+# 图表类型默认主题映射
+default_themes:
+  architecture: "academic"
+  flowchart: "academic"
+  er_diagram: "academic"
+  sequence: "academic"
+  usecase: "academic"
+  class_diagram: "academic"
+
+# 节点类型样式
+node_styles:
+  terminal:
+    shape: "rounded_rect"
+    description: "开始/结束节点"
+  process:
+    shape: "rect"
+    description: "处理节点"
+  decision:
+    shape: "diamond"
+    description: "决策节点"
+  io:
+    shape: "parallelogram"
+    description: "输入输出节点"
+
+# 箭头样式
+arrow_styles:
+  sync:
+    type: "solid"
+    head: "arrow"
+    description: "同步调用"
+  async:
+    type: "solid"
+    head: "arrow"
+    description: "异步调用"
+  return:
+    type: "dashed"
+    head: "arrow"
+    description: "返回"
+  self:
+    type: "solid"
+    head: "arrow"
+    description: "自调用"

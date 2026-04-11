@@ -1,0 +1,77 @@
+# Web 系统架构图模板
+# 适用于前后端分离的 Web 应用系统
+
+id: "web_system"
+name: "Web 系统架构图"
+description: "适用于前后端分离的 Web 应用系统，包含表现层、接口层、业务层、数据层"
+
+# 模板变量定义
+variables:
+  - name: "frontend_name"
+    description: "前端应用名称"
+    default: "Web前端"
+    extract_rule: "从描述中提取系统名称"
+  - name: "backend_name"
+    description: "后端服务名称"
+    default: "后端服务"
+  - name: "database_type"
+    description: "数据库类型"
+    default: "数据库"
+    options: ["MySQL", "PostgreSQL", "MongoDB", "Redis"]
+
+# Mermaid 代码模板
+mermaid_template: |
+  %% {{chart_id}} {{chart_name}}
+  %% 自动生成于 {{timestamp}}
+  graph TB
+      subgraph 表现层["表现层 (Presentation Layer)"]
+          FE1[{{frontend_name}}]
+          FE2[移动端]
+      end
+
+      subgraph 接口层["接口层 (API Layer)"]
+          API1[REST API]
+          API2[认证授权]
+      end
+
+      subgraph 业务层["业务层 (Business Layer)"]
+          SVC1[{{backend_name}}]
+          SVC2[数据处理服务]
+      end
+
+      subgraph 数据层["数据层 (Data Layer)"]
+          DB1[({{database_type}})]
+          DB2[(缓存)]
+      end
+
+      FE1 --> API1
+      FE2 --> API1
+      API1 --> API2
+      API2 --> SVC1
+      API2 --> SVC2
+      SVC1 --> DB1
+      SVC2 --> DB1
+      SVC2 --> DB2
+
+# 关键词匹配规则
+keywords:
+  - "web"
+  - "网站"
+  - "系统架构"
+  - "前后端"
+  - "三层架构"
+  - "B/S"
+
+# 示例输出
+example_output: |
+  %% 图2-1 系统架构图
+  graph TB
+      subgraph 表现层
+          FE1[Web前端]
+          FE2[移动端]
+      end
+      subgraph 接口层
+          API1[REST API]
+          API2[认证授权]
+      end
+      ...

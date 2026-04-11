@@ -1,0 +1,69 @@
+# 图表模板索引
+# 用于智能化图表生成系统
+
+version: "1.0"
+last_updated: "2026-04-09"
+
+templates:
+  # 架构图模板
+  architecture:
+    - id: "web_system"
+      file: "architecture_web.yaml"
+      keywords: ["web", "网站", "系统架构", "前后端"]
+    - id: "microservice"
+      file: "architecture_microservice.yaml"
+      keywords: ["微服务", "分布式", "服务架构"]
+    - id: "mobile_app"
+      file: "architecture_mobile.yaml"
+      keywords: ["移动端", "app", "手机应用"]
+
+  # 流程图模板
+  flowchart:
+    - id: "user_flow"
+      file: "flowchart_user.yaml"
+      keywords: ["用户", "业务流程", "操作流程"]
+    - id: "data_flow"
+      file: "flowchart_data.yaml"
+      keywords: ["数据", "数据处理", "数据流"]
+    - id: "auth_flow"
+      file: "flowchart_auth.yaml"
+      keywords: ["登录", "认证", "授权", "身份验证"]
+
+  # E-R图模板
+  er_diagram:
+    - id: "ecommerce"
+      file: "er_ecommerce.yaml"
+      keywords: ["电商", "订单", "商品", "购物"]
+    - id: "user_system"
+      file: "er_user.yaml"
+      keywords: ["用户", "账户", "权限"]
+    - id: "content"
+      file: "er_content.yaml"
+      keywords: ["内容", "文章", "评论"]
+
+  # 用例图模板
+  usecase:
+    - id: "admin_system"
+      file: "usecase_admin.yaml"
+      keywords: ["管理", "后台", "管理员"]
+    - id: "user_system"
+      file: "usecase_user.yaml"
+      keywords: ["用户", "普通用户"]
+
+  # 时序图模板
+  sequence:
+    - id: "api_interaction"
+      file: "sequence_api.yaml"
+      keywords: ["API", "接口调用", "请求响应"]
+    - id: "login_sequence"
+      file: "sequence_login.yaml"
+      keywords: ["登录", "认证", "身份"]
+
+  # 类图模板
+  class_diagram:
+    - id: "mvc_pattern"
+      file: "class_mvc.yaml"
+      keywords: ["MVC", "设计模式", "架构模式"]
+    - id: "service_pattern"
+      file: "class_service.yaml"
+      keywords: ["服务", "业务逻辑", "服务层"]
