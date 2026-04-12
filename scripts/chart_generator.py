@@ -670,8 +670,8 @@ def main():
 
     args = parser.parse_args()
 
-    # 初始化日志
-    init_logger(log_dir="logs", session_name="chart_generator")
+    # 初始化日志（自动检测 thesis-workspace/logs 目录）
+    init_logger(session_name="chart_generator")
 
     # 读取输入文件
     input_path = Path(args.input)

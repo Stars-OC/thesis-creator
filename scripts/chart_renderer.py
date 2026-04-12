@@ -494,5 +494,6 @@ def main():
 
 
 if __name__ == "__main__":
-    init_logger(log_dir="logs", session_name="chart_renderer")
+    # 初始化日志（自动检测 thesis-workspace/logs 目录）
+    init_logger(session_name="chart_renderer")
     main()

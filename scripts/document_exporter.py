@@ -44,13 +44,39 @@ except ImportError:
 
 
 def set_chinese_font(run, font_name: str = '宋体', font_size: int = 12, bold: bool = False):
-    """设置中文字体"""
+    """设置中文字体（支持加粗）"""
     run.font.name = font_name
     run.font.size = Pt(font_size)
     run.font.bold = bold
-    # 设置中文字体
+
+    # 设置中文字体（East Asia）
     r = run._element
-    r.rPr.rFonts.set(qn('w:eastAsia'), font_name)
+    rPr = r.rPr
+    if rPr is None:
+        rPr = OxmlElement('w:rPr')
+        r.insert(0, rPr)
+
+    # 设置 East Asia 字体
+    rFonts = rPr.find(qn('w:rFonts'))
+    if rFonts is None:
+        rFonts = OxmlElement('w:rFonts')
+        rPr.insert(0, rFonts)
+
+    rFonts.set(qn('w:eastAsia'), font_name)
+
+    # 中文字体加粗需要额外设置 bCs 属性
+    if bold:
+        # 设置西文加粗
+        b_elem = rPr.find(qn('w:b'))
+        if b_elem is None:
+            b_elem = OxmlElement('w:b')
+            rPr.append(b_elem)
+
+        # 设置东亚文字加粗（关键！）
+        bCs_elem = rPr.find(qn('w:bCs'))
+        if bCs_elem is None:
+            bCs_elem = OxmlElement('w:bCs')
+            rPr.append(bCs_elem)
 
 
 def set_paragraph_format(para, first_line_indent: bool = True, line_spacing: float = 1.5):

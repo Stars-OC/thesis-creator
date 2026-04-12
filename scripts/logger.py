@@ -7,6 +7,7 @@ thesis-creator 日志工具模块
 - 文件输出（logs/ 目录）
 - 分级日志（DEBUG, INFO, WARNING, ERROR）
 - 会话隔离（每次运行生成独立日志文件）
+- 配置开关（thesis-workspace/.thesis-config.yaml）
 """
 
 import os
@@ -14,7 +15,72 @@ import sys
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict, Any
+
+# 尝试导入 yaml
+try:
+    import yaml
+    YAML_AVAILABLE = True
+except ImportError:
+    YAML_AVAILABLE = False
+
+
+def _load_config() -> Dict[str, Any]:
+    """
+    加载 thesis-workspace/.thesis-config.yaml 配置文件
+
+    Returns:
+        配置字典，如果文件不存在则返回默认配置
+    """
+    default_config = {
+        'logging': {
+            'enabled': True,
+            'level': 'INFO',
+            'console_level': 'INFO',
+            'file_level': 'DEBUG'
+        }
+    }
+
+    # 搜索配置文件位置
+    script_dir = Path(__file__).parent
+    possible_paths = [
+        Path.cwd() / "thesis-workspace" / ".thesis-config.yaml",
+        script_dir.parent.parent.parent / "thesis-workspace" / ".thesis-config.yaml",
+    ]
+
+    for config_path in possible_paths:
+        if config_path.exists():
+            if YAML_AVAILABLE:
+                try:
+                    with open(config_path, 'r', encoding='utf-8') as f:
+                        config = yaml.safe_load(f)
+                        if config:
+                            return config
+                except Exception:
+                    pass
+            else:
+                # yaml 未安装，尝试手动解析
+                try:
+                    content = config_path.read_text(encoding='utf-8')
+                    # 简单解析 enabled 字段
+                    if 'enabled: false' in content.lower():
+                        default_config['logging']['enabled'] = False
+                    return default_config
+                except Exception:
+                    pass
+
+    return default_config
+
+
+def _is_logging_enabled() -> bool:
+    """
+    检查日志功能是否启用
+
+    Returns:
+        True 如果启用，False 如果禁用
+    """
+    config = _load_config()
+    return config.get('logging', {}).get('enabled', True)
 
 
 class ColoredFormatter(logging.Formatter):
@@ -247,48 +313,172 @@ class ThesisLogger:
         return str(output_path)
 
 
+class NullLogger:
+    """
+    空日志类 - 当日志功能禁用时使用
+
+    所有方法都是空操作，不产生任何输出
+    节省上下文，提高性能
+    """
+
+    def __init__(self):
+        self.session_id = "disabled"
+        self.session_name = "null_logger"
+        self.log_file = Path("disabled")
+        self.log_dir = Path("disabled")
+
+    def debug(self, msg: str, *args, **kwargs):
+        pass
+
+    def info(self, msg: str, *args, **kwargs):
+        pass
+
+    def warning(self, msg: str, *args, **kwargs):
+        pass
+
+    def error(self, msg: str, *args, **kwargs):
+        pass
+
+    def critical(self, msg: str, *args, **kwargs):
+        pass
+
+    def step(self, step_name: str, status: str = "start"):
+        pass
+
+    def file_operation(self, operation: str, file_path: str, success: bool = True):
+        pass
+
+    def chapter_progress(self, chapter: str, word_count: int, total_words: int):
+        pass
+
+    def quality_check(self, check_item: str, passed: bool, details: str = ""):
+        pass
+
+    def error_with_context(self, error: Exception, context: dict):
+        pass
+
+    def get_log_content(self) -> str:
+        return ""
+
+    def export_session_report(self, output_path: Optional[str] = None) -> str:
+        return ""
+
+
 # 全局日志实例
 _logger: Optional[ThesisLogger] = None
+_null_logger: Optional[NullLogger] = None
+
+
+def _find_workspace_log_dir() -> Path:
+    """
+    自动查找 thesis-workspace/logs 目录
+
+    搜索顺序：
+    1. 当前工作目录下的 thesis-workspace/logs
+    2. 脚本所在目录的上级 thesis-workspace/logs
+    3. 用户项目根目录下的 thesis-workspace/logs
+
+    Returns:
+        找到的 logs 目录路径，如果未找到则返回当前目录下的 logs
+    """
+    # 获取脚本所在目录
+    script_dir = Path(__file__).parent
+
+    # 可能的 thesis-workspace/logs 位置
+    possible_paths = [
+        Path.cwd() / "thesis-workspace" / "logs",  # 当前工作目录
+        script_dir.parent.parent.parent / "thesis-workspace" / "logs",  # skill 目录的上级
+        Path.cwd().parent / "thesis-workspace" / "logs",  # 当前目录的上级
+    ]
+
+    for path in possible_paths:
+        # 检查 thesis-workspace 是否存在（不要求 logs 存在，会自动创建）
+        workspace_dir = path.parent
+        if workspace_dir.exists() and workspace_dir.name == "thesis-workspace":
+            return path
+
+    # 如果都找不到，返回默认路径
+    return Path("logs")
 
 
 def get_logger(
-    log_dir: str = "logs",
-    session_name: Optional[str] = None
-) -> ThesisLogger:
+    log_dir: str = None,
+    session_name: Optional[str] = None,
+    use_workspace: bool = True,
+    check_config: bool = True
+):
     """
     获取全局日志实例
 
     Args:
-        log_dir: 日志目录
+        log_dir: 日志目录（如果为 None 且 use_workspace=True，则自动检测 thesis-workspace/logs）
         session_name: 会话名称
+        use_workspace: 是否优先使用 thesis-workspace/logs 目录
+        check_config: 是否检查配置文件中的 enabled 开关（默认 True）
 
     Returns:
-        ThesisLogger 实例
+        ThesisLogger 实例（如果启用）或 NullLogger 实例（如果禁用）
     """
-    global _logger
+    global _logger, _null_logger
+
+    # 检查配置是否启用日志
+    if check_config and not _is_logging_enabled():
+        if _null_logger is None:
+            _null_logger = NullLogger()
+        return _null_logger
+
     if _logger is None:
+        # 自动检测 log_dir
+        if log_dir is None:
+            if use_workspace:
+                log_dir = str(_find_workspace_log_dir())
+            else:
+                log_dir = "logs"
         _logger = ThesisLogger(log_dir=log_dir, session_name=session_name)
     return _logger
 
 
 def init_logger(
-    log_dir: str = "logs",
-    session_name: Optional[str] = None
-) -> ThesisLogger:
+    log_dir: str = None,
+    session_name: Optional[str] = None,
+    use_workspace: bool = True,
+    check_config: bool = True,
+    force_enable: bool = False
+):
     """
     初始化日志（创建新实例）
 
     Args:
-        log_dir: 日志目录
+        log_dir: 日志目录（如果为 None 且 use_workspace=True，则自动检测 thesis-workspace/logs）
         session_name: 会话名称
+        use_workspace: 是否优先使用 thesis-workspace/logs 目录
+        check_config: 是否检查配置文件中的 enabled 开关（默认 True）
+        force_enable: 强制启用日志（忽略配置，默认 False）
 
     Returns:
-        新的 ThesisLogger 实例
+        新的 ThesisLogger 实例（如果启用）或 NullLogger 实例（如果禁用）
     """
-    global _logger
+    global _logger, _null_logger
+
+    # 检查配置是否启用日志（除非强制启用）
+    if not force_enable and check_config and not _is_logging_enabled():
+        ThesisLogger._instance = None
+        ThesisLogger._initialized = False
+        _logger = None
+        _null_logger = NullLogger()
+        return _null_logger
+
+    # 自动检测 log_dir
+    if log_dir is None:
+        if use_workspace:
+            log_dir = str(_find_workspace_log_dir())
+        else:
+            log_dir = "logs"
+
     # 重置单例状态
     ThesisLogger._instance = None
     ThesisLogger._initialized = False
+    _null_logger = None
     _logger = ThesisLogger(log_dir=log_dir, session_name=session_name)
     return _logger
 
