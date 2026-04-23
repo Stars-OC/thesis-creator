@@ -180,6 +180,23 @@
 └─────────────────────────────────────────────────────────────┘
 ```
 
+## 各平台查重及aigc检测结果
+
+### 朱雀全文检测
+![朱雀全文检测展示](docs/images/全文朱雀检测.png)
+
+---
+
+### PaperPass检测
+![PaperPass检测展示](docs/images/PaperPass.png)
+
+---
+
+### paperYY检测
+![paperYY检测展示](docs/images/paperYY.png)
+
+---
+
 ## 快速开始
 
 ### 前置要求

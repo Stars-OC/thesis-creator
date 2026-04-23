@@ -32,15 +32,13 @@ except ImportError:
 
 # 章节顺序定义（必须按此顺序合并）
 CHAPTER_ORDER = [
-    "摘要.md",
-    "第1章_绪论.md",
-    "第2章_相关技术与开发环境.md",
-    "第3章_系统需求分析.md",
-    "第4章_系统设计.md",
-    "第5章_系统实现.md",
-    "第6章_系统测试.md",
-    "第7章_总结与展望.md",
-    "致谢.md"
+    "chapter_1.md",
+    "chapter_2.md",
+    "chapter_3.md",
+    "chapter_4.md",
+    "chapter_5.md",
+    "chapter_6.md",
+    "chapter_7.md"
 ]
 
 # 注意：参考文献.md 不在 CHAPTER_ORDER 中，因为它由脚本从文献池自动生成
