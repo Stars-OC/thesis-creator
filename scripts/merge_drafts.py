@@ -15,10 +15,19 @@
 import os
 import re
 import sys
+import json
 import argparse
 from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Optional, Tuple
+
+try:
+    import yaml
+    YAML_AVAILABLE = True
+except ImportError:
+    YAML_AVAILABLE = False
+    print("[警告] PyYAML 未安装，参考文献生成功能不可用")
+    print("安装命令: pip install pyyaml")
 
 
 # 章节顺序定义（必须按此顺序合并）
@@ -31,9 +40,10 @@ CHAPTER_ORDER = [
     "第5章_系统实现.md",
     "第6章_系统测试.md",
     "第7章_总结与展望.md",
-    "参考文献.md",
     "致谢.md"
 ]
+
+# 注意：参考文献.md 不在 CHAPTER_ORDER 中，因为它由脚本从文献池自动生成
 
 # 分页标记（用于 Word 转换时识别）
 PAGE_BREAK_MARKER = "\n\n<!-- PAGE_BREAK -->\n\n"
@@ -55,16 +65,20 @@ RE_TRAILING_WHITESPACE = re.compile(r'[ \t]+\n')
 class DraftMerger:
     """论文章节合并器"""
 
-    def __init__(self, input_dir: str, output_path: str):
+    def __init__(self, input_dir: str, output_path: str, references_yaml: str = None):
         """
         初始化合并器
 
         Args:
             input_dir: 输入目录（drafts 文件夹路径）
             output_path: 输出文件路径
+            references_yaml: 文献池 YAML 文件路径（可选）
         """
         self.input_dir = Path(input_dir)
         self.output_path = Path(output_path)
+        self.references_yaml = Path(references_yaml) if references_yaml else None
+        self.ref_pool = {}  # ref_id -> ref_data 的映射
+        self.ref_order = []  # 按正文出现顺序的 ref_id 列表
         self.merge_report = {
             'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             'input_dir': str(self.input_dir),
@@ -73,7 +87,8 @@ class DraftMerger:
             'total_chars': 0,
             'total_words': 0,
             'missing_chapters': [],
-            'errors': []
+            'errors': [],
+            'references_count': 0
         }
 
     def validate_input(self) -> Tuple[bool, List[str]]:
@@ -207,6 +222,213 @@ class DraftMerger:
             'status': 'success'
         }
 
+    # 预编译临时引用编号的正则
+    pattern_sub_ref = re.compile(r'\[ref_(\d+)\]')
+
+    def load_references_pool(self) -> bool:
+        """
+        加载文献池 YAML 文件
+
+        Returns:
+            是否成功加载
+        """
+        if not self.references_yaml or not self.references_yaml.exists():
+            print(f"[警告] 文献池文件不存在: {self.references_yaml}")
+            return False
+
+        if not YAML_AVAILABLE:
+            print(f"[警告] PyYAML 未安装，无法加载文献池")
+            return False
+
+        try:
+            with open(self.references_yaml, 'r', encoding='utf-8') as f:
+                data = yaml.safe_load(f)
+
+            refs = data.get('references', [])
+            for ref in refs:
+                ref_id = ref.get('id', '')
+                if ref_id:
+                    self.ref_pool[ref_id] = ref
+
+            print(f"[信息] 已加载文献池: {len(self.ref_pool)} 篇文献")
+            return True
+
+        except Exception as e:
+            print(f"[警告] 加载文献池失败: {e}")
+            return False
+
+    def collect_cited_references(self, content: str) -> List[str]:
+        """
+        收集文本中引用的临时编号（[ref_XXX] 格式）
+
+        Args:
+            content: 合并后的全部文本内容
+
+        Returns:
+            按出现顺序排列的 ref_id 列表（已去重）
+        """
+        # 匹配 [ref_001], [ref_012] 等临时引用编号
+        pattern = re.compile(r'\[ref_(\d+)\]')
+        seen = set()
+        ordered = []
+
+        for match in pattern.finditer(content):
+            ref_id = f"ref_{match.group(1)}"
+            if ref_id not in seen:
+                seen.add(ref_id)
+                ordered.append(ref_id)
+
+        return ordered
+
+    def renumber_references(self, content: str) -> Tuple[str, Dict[str, int]]:
+        """
+        将临时引用编号重排为正式编号
+
+        Args:
+            content: 合并后的全部文本内容
+
+        Returns:
+            (重排后的文本, 映射表 {ref_id: 正式编号})
+        """
+        cited_refs = self.collect_cited_references(content)
+        mapping = {}
+        current_num = 1
+
+        for ref_id in cited_refs:
+            mapping[ref_id] = current_num
+            current_num += 1
+
+        # 执行替换：[ref_001] -> [1]
+        def replace_ref(match):
+            ref_id = f"ref_{match.group(1)}"
+            if ref_id in mapping:
+                return f"[{mapping[ref_id]}]"
+            return match.group(0)  # 未在文献池中的引用保留原样
+
+        new_content = pattern_sub_ref.sub(replace_ref, content)
+        return new_content, mapping
+
+    def generate_references_md(self, mapping: Dict[str, int], output_path: Path) -> bool:
+        """
+        生成独立的参考文献 MD 文件
+
+        Args:
+            mapping: 映射表 {ref_id: 正式编号}
+            output_path: 输出路径
+
+        Returns:
+            是否成功
+        """
+        if not mapping:
+            print("[警告] 没有引用编号需要生成参考文献")
+            return False
+
+        lines = ["# 参考文献", ""]
+
+        # 按正式编号排序
+        sorted_refs = sorted(mapping.items(), key=lambda x: x[1])
+
+        for ref_id, num in sorted_refs:
+            ref_data = self.ref_pool.get(ref_id)
+            if ref_data:
+                # 优先使用预格式化的 GB/T 7714 格式
+                gb7714 = ref_data.get('gb7714', '')
+                if gb7714:
+                    # 替换预格式化中的编号
+                    gb7714 = re.sub(r'^\[\d+\]', f'[{num}]', gb7714)
+                    lines.append(gb7714)
+                else:
+                    # 从字段手动构建 GB/T 7714 格式
+                    authors = ref_data.get('authors', [])
+                    title = ref_data.get('title', '')
+                    year = ref_data.get('year', '')
+                    doi = ref_data.get('doi', '')
+                    doi_url = ref_data.get('doi_url', '')
+                    journal = ref_data.get('journal', '')
+                    volume = ref_data.get('volume', '')
+                    issue = ref_data.get('issue', '')
+                    pages = ref_data.get('pages', '')
+
+                    # 作者格式化
+                    if len(authors) <= 3:
+                        authors_str = ", ".join(authors)
+                    else:
+                        authors_str = ", ".join(authors[:3]) + ", 等"
+
+                    # 构建引用字符串
+                    ref_type = "[J]" if journal else "[C]"
+                    parts = [f"[{num}] {authors_str}. {title}{ref_type}"]
+
+                    if journal:
+                        parts.append(journal)
+
+                    if year:
+                        year_part = f", {year}"
+                        if volume:
+                            year_part += f", {volume}"
+                            if issue:
+                                year_part += f"({issue})"
+                        parts.append(year_part)
+
+                    if pages:
+                        parts.append(f": {pages}")
+
+                    ref_str = ". ".join([p for p in parts if p]) + "."
+
+                    if doi and doi_url:
+                        ref_str += f" [DOI]({doi_url})"
+
+                    lines.append(ref_str)
+            else:
+                lines.append(f"[{num}] [未找到文献: {ref_id}]")
+
+            lines.append("")  # 空行分隔
+
+        try:
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(output_path, 'w', encoding='utf-8') as f:
+                f.write('\n'.join(lines))
+
+            self.merge_report['references_count'] = len(sorted_refs)
+            print(f"[成功] 参考文献已生成: {output_path} ({len(sorted_refs)} 篇)")
+            return True
+
+        except Exception as e:
+            print(f"[失败] 生成参考文献失败: {e}")
+            self.merge_report['errors'].append(f"生成参考文献失败: {str(e)}")
+            return False
+
+
+        """
+        获取章节信息
+
+        Args:
+            filename: 文件名
+            content: 章节内容
+
+        Returns:
+            章节信息字典
+        """
+        # 计算字数（中文字符）
+        chinese_chars = len(re.findall(r'[\u4e00-\u9fff]', content))
+        # 计算英文单词数
+        english_words = len(re.findall(r'[a-zA-Z]+', content))
+        # 计算总字符数
+        total_chars = len(content)
+
+        # 获取章节标题
+        title_match = re.search(r'^#\s+(.+)$', content, re.MULTILINE)
+        title = title_match.group(1) if title_match else filename
+
+        return {
+            'filename': filename,
+            'title': title,
+            'chinese_chars': chinese_chars,
+            'english_words': english_words,
+            'total_chars': total_chars,
+            'status': 'success'
+        }
+
     def merge(self) -> bool:
         """
         执行合并操作
@@ -217,6 +439,8 @@ class DraftMerger:
         print(f"[信息] 开始合并论文章节...")
         print(f"[信息] 输入目录: {self.input_dir}")
         print(f"[信息] 输出文件: {self.output_path}")
+        if self.references_yaml:
+            print(f"[信息] 文献池: {self.references_yaml}")
         print()
 
         # 验证输入
@@ -226,6 +450,10 @@ class DraftMerger:
             for m in missing:
                 print(f"  - {m}")
             print()
+
+        # 加载文献池（如果提供）
+        if self.references_yaml:
+            self.load_references_pool()
 
         # 创建输出目录
         self.output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -260,7 +488,7 @@ class DraftMerger:
             total_chars += chapter_info['total_chars']
             total_words += chapter_info['chinese_chars'] + chapter_info['english_words']
 
-            # 判断是否需要分页（摘要、参考文献、致谢不分页）
+            # 判断是否需要分页（摘要、致谢不分页）
             is_chapter = chapter not in NO_PAGE_BREAK_CHAPTERS
 
             # 添加分页标记
@@ -278,12 +506,27 @@ class DraftMerger:
         # 合并所有内容
         final_content = '\n'.join(merged_content)
 
+        # 引用编号重排（如果有文献池）
+        ref_mapping = {}
+        if self.ref_pool:
+            print(f"[信息] 开始引用编号重排...")
+            final_content, ref_mapping = self.renumber_references(final_content)
+            print(f"[信息] 共发现 {len(ref_mapping)} 个引用编号")
+
+            # 生成独立的参考文献 MD 文件
+            ref_output_path = self.output_path.parent / "参考文献.md"
+            self.generate_references_md(ref_mapping, ref_output_path)
+
+            # 在论文终稿末尾插入参考文献引用标记
+            final_content += f"\n\n<!-- REFERENCES: {ref_output_path} -->\n"
+
         # 在文件开头添加标题和元信息
         header = f"""# 论文终稿
 
 > 合并时间: {self.merge_report['timestamp']}
 > 章节数量: {len([c for c in self.merge_report['chapters'] if c['status'] == 'success'])}
 > 总字数: {total_words} 字
+> 参考文献数: {len(ref_mapping)} 篇
 
 ---
 
@@ -392,10 +635,15 @@ def main():
         help='不打印详细报告'
     )
 
+    parser.add_argument(
+        '--references', '-r',
+        help='文献池 YAML 文件路径（用于引用编号重排和生成参考文献MD）'
+    )
+
     args = parser.parse_args()
 
     # 创建合并器
-    merger = DraftMerger(args.input, args.output)
+    merger = DraftMerger(args.input, args.output, references_yaml=args.references)
 
     # 验证输入目录
     if not merger.input_dir.exists():

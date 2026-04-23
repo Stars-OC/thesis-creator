@@ -210,12 +210,12 @@ class ThesisLogger:
             status: 状态 (start/complete/error)
         """
         status_icons = {
-            'start': '▶️',
-            'complete': '✅',
-            'error': '❌',
-            'skip': '⏭️'
+            'start': '[>]',
+            'complete': '[OK]',
+            'error': '[FAIL]',
+            'skip': '[>>]'
         }
-        icon = status_icons.get(status, '📌')
+        icon = status_icons.get(status, '[*]')
         self.logger.info(f"{icon} Step: {step_name} [{status}]")
 
     def file_operation(self, operation: str, file_path: str, success: bool = True):
@@ -227,7 +227,7 @@ class ThesisLogger:
             file_path: 文件路径
             success: 是否成功
         """
-        status = "✅" if success else "❌"
+        status = "[OK]" if success else "[FAIL]"
         self.logger.info(f"{status} File {operation}: {file_path}")
 
     def chapter_progress(self, chapter: str, word_count: int, total_words: int):
@@ -239,7 +239,7 @@ class ThesisLogger:
             word_count: 当前章节字数
             total_words: 总字数
         """
-        self.logger.info(f"📝 {chapter} 完成: {word_count} 字 | 累计: {total_words} 字")
+        self.logger.info(f"[章节] {chapter} 完成: {word_count} 字 | 累计: {total_words} 字")
 
     def quality_check(self, check_item: str, passed: bool, details: str = ""):
         """
@@ -250,8 +250,8 @@ class ThesisLogger:
             passed: 是否通过
             details: 详细信息
         """
-        status = "✅ PASS" if passed else "❌ FAIL"
-        msg = f"🔍 {check_item}: {status}"
+        status = "[PASS]" if passed else "[FAIL]"
+        msg = f"[检查] {check_item}: {status}"
         if details:
             msg += f" | {details}"
         self.logger.info(msg)
@@ -264,7 +264,7 @@ class ThesisLogger:
             error: 异常对象
             context: 上下文信息字典
         """
-        self.logger.error(f"❌ Error: {type(error).__name__}: {error}")
+        self.logger.error(f"[ERROR] {type(error).__name__}: {error}")
         for key, value in context.items():
             self.logger.error(f"   └─ {key}: {value}")
 
@@ -309,7 +309,7 @@ class ThesisLogger:
         with open(output_path, 'w', encoding='utf-8') as f:
             f.write(report)
 
-        self.logger.info(f"📊 会话报告已导出: {output_path}")
+        self.logger.info(f"[统计] 会话报告已导出: {output_path}")
         return str(output_path)
 
 

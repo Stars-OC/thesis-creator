@@ -268,6 +268,9 @@ def add_image(doc, image_path: str, width_cm: float = None, max_width_cm: float 
     """
     添加图片到文档（自动缩放）
 
+    修复说明：python-docx 中图片必须通过 doc.add_picture() 添加，
+    它会自动创建一个包含图片的新段落。我们再设置该段落居中对齐。
+
     Args:
         doc: Word 文档对象
         image_path: 图片路径（相对路径或绝对路径）
@@ -287,9 +290,18 @@ def add_image(doc, image_path: str, width_cm: float = None, max_width_cm: float 
     else:
         full_path = Path(image_path)
 
+    # 规范化路径（处理 Windows 反斜杠问题）
+    full_path = full_path.resolve()
+
     # 检查文件是否存在
     if not full_path.exists():
         print(f"[警告] 图片文件不存在: {full_path}")
+        return False
+
+    # 检查文件扩展名是否为支持的图片格式
+    supported_formats = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.tif', '.emf', '.wmf'}
+    if full_path.suffix.lower() not in supported_formats:
+        print(f"[警告] 不支持的图片格式: {full_path.suffix} (文件: {full_path})")
         return False
 
     try:
@@ -298,23 +310,35 @@ def add_image(doc, image_path: str, width_cm: float = None, max_width_cm: float 
             calc_width, calc_height = calculate_image_size(str(full_path), max_width_cm, max_height_cm)
             width_cm = calc_width
         else:
-            # 用户指定了宽度，但仍然需要检查是否超出最大值
             width_cm = min(width_cm, max_width_cm)
 
-        # 创建居中段落
-        para = doc.add_paragraph()
-        para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        para.paragraph_format.first_line_indent = Cm(0)
-        para.paragraph_format.space_before = Pt(6)
-        para.paragraph_format.space_after = Pt(3)
+        # 关键修复：使用 doc.add_picture() 直接添加图片
+        # 这会自动创建一个包含图片的新段落
+        # 之前的 run.add_picture() 不是 python-docx 的标准用法，导致图片不显示
+        doc.add_picture(str(full_path), width=Cm(width_cm))
 
-        # 插入图片
-        run = para.add_run()
-        run.add_picture(str(full_path), width=Cm(width_cm))
+        # 获取刚添加的图片段落（最后一个段落），设置居中对齐
+        last_paragraph = doc.paragraphs[-1]
+        last_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        last_paragraph.paragraph_format.first_line_indent = Cm(0)
+        last_paragraph.paragraph_format.space_before = Pt(6)
+        last_paragraph.paragraph_format.space_after = Pt(3)
 
+        print(f"[成功] 图片已插入: {full_path.name} (宽度: {width_cm:.1f}cm)")
         return True
     except Exception as e:
-        print(f"[警告] 插入图片失败: {e}")
+        print(f"[警告] 插入图片失败: {full_path} - 错误: {e}")
+
+        # 失败时在文档中插入占位文字，方便用户手动补图
+        try:
+            para = doc.add_paragraph()
+            para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            run = para.add_run(f"[图片缺失: {full_path.name}]")
+            set_chinese_font(run, '宋体', 10.5)
+            run.font.color.rgb = RGBColor(255, 0, 0)  # 红色标记
+        except:
+            pass
+
         return False
 
 
@@ -364,9 +388,9 @@ def clean_markdown_content(content: str) -> str:
     # 移除图表占位符注释块（<!-- 图表占位符：... -->）
     content = re.sub(r'<!--\s*图表占位符[^\n]*-->\s*\n', '', content)
 
-    # 移除图表占位符引用块（> 📊 **[图表占位符]** ... 以及后续的 > 行）
-    # 匹配以 > 📊 **[图表占位符]** 开始的块，直到遇到非 > 行或空行
-    content = re.sub(r'> 📊 \*\*\[图表占位符\]\*\*[^\n]*\n(?:> [^\n]*\n)*', '', content)
+    # 移除图表占位符引用块（> [统计] **[图表占位符]** ... 以及后续的 > 行）
+    # 匹配以 > [统计] **[图表占位符]** 开始的块，直到遇到非 > 行或空行
+    content = re.sub(r'> [统计] \*\*\[图表占位符\]\*\*[^\n]*\n(?:> [^\n]*\n)*', '', content)
 
     # 移除单独的图表占位符引用行
     content = re.sub(r'> - \*\*图表编号\*\*[^\n]*\n', '', content)

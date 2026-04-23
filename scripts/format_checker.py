@@ -104,7 +104,7 @@ class FormatChecker:
         return CheckResult(
             name="标题层级",
             passed=passed,
-            message="✅ 通过" if passed else f"❌ 发现 {len(issues)} 个问题",
+            message="[OK] 通过" if passed else f"[FAIL] 发现 {len(issues)} 个问题",
             details=issues if issues else None
         )
 
@@ -134,7 +134,7 @@ class FormatChecker:
         return CheckResult(
             name="摘要检查",
             passed=passed,
-            message="✅ 通过" if passed else f"❌ 发现 {len(issues)} 个问题",
+            message="[OK] 通过" if passed else f"[FAIL] 发现 {len(issues)} 个问题",
             details=issues if issues else None
         )
 
@@ -161,7 +161,7 @@ class FormatChecker:
         return CheckResult(
             name="关键词检查",
             passed=passed,
-            message="✅ 通过" if passed else f"❌ 发现 {len(issues)} 个问题",
+            message="[OK] 通过" if passed else f"[FAIL] 发现 {len(issues)} 个问题",
             details=issues if issues else None
         )
 
@@ -175,7 +175,7 @@ class FormatChecker:
             return CheckResult(
                 name="参考文献检查",
                 passed=False,
-                message="❌ 缺少参考文献章节",
+                message="[FAIL] 缺少参考文献章节",
                 details=issues
             )
 
@@ -202,7 +202,7 @@ class FormatChecker:
         return CheckResult(
             name="参考文献检查",
             passed=passed,
-            message="✅ 通过" if passed else f"❌ 发现 {len(issues)} 个问题",
+            message="[OK] 通过" if passed else f"[FAIL] 发现 {len(issues)} 个问题",
             details=issues if issues else None
         )
 
@@ -230,7 +230,7 @@ class FormatChecker:
         return CheckResult(
             name="章节完整性",
             passed=passed,
-            message="✅ 通过" if passed else f"❌ 发现 {len(issues)} 个问题",
+            message="[OK] 通过" if passed else f"[FAIL] 发现 {len(issues)} 个问题",
             details=issues if issues else None
         )
 
@@ -392,7 +392,7 @@ class FormatChecker:
         table.add_column("说明", style="white")
 
         for result in self.results:
-            status = "✅" if result.passed else "❌"
+            status = "[OK]" if result.passed else "[FAIL]"
             table.add_row(result.name, status, result.message)
 
         console.print(table)
@@ -420,7 +420,7 @@ class FormatChecker:
         table1.add_column("评估", style="yellow")
 
         # 引用密度评估
-        density_eval = "✅ 达标" if citation_report.citation_density >= 2 else "⚠️ 不足"
+        density_eval = "[OK] 达标" if citation_report.citation_density >= 2 else "[WARN] 不足"
 
         table1.add_row("正文引用数", str(citation_report.total_citations), "-")
         table1.add_row("参考文献数", str(citation_report.total_references), "-")
@@ -430,11 +430,11 @@ class FormatChecker:
 
         # 孤立引用
         if citation_report.orphan_references:
-            console.print(f"\n[yellow]⚠️ 孤立引用（参考文献中有但正文未引用）：{citation_report.orphan_references}[/yellow]")
+            console.print(f"\n[yellow][WARN] 孤立引用（参考文献中有但正文未引用）：{citation_report.orphan_references}[/yellow]")
 
         # 缺失引用
         if citation_report.missing_references:
-            console.print(f"\n[red]❌ 缺失引用（正文中有但参考文献中没有）：{citation_report.missing_references}[/red]")
+            console.print(f"\n[red][FAIL] 缺失引用（正文中有但参考文献中没有）：{citation_report.missing_references}[/red]")
 
         # 引用分布
         if citation_report.distribution:

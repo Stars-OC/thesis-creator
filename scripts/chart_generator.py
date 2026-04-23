@@ -52,7 +52,7 @@ class ChartGenerator:
     # 占位符正则表达式
     PLACEHOLDER_PATTERN = re.compile(
         r'<!--\s*图表占位符[：:]\s*(图\d+-\d+)\s+(.+?)\s*-->\s*'
-        r'>\s*📊\s*\*\*\[图表占位符\]\*\*\s*'
+        r'>\s*[统计]\s*\*\*\[图表占位符\]\*\*\s*'
         r'(.*?)'
         r'<!--\s*图表占位符结束\s*-->',
         re.DOTALL
@@ -494,7 +494,7 @@ classDiagram
         for chart in self.charts:
             mermaid_code = self.generate_mermaid(chart)
             results[chart.chart_id] = mermaid_code
-            self.logger.info(f"✅ 生成图表: {chart.chart_id} ({chart.chart_type})")
+            self.logger.info(f"[OK] 生成图表: {chart.chart_id} ({chart.chart_type})")
 
         return results
 
@@ -676,7 +676,7 @@ def main():
     # 读取输入文件
     input_path = Path(args.input)
     if not input_path.exists():
-        print(f"❌ 文件不存在: {args.input}")
+        print(f"[FAIL] 文件不存在: {args.input}")
         return
 
     content = input_path.read_text(encoding='utf-8')
@@ -690,7 +690,7 @@ def main():
     # 导出图表
     exported_files = generator.export_charts(mermaid_codes, format=args.format)
 
-    print(f"\n✅ 图表生成完成！")
+    print(f"\n[OK] 图表生成完成！")
     print(f"   共生成 {len(mermaid_codes)} 个图表")
     print(f"   输出目录: {args.output}")
     for f in exported_files:
@@ -701,14 +701,14 @@ def main():
         new_content = generator.replace_placeholders(content, mermaid_codes)
         output_file = input_path.stem + "_with_charts" + input_path.suffix
         input_path.parent.joinpath(output_file).write_text(new_content, encoding='utf-8')
-        print(f"\n📄 已生成带图表的文档: {output_file}")
+        print(f"\n[文档] 已生成带图表的文档: {output_file}")
 
     # 生成报告
     if args.report:
         report = generator.generate_report()
         report_file = Path(args.output) / "chart_report.md"
         report_file.write_text(report, encoding='utf-8')
-        print(f"\n📊 分析报告: {report_file}")
+        print(f"\n[统计] 分析报告: {report_file}")
 
 
 if __name__ == "__main__":

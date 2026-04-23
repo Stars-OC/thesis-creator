@@ -179,8 +179,8 @@ def print_analysis_report(results: Dict, title: str = "文本分析报告"):
     std_dev = results.get('sentence_length_std', 0)
 
     # 评估句长
-    len_eval = "正常" if 15 <= avg_len <= 35 else "⚠️ 异常"
-    std_eval = "✅ 自然" if std_dev > 10 else "⚠️ 偏均匀（AI 特征）"
+    len_eval = "正常" if 15 <= avg_len <= 35 else "[WARN] 异常"
+    std_eval = "[OK] 自然" if std_dev > 10 else "[WARN] 偏均匀（AI 特征）"
 
     table2.add_row("平均句长", f"{avg_len} 字", "15-35 字", len_eval)
     table2.add_row("句长标准差", f"{std_dev}", "> 10", std_eval)
@@ -197,7 +197,7 @@ def print_analysis_report(results: Dict, title: str = "文本分析报告"):
     table3.add_column("评估", style="magenta")
 
     ttr = results.get('vocabulary_richness', 0)
-    ttr_eval = "✅ 丰富" if ttr > 0.5 else "⚠️ 偏低（AI 特征）"
+    ttr_eval = "[OK] 丰富" if ttr > 0.5 else "[WARN] 偏低（AI 特征）"
 
     table3.add_row("词汇数", str(results.get('word_count', 0)), "-", "-")
     table3.add_row("不重复词数", str(results.get('unique_word_count', 0)), "-", "-")
@@ -213,10 +213,10 @@ def print_analysis_report(results: Dict, title: str = "文本分析报告"):
     table4.add_column("评估", style="magenta")
 
     trans_density = results.get('transition_word_density', 0)
-    trans_eval = "✅ 自然" if trans_density < 2 else "⚠️ 过高（AI 特征）"
+    trans_eval = "[OK] 自然" if trans_density < 2 else "[WARN] 过高（AI 特征）"
 
     first_div = results.get('paragraph_first_word_diversity', 0)
-    first_eval = "✅ 多样" if first_div > 70 else "⚠️ 单调（AI 特征）"
+    first_eval = "[OK] 多样" if first_div > 70 else "[WARN] 单调（AI 特征）"
 
     table4.add_row("过渡词密度", f"{trans_density}%", "< 2%", trans_eval)
     table4.add_row("段首词多样度", f"{first_div}%", "> 70%", first_eval)

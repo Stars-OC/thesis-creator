@@ -434,13 +434,13 @@ class AIGCDetector:
         overall = results['overall_score']
         if overall > 50:
             color = "red"
-            status = "⚠️ 高风险"
+            status = "[WARN] 高风险"
         elif overall > 30:
             color = "yellow"
-            status = "⚡ 中等风险"
+            status = "[!] 中等风险"
         else:
             color = "green"
-            status = "✅ 低风险"
+            status = "[OK] 低风险"
 
         console.print(f"\n[bold {color}]整体 AIGC 检测率：{overall}% {status}[/bold {color}]")
 

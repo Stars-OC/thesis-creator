@@ -414,7 +414,7 @@ class ChartRenderer:
             safe_id = re.sub(r'[^\w\-]', '_', chart['id'])
             output_file = f"{safe_id}.png"
             exists = (self.output_dir / output_file).exists()
-            status = "✅" if exists else "❌"
+            status = "[OK]" if exists else "[FAIL]"
             report += f"| {chart['id']} | {status} | {output_file if exists else '-'} |\n"
 
         return report

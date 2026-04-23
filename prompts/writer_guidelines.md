@@ -136,6 +136,53 @@
 ## 三、引用规范
 
 > ⚠️ **重要**：编写参考文献时，**必须调用** `prompts/reference_format_gbt7714.md` 获取完整的 GB/T 7714-2015 格式规范。
+>
+> ⚠️ **更重要**：**必须加载** `prompts/reference_citation_prompt.md` 和 `workspace/verified_references.yaml` 文献池！
+> **所有引用必须来自已验证文献池，禁止自行编造任何文献信息！**
+
+### 3.0 引用硬约束 ⭐ **NEW**
+
+> **以下规则为硬性约束，违反即为严重错误！**
+
+| 禁止行为 | 说明 | 违规后果 |
+|----------|------|----------|
+| ❌ **禁止编造文献标题** | 不能虚构论文标题 | 触发重生成 |
+| ❌ **禁止编造作者姓名** | 不能使用「张三」「李四」等占位符 | 触发重生成 |
+| ❌ **禁止编造期刊名称** | 不能虚构期刊或会议名 | 触发重生成 |
+| ❌ **禁止编造 DOI** | 不能生成虚假 DOI 号 | 触发重生成 |
+| ❌ **禁止使用未验证文献** | 所有引用必须来自 verified_references.yaml | 标记为「未验证」 |
+| ✅ **必须包含 DOI 链接** | 格式：`[DOI](https://doi.org/xxx)` | 缺少则标记 |
+
+**文献池使用流程**：
+
+```
+1. 写作前加载 workspace/verified_references.yaml
+2. 分析段落关键词
+3. 从文献池检索匹配文献
+4. 选取相关度最高的 1-3 篇
+5. 格式化为 GB/T 7714 含 DOI 链接
+6. 如果文献池无匹配文献 → 标注「⚠️ [需搜索补充]」
+```
+
+**DOI 链接格式要求**：
+
+```markdown
+✅ 正确格式：
+[1] Lewis P, Perez E, Piktus A, et al. Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks[C]//NAACL 2020. 2020. [DOI](https://doi.org/10.18653/v1/2020.naacl-main.13)
+
+❌ 错误格式（缺少 DOI 链接）：
+[1] Lewis P, Perez E, Piktus A, et al. Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks[C]//NAACL 2020. 2020.
+```
+
+**中文文献无 DOI 的处理**：
+
+```
+[1] 张三, 李四. 某中文期刊论文[J]. 中文期刊, 2022, 15(3): 45-52. ⚠️ 需用户确认
+
+（后续需用户从 CNKI 补充 DOI 或手动核实）
+```
+
+---
 
 ### 3.1 引用频率
 

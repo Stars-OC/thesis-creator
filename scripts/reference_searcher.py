@@ -3,14 +3,23 @@
 """
 文献搜索工具
 
-集成 Semantic Scholar API，支持：
-1. 关键词搜索学术文献
+集成多个学术 API，支持：
+1. Semantic Scholar API - 学术文献搜索
+2. CrossRef API - DOI验证和标题搜索（新增）
+3. OpenAlex API - 学术搜索（新增）
+
+功能增强：
+1. 关键词搜索学术文献（多源）
 2. 获取文献详细信息（标题、作者、年份、摘要、DOI）
-3. 格式化为 GB/T 7714 标准格式
+3. DOI 交叉验证（CrossRef）
+4. 语言过滤（中文/英文）
+5. 格式化为 GB/T 7714 标准格式
 
 使用方法：
     python scripts/reference_searcher.py --query "精准营销 大数据" --limit 10
     python scripts/reference_searcher.py --doi "10.1234/example.2023" --verify
+    python scripts/reference_searcher.py --query "RAG 知识库" --source all --language zh --limit 15
+    python scripts/reference_searcher.py --query "deep learning" --source crossref --verify-doi
 """
 
 import re
@@ -22,6 +31,16 @@ from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Optional, Tuple
 from dataclasses import dataclass, asdict
+
+# 导入多源搜索引擎（可选）
+try:
+    from reference_engine import (
+        CrossRefSearcher, OpenAlexSearcher,
+        VerifiedReference, MultiSourceSearcher
+    )
+    MULTI_SOURCE_AVAILABLE = True
+except ImportError:
+    MULTI_SOURCE_AVAILABLE = False
 
 
 @dataclass
@@ -434,21 +453,49 @@ def search_and_format(
         return ReferenceFormatter.format_gbt7714(results[0])
 
 
-def verify_doi(doi: str, api_key: Optional[str] = None) -> Tuple[bool, Optional[SearchResult]]:
+def verify_doi(doi: str, api_key: Optional[str] = None, crossref_verify: bool = True) -> Tuple[bool, Optional[SearchResult]]:
     """
     验证 DOI 是否有效
 
     Args:
         doi: DOI 字符串
         api_key: API Key
+        crossref_verify: 是否使用 CrossRef 双重验证
 
     Returns:
         (是否有效, 文献信息)
     """
+    # 1. Semantic Scholar 验证
     searcher = SemanticScholarSearcher(api_key=api_key)
     result = searcher.get_paper_by_doi(doi)
 
     if result:
+        # 2. CrossRef 双重验证（可选）
+        if crossref_verify and MULTI_SOURCE_AVAILABLE:
+            crossref = CrossRefSearcher()
+            valid, crossref_result = crossref.verify_doi(doi)
+
+            if valid and crossref_result:
+                # 用 CrossRef 数据补充缺失字段
+                if not result.journal and crossref_result.journal:
+                    result.journal = crossref_result.journal
+                if not result.volume and crossref_result.volume:
+                    result.volume = crossref_result.volume
+                if not result.issue and crossref_result.issue:
+                    result.issue = crossref_result.issue
+                if not result.pages and crossref_result.pages:
+                    result.pages = crossref_result.pages
+
+                # 检查 DOI 链接可达性（判断 4xx 错误）
+                reachable, status_code = crossref.check_doi_reachable(doi)
+                if reachable:
+                    print("[信息] DOI 链接可达性验证通过")
+                else:
+                    if status_code == 404:
+                        print(f"[警告] DOI 不存在 (404): {doi}")
+                    elif status_code > 0:
+                        print(f"[警告] DOI 链接不可达 ({status_code}): {doi}")
+
         return True, result
     else:
         return False, None
@@ -461,32 +508,61 @@ def main():
     parser.add_argument("--year-start", type=int, default=2020, help="起始年份")
     parser.add_argument("--year-end", type=int, default=2025, help="结束年份")
     parser.add_argument("--limit", "-l", type=int, default=10, help="结果数量")
-    parser.add_argument("--format", "-f", choices=["gbt7714", "json", "table"],
+    parser.add_argument("--format", "-f", choices=["gbt7714", "json", "table", "yaml"],
                         default="gbt7714", help="输出格式")
     parser.add_argument("--output", "-o", help="输出文件路径")
     parser.add_argument("--api-key", help="Semantic Scholar API Key")
+    # 新增参数
+    parser.add_argument("--source", "-s",
+                        choices=["semantic-scholar", "crossref", "openalex", "all"],
+                        default="semantic-scholar",
+                        help="搜索源（新增）")
+    parser.add_argument("--verify-doi", action="store_true", default=True,
+                        help="使用 CrossRef 交叉验证 DOI（新增）")
+    parser.add_argument("--language",
+                        choices=["zh", "en", "all"],
+                        default="all",
+                        help="语言过滤（新增）")
 
     args = parser.parse_args()
 
     if args.query:
-        # 搜索模式
-        output = search_and_format(
-            query=args.query,
-            year_range=(args.year_start, args.year_end),
-            limit=args.limit,
-            output_format=args.format,
-            api_key=args.api_key
-        )
+        # 多源搜索模式（如果可用）
+        if args.source != "semantic-scholar" and MULTI_SOURCE_AVAILABLE:
+            from reference_engine import search_and_format
+            sources = ["semantic-scholar", "crossref", "openalex"] if args.source == "all" else [args.source]
+
+            output = search_and_format(
+                query=args.query,
+                year_range=(args.year_start, args.year_end),
+                limit=args.limit,
+                sources=sources,
+                output_format=args.format,
+                cross_verify=args.verify_doi,
+                language=args.language,
+                api_key=args.api_key
+            )
+        else:
+            # 传统 Semantic Scholar 搜索
+            output = search_and_format(
+                query=args.query,
+                year_range=(args.year_start, args.year_end),
+                limit=args.limit,
+                output_format=args.format,
+                api_key=args.api_key
+            )
 
     elif args.doi:
-        # DOI 验证模式
-        valid, result = verify_doi(args.doi, args.api_key)
+        # DOI 验证模式（带 CrossRef 双重验证）
+        valid, result = verify_doi(args.doi, args.api_key, args.verify_doi)
 
         if valid:
-            output = f"✅ DOI 验证通过\n\n"
+            output = f"[OK] DOI 验证通过\n\n"
+            if args.verify_doi and MULTI_SOURCE_AVAILABLE:
+                output += "（已通过 CrossRef 交叉验证）\n\n"
             output += ReferenceFormatter.format_gbt7714(result)
         else:
-            output = f"❌ DOI 无效或不存在: {args.doi}"
+            output = f"[FAIL] DOI 无效或不存在: {args.doi}"
 
     else:
         parser.print_help()

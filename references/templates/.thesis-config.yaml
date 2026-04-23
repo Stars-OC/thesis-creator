@@ -1,0 +1,103 @@
+# Thesis-Creator 配置文件模板
+# 位置：thesis-workspace/.thesis-config.yaml
+
+# ========================================
+# 学术搜索 API 配置
+# ========================================
+
+# Semantic Scholar API Key（推荐申请）
+# 申请地址：https://www.semanticscholar.org/product/api
+#
+# 限流说明：
+# - 无 API Key: 每5分钟100次请求，高峰期容易触发429限流错误
+# - 有 API Key: 每5分钟5000次请求，搜索稳定可靠
+#
+# 建议在使用前申请免费 API Key，避免搜索中断
+semantic_scholar:
+  api_key: ""  # 填入你的 API Key，如 "your-api-key-here"
+
+  # 是否启用 Semantic Scholar 搜索（false则跳过此源）
+  enabled: true
+
+  # 限流设置（无 API Key 时自动生效）
+  rate_limit:
+    # 请求间隔（秒）- 无Key时建议1秒以上
+    min_interval: 1.0
+    # 最大重试次数
+    max_retries: 3
+    # 429错误重试等待时间（秒）
+    retry_wait: 60
+
+# 其他 API 配置（无需配置，均为免费）
+# CrossRef: 完全免费，无需注册，DOI验证
+# OpenAlex: 完全免费，无需注册，中文文献覆盖较好
+
+# ========================================
+# 日志设置
+# ========================================
+
+logging:
+  # 是否启用日志功能
+  # true: 正常生成日志文件（适合调试、问题排查）
+  # false: 禁用日志（节省上下文，适合正常运行）
+  enabled: true
+
+  # 日志级别（DEBUG, INFO, WARNING, ERROR）
+  level: INFO
+
+  # 控制台输出级别
+  console_level: INFO
+
+  # 文件输出级别
+  file_level: DEBUG
+
+# ========================================
+# 参考文献验证设置
+# ========================================
+
+reference_validation:
+  # 是否启用在线验证（需网络连接）
+  online_validation: true
+
+  # 是否允许标记虚构文献（不删除）
+  allow_hallucination_mark: false
+
+  # DOI 无效时是否自动替换为搜索到的真实文献
+  auto_replace_invalid: true
+
+  # DOI 验证超时时间（秒）
+  timeout: 30
+
+# ========================================
+# 导出设置
+# ========================================
+
+export:
+  # 图片默认宽度（厘米）
+  image_width: 12
+
+  # 图片最大宽度（厘米）
+  max_image_width: 14
+
+  # 图片最大高度（厘米）
+  max_image_height: 18
+
+# ========================================
+# 格式设置
+# ========================================
+
+format:
+  # 标题字体
+  heading_font: 黑体
+
+  # 正文字体
+  body_font: 宋体
+
+  # 正文字号
+  body_size: 12
+
+  # 图注字体
+  caption_font: 宋体
+
+  # 图注字号（五号）
+  caption_size: 10.5
