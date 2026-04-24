@@ -310,11 +310,11 @@ Step 8: 文档导出（Word/PDF）
 
 ```powershell
 # 方式1: 分步执行（可调试）
-# Step 1: 从占位符生成 Mermaid 代码
-python scripts/chart_generator.py workspace/drafts/ -o workspace/final/images/
+# Step 1: 从占位符生成 Mermaid 代码（原位替换，不生成副本）
+python scripts/chart_generator.py workspace/final/论文终稿.md -o workspace/final/images/ --replace
 
-# Step 2: 渲染 Mermaid 为 PNG
-python scripts/chart_renderer.py --input workspace/final/论文终稿.md --output workspace/final/images/
+# Step 2: 渲染 Mermaid 为 PNG 并更新 Markdown（原位覆盖）
+python scripts/chart_renderer.py --input workspace/final/论文终稿.md --output workspace/final/images/ --method auto --update
 
 # 方式2: 一键生成（推荐）
 # AI 自动执行：扫描 → 生成 → 渲染 → 更新引用
@@ -482,14 +482,14 @@ python scripts/format_checker.py --dir workspace/drafts/
 ### 5.6 图表生成（`chart_generator.py`）⭐ NEW
 
 ```powershell
-# 从 Markdown 文件中的占位符生成 Mermaid 代码
-python scripts/chart_generator.py workspace/drafts/ -o workspace/final/images/
+# 从 Markdown 文件中的占位符生成 Mermaid 代码（原位替换）
+python scripts/chart_generator.py workspace/final/论文终稿.md -o workspace/final/images/ --replace
 
 # 指定输出目录
-python scripts/chart_generator.py workspace/final/论文终稿.md --output workspace/final/images/
+python scripts/chart_generator.py workspace/final/论文终稿.md --output workspace/final/images/ --replace
 
 # 详细模式
-python scripts/chart_generator.py workspace/drafts/ --verbose
+python scripts/chart_generator.py workspace/final/论文终稿.md --output workspace/final/images/ --replace --report
 ```
 
 **支持的图表类型**：
@@ -506,11 +506,11 @@ python scripts/chart_generator.py workspace/drafts/ --verbose
 ### 5.7 图表渲染（`chart_renderer.py`）⭐ NEW
 
 ```powershell
-# 渲染 Markdown 中引用的 Mermaid 图片
-python scripts/chart_renderer.py --input workspace/final/论文终稿.md --output workspace/final/images/
+# 渲染 Markdown 中引用的 Mermaid 图片（并更新 Markdown 原文）
+python scripts/chart_renderer.py --input workspace/final/论文终稿.md --output workspace/final/images/ --method auto --update
 
 # 指定渲染方法
-python scripts/chart_renderer.py --input paper.md --method mmdc
+python scripts/chart_renderer.py --input paper.md --output workspace/final/images/ --method mmdc --update
 
 # 渲染方法选项
 # mmdc: Mermaid CLI（需安装 @mermaid-js/mermaid-cli）

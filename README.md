@@ -9,7 +9,7 @@
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.9+-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/)
 [![Claude](https://img.shields.io/badge/Claude-Code-Compatible.svg)](https://claude.ai/)
-[![Version](https://img.shields.io/badge/Version-1.1.0-green.svg)](docs/CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-1.2.0-green.svg)](docs/CHANGELOG.md)
 
 [功能特性](#功能特性) •
 [快速开始](#快速开始) •
@@ -22,7 +22,7 @@
 
 ## 简介
 
-论文创作 Agent 系统是一个基于 Claude Code 的毕业论文写作辅助工具。通过智能化的 8 步工作流，帮助本科生高效完成毕业论文创作，同时提供降重优化和 AIGC 检测功能。
+论文创作 Agent 系统是一个基于 Claude Code 的毕业论文写作辅助工具。通过智能化的 10 步工作流，帮助本科生高效完成毕业论文创作，同时提供降重优化、AIGC 检测和文献真实性验证功能。
 
 ## 功能特性
 
@@ -37,8 +37,11 @@
 | 🔍 **本地检测**   | 轻量级 AIGC 检测工具，快速预估检测率 |
 | 📝 **格式检查**   | 自动检查论文结构规范性               |
 | 💬 **智能讨论**   | 三轮深入讨论充分理解论文需求         |
-| 🖼️ **图片生成** | 自动生成架构图、流程图、E-R图等 ⭐ NEW |
-| 📄 **图片插入** | Word 文档自动插入图片和图注 ⭐ NEW |
+| 🖼️ **图片生成** | 自动生成架构图、流程图、E-R图等（Mermaid + 多渲染模式） |
+| 📄 **图片插入** | Word 文档自动插入图片和图注 |
+| 📚 **文献验证** | 三源学术搜索 + DOI 验证 + 虚构文献自动替换 ⭐ NEW |
+| ⚙️ **配置化** | YAML 配置文件，API Key / 日志 / 导出格式可配置 ⭐ NEW |
+| 📝 **摘要生成** | 自动生成中英文摘要与关键词 ⭐ NEW |
 | 📊 **文档导出**   | 支持 Word/PDF 格式一键导出           |
 
 ---
@@ -170,13 +173,13 @@
 │      ↓                                                       │
 │  Step 2: 读取参考资料  →  Step 3: 生成论文大纲                │
 │      ↓                                                       │
-│  Step 4: 分章节撰写  →  Step 5: 降重处理                      │
+│  Step 4: 分章节撰写（含摘要生成）→  Step 5: 降重处理           │
 │      ↓                                                       │
-│  Step 6: AIGC 人性化  →  Step 7: 自检输出                     │
+│  Step 6: AIGC 人性化  →  Step 7: 合并检测                     │
 │      ↓                                                       │
-│  Step 8: 图片生成与渲染 🖼️ ⭐ NEW                             │
+│  Step 8: 图片生成与渲染 🖼️                                   │
 │      ↓                                                       │
-│  Step 9: 文档导出（Word/PDF + 图片插入） ⭐ NEW               │
+│  Step 9: 文档导出（Word/PDF + 图片插入）                      │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -298,11 +301,13 @@ references/
 | `用成语降重这段文字：…`  | 成语替换改写 | 侧重成语替换策略 |
 | `检测这段文字的 AIGC 率` | AIGC 检测  | 本地快速预估 |
 | `帮我生成论文大纲`       | 大纲生成   | 根据背景信息生成 |
-| `生成图片` / `生成图表` / `生成架构图` | 图片生成 ⭐ NEW | 自动生成 Mermaid 图表 |
-| `为第X章配图` | 图片生成 ⭐ NEW | 为指定章节生成图表 |
-| `导出 Word` / `导出文档` | 文档导出 ⭐ NEW | Word + 图片插入 |
+| `生成摘要` | 摘要生成 ⭐ | 中英文摘要 + 关键词 |
+| `生成图片` / `生成图表` / `生成架构图` | 图片生成 | 自动生成 Mermaid 图表 |
+| `为第X章配图` | 图片生成 | 为指定章节生成图表 |
+| `导出 Word` / `导出文档` | 文档导出 | Word + 图片插入 |
 | `导出 PDF` | 文档导出 | PDF 格式 |
-| `一键导出` | 图片+文档 ⭐ NEW | 自动生成图片并导出 Word |
+| `一键导出` | 图片+文档 | 自动生成图片并导出 Word |
+| `验证文献` / `搜索文献` | 文献验证 ⭐ | 三源搜索 + DOI 验证 |
 
 ### AIGC 降低策略一览
 
@@ -326,29 +331,55 @@ thesis-creator/
 ├── README.md                # 项目说明
 ├── LICENSE                  # MIT 许可证
 ├── CONTRIBUTING.md          # 贡献指南
+├── .openskills.json         # OpenSkills 包配置
 ├── docs/                    # 文档
 │   ├── usage_guide.md       #   使用指南
 │   ├── ROADMAP.md           #   开发路线图
 │   └── CHANGELOG.md         #   更新日志
 ├── prompts/                 # 提示词模板
+│   ├── reference_citation_prompt.md  #   文献引用提示词 ⭐
+│   └── image_generation.md          #   图片生成提示词 ⭐
 ├── scripts/                 # Python 工具
 │   ├── aigc_detect.py       #   AIGC 检测
 │   ├── synonym_replace.py   #   同义词替换
 │   ├── text_analysis.py     #   文本分析
 │   ├── format_checker.py    #   格式检查
-│   ├── chart_generator.py   #   图表生成 ⭐ NEW
-│   ├── chart_renderer.py    #   图表渲染 ⭐ NEW
-│   └── document_exporter.py #   文档导出（含图片插入） ⭐ NEW
+│   ├── chart_generator.py   #   图表生成（原位替代）
+│   ├── chart_renderer.py    #   图表在线渲染
+│   ├── chart_renderer_offline.py  #   图表离线渲染 ⭐
+│   ├── chart_template_loader.py   #   图表模板加载 ⭐
+│   ├── llm_chart_generator.py     #   LLM 辅助图表生成 ⭐
+│   ├── keyword_extractor.py       #   关键词提取器 ⭐
+│   ├── document_exporter.py #   文档导出（含图片插入）
+│   ├── reference_engine.py  #   文献引用引擎 ⭐
+│   ├── reference_validator.py     #   参考文献验证（增强版） ⭐
+│   ├── reference_searcher.py      #   文献搜索
+│   ├── verified_reference_pool.py #   已验证文献池 ⭐
+│   ├── merge_drafts.py      #   章节合并（支持大纲匹配）
+│   └── logger.py            #   日志系统（可配置）
+├── scripts/templates/       # 图表模板
+│   ├── chart_themes.yaml    #   图表主题配置 ⭐
+│   └── charts/              #   图表模板目录 ⭐
 ├── references/              # 参考资料
+│   └── templates/
+│       └── .thesis-config.yaml  #   项目配置文件 ⭐
+├── workflows/               # 工作流文档 ⭐
+│   ├── step_0_init.md       #   Step 0 初始化
+│   ├── step_3_outline.md    #   Step 3 大纲生成
+│   ├── step_4_writing.md    #   Step 4 撰写（含摘要）
+│   ├── step_7_merge_detect.md   #   Step 7 合并检测
+│   ├── step_8_image.md      #   Step 8 图片生成
+│   ├── step_9_export.md     #   Step 9 文档导出
+│   └── reference_workflow.md    #   文献搜索工作流
 └── workspace/               # 论文产出
     ├── outline.md           #   论文大纲
     ├── drafts/              #   初稿
     ├── reduced/             #   降重版
     ├── history/             #   历史版本
     ├── final/               #   终稿
-    │   ├── images/          #   论文图片 ⭐ NEW
+    │   ├── images/          #   论文图片
     │   ├── 论文终稿.md       #   Markdown 终稿
-    │   ├── 论文终稿.docx    #   Word 终稿（含图片） ⭐ NEW
+    │   ├── 论文终稿.docx    #   Word 终稿（含图片）
     │   └── 论文终稿.pdf     #   PDF 终稿
 ```
 
@@ -374,6 +405,7 @@ thesis-creator/
 
 > [!WARNING]
 > 本地 AIGC 检测为近似估计，正式提交前建议使用知网/维普进行官方检测。
+> 建议使用智谱模型的 GLM(GLM-5/GLM-5.1) 系列 其他模型可能生成的效果不太好(用 **gpt-5.4** 尝试过)
 
 - **版本控制**：每次改写前自动备份到 `workspace/history/`
 - **术语保护**：专业术语不会被降重工具打乱

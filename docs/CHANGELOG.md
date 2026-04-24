@@ -4,6 +4,100 @@
 
 ---
 
+## [v1.2.0] - 2026-04-24
+
+### 新增功能 ⭐
+
+#### 图片生成与渲染系统（Step 8）
+
+- **自动图表生成**：根据论文内容自动生成架构图、流程图、E-R 图等 Mermaid 图表
+- **多渲染模式**：支持在线渲染（mermaid.ink）和离线渲染（Playwright + Puppeteer）
+- **模板化图表**：新增 `scripts/templates/charts/` 图表模板目录，提供架构图、E-R 图、流程图、时序图等预设模板
+- **主题配置**：新增 `scripts/templates/chart_themes.yaml`，支持自定义图表配色方案
+- **智能关键词提取**：新增 `scripts/keyword_extractor.py`，从论文文本中提取关键术语用于图表标注
+- **LLM 辅助生成**：新增 `scripts/llm_chart_generator.py`，利用 AI 生成高质量 Mermaid 代码
+- **占位符原位替代**：图表占位符自动替换为 Mermaid 代码块，无需额外导出
+
+新增脚本：
+
+| 脚本 | 功能 |
+|------|------|
+| `chart_generator.py` | 图表生成（增强版，原位替代） |
+| `chart_renderer.py` | 在线图表渲染 |
+| `chart_renderer_offline.py` | 离线图表渲染 |
+| `chart_template_loader.py` | 图表模板加载器 |
+| `llm_chart_generator.py` | LLM 辅助图表生成 |
+| `keyword_extractor.py` | 关键词提取器 |
+| `demo_chart_generation.py` | 图表生成演示 |
+
+#### 文献引用真实性保障
+
+- **引用引擎**：新增 `scripts/reference_engine.py`（1250 行），集成 Semantic Scholar / CrossRef / OpenAlex 三源学术搜索
+- **已验证文献池**：新增 `scripts/verified_reference_pool.py`，自动缓存验证通过的文献，避免重复搜索
+- **引用提示词**：新增 `prompts/reference_citation_prompt.md`，规范 AI 引用生成行为
+- **文献搜索工作流**：新增 `workflows/reference_workflow.md`
+- **reference_validator 增强**：支持在线 DOI 验证、虚构文献自动替换为真实文献
+
+#### 配置化系统
+
+- **YAML 配置文件**：新增 `references/templates/.thesis-config.yaml`
+  - 学术搜索 API 配置（Semantic Scholar API Key、限流设置）
+  - 日志级别配置（控制台/文件分级）
+  - 参考文献验证配置（在线验证、自动替换）
+  - 导出格式配置（图片尺寸、字体字号）
+- **.openskills.json 更新**：版本号同步至 1.3.0，新增 capabilities 和 scripts
+
+#### 工作流文档完善
+
+| 文档 | 内容 |
+|------|------|
+| `workflows/step_0_init.md` | Step 0 工作区初始化详细步骤 |
+| `workflows/step_3_outline.md` | Step 3 大纲生成补充规范 |
+| `workflows/step_4_writing.md` | Step 4 撰写步骤（含摘要生成 4.0 节） |
+| `workflows/step_7_merge_detect.md` | Step 7 合并检测（含 `--outline` 参数说明） |
+| `workflows/step_8_image.md` | Step 8 图片生成与渲染 |
+| `workflows/step_9_export.md` | Step 9 文档导出 |
+
+#### 摘要生成功能
+
+- 新增 Step 4.0 摘要与关键词生成
+- 300-500 字中文摘要 + 英文对应
+- 3-5 个关键词提取
+- 输出 `drafts/摘要.md`
+
+#### 触发语新增
+
+- `生成图片` / `生成图表` / `生成架构图` - 图片生成
+- `为第X章配图` - 为指定章节生成图表
+- `导出 Word` / `导出文档` - Word + 图片插入
+- `一键导出` - 自动生成图片并导出 Word
+- `生成摘要` - 仅摘要部分
+
+### 更新功能 (Changed)
+
+- **merge_drafts 增强**：新增 `--outline` 参数，从大纲文件解析章节标题精准匹配文件名，替代硬编码 `chapter_N.md` 模式；增加致谢文件匹配；排除 `参考文献.md` 避免误合并
+- **document_exporter 增强**：支持 Word 文档自动插入图片和图注；图片尺寸限制（防排版溢出）；黑体字符转换
+- **logger 增强**：日志级别可配置；控制台/文件输出分级；格式化输出优化
+- **SKILL.md 重构**：简化核心流程定义，新增 Step 8-9 工作流文档引用
+- **prompts/writer_guidelines.md**：新增写作指南补充
+- **templates/code_summary_template.md**：新增代码摘要模板
+
+### Bug 修复 (Fixed)
+
+- 修复图片占位符无法正确识别和替换的问题
+- 修复图片尺寸过大导致 Word 排版溢出的问题
+- 修复日志文件生成路径错误的问题
+- 修复黑体字符转换失效的 Bug
+- 修复 merge_drafts 章节文件名匹配不准确的问题
+
+### 更新文档
+
+- `README.md` - 新增图片生成/文献搜索功能展示、检测效果截图、触发语更新
+- `docs/usage_guide.md` - 同步更新使用说明
+- `docs/images/` - 新增朱雀/PaperPass/paperYY 检测效果图
+
+---
+
 ## [v1.1.0] - 2026-03-18
 
 ### 新增功能 ⭐
@@ -202,4 +296,4 @@
 
 ---
 
-> 最后更新：2026-03-18
+> 最后更新：2026-04-24

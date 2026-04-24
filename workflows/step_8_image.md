@@ -18,7 +18,7 @@ flowchart TD
     F --> I[生成 PNG 图片]
     G --> I
     H --> I
-    I --> J[更新 Markdown 图片引用]
+    I --> J[更新 Markdown 图片引用（原位覆盖）]
     J --> K[✅ 图片生成完成]
     K --> L[进入 Step 9 导出]
 ```
@@ -42,11 +42,11 @@ flowchart TD
 
 ```bash
 # 方式1: 分步执行
-# Step 1: 从占位符生成 Mermaid 代码
-python scripts/chart_generator.py workspace/drafts/ --output workspace/final/images/
+# Step 1: 从占位符生成 Mermaid 代码（原位替代，不产生副本）
+python scripts/chart_generator.py workspace/final/论文终稿.md --output workspace/final/images/ --replace
 
-# Step 2: 渲染 Mermaid 为 PNG
-python scripts/chart_renderer.py --input workspace/final/论文终稿.md --output workspace/final/images/ --method auto
+# Step 2: 渲染 Mermaid 为 PNG，并更新 Markdown（原位覆盖 mermaid 代码块为图片引用）
+python scripts/chart_renderer.py --input workspace/final/论文终稿.md --output workspace/final/images/ --method auto --update
 
 # 方式2: 一键完成（推荐）
 # AI 自动执行完整流程

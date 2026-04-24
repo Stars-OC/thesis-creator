@@ -388,9 +388,9 @@ def clean_markdown_content(content: str) -> str:
     # 移除图表占位符注释块（<!-- 图表占位符：... -->）
     content = re.sub(r'<!--\s*图表占位符[^\n]*-->\s*\n', '', content)
 
-    # 移除图表占位符引用块（> [统计] **[图表占位符]** ... 以及后续的 > 行）
-    # 匹配以 > [统计] **[图表占位符]** 开始的块，直到遇到非 > 行或空行
-    content = re.sub(r'> [统计] \*\*\[图表占位符\]\*\*[^\n]*\n(?:> [^\n]*\n)*', '', content)
+    # 移除图表占位符引用块（> [统计] **[图表占位符]** 或 > 📊 **[图表占位符]**）
+    # 匹配占位符起始行及后续的 > 行
+    content = re.sub(r'>\s*(?:\[统计\]\s*|📊\s*)?\*\*\[图表占位符\]\*\*[^\n]*\n(?:> [^\n]*\n)*', '', content)
 
     # 移除单独的图表占位符引用行
     content = re.sub(r'> - \*\*图表编号\*\*[^\n]*\n', '', content)
@@ -464,8 +464,8 @@ def parse_markdown(content: str) -> list:
                 table_rows = []
                 in_table = False
 
-        # 分页符处理 - \newpage 或 \pagebreak
-        if line.strip() == '\\newpage' or line.strip() == '\\pagebreak':
+        # 分页符处理 - \newpage / \pagebreak / <!-- PAGE_BREAK -->
+        if line.strip() == '\\newpage' or line.strip() == '\\pagebreak' or line.strip() == '<!-- PAGE_BREAK -->':
             elements.append(('pagebreak',))
             continue
 

@@ -52,7 +52,7 @@ class ChartGenerator:
     # 占位符正则表达式
     PLACEHOLDER_PATTERN = re.compile(
         r'<!--\s*图表占位符[：:]\s*(图\d+-\d+)\s+(.+?)\s*-->\s*'
-        r'>\s*[统计]\s*\*\*\[图表占位符\]\*\*\s*'
+        r'>\s*(?:\[统计\]\s*|📊\s*)?\*\*\[图表占位符\]\*\*\s*'
         r'(.*?)'
         r'<!--\s*图表占位符结束\s*-->',
         re.DOTALL
@@ -63,7 +63,7 @@ class ChartGenerator:
         r'\[图表占位符\][：:]?\s*(\w+图)?[，,]?\s*展示(.+?)(?:\n|$)'
     )
 
-    def __init__(self, output_dir: str = "charts"):
+    def __init__(self, output_dir: str = "workspace/final/images"):
         self.logger = get_logger()
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -500,7 +500,7 @@ classDiagram
 
     def replace_placeholders(self, content: str, mermaid_codes: Dict[str, str]) -> str:
         """
-        替换文档中的占位符为 Mermaid 代码
+        替换文档中的占位符为 Mermaid 代码（原位替代，不产生副本）
 
         Args:
             content: 原文档内容
@@ -509,22 +509,41 @@ classDiagram
         Returns:
             替换后的文档
         """
-        self.logger.info("开始替换占位符...")
+        self.logger.info("开始替换占位符（原位替代）...")
 
-        # 简单替换逻辑：在占位符后插入 Mermaid 代码
-        for chart_id, code in mermaid_codes.items():
-            # 在占位符结束标记后插入代码
-            pattern = re.compile(
-                rf'(<!--\s*图表占位符结束\s*-->)',
+        # 替换完整格式的占位符
+        for chart in self.charts:
+            chart_id = chart.chart_id
+            mermaid_code = mermaid_codes.get(chart_id)
+            if not mermaid_code:
+                continue
+
+            # 匹配占位符块：从 <!-- 图表占位符：xxx --> 到 <!-- 图表占位符结束 -->
+            block_pattern = re.compile(
+                rf'<!--\s*图表占位符[：:]\s*{re.escape(chart_id)}\s+.*?-->\s*'
+                rf'>\s*(?:\[统计\]\s*|📊\s*)?\*\*\[图表占位符\]\*\*\s*'
+                rf'.*?'
+                rf'<!--\s*图表占位符结束\s*-->',
                 re.DOTALL
             )
 
-            def insert_code(match):
-                return match.group(1) + "\n\n" + code + "\n"
+            content = block_pattern.sub(mermaid_code, content)
 
-            content = pattern.sub(insert_code, content, count=1)
+        # 替换简化格式的占位符
+        for chart in self.charts:
+            if chart.chart_id == "图X-X" and chart.raw_text == "简化占位符":
+                mermaid_code = mermaid_codes.get("图X-X")
+                if mermaid_code:
+                    simple_pattern = re.compile(
+                        r'\[图表占位符\][：:]?\s*(\w+图)?[，,]?\s*展示(.+?)(?:\n|$)'
+                    )
 
-        self.logger.info("占位符替换完成")
+                    def replace_simple(match):
+                        return mermaid_code
+
+                    content = simple_pattern.sub(replace_simple, content, count=1)
+
+        self.logger.info("占位符替换完成（原位替代）")
         return content
 
     def export_charts(self, mermaid_codes: Dict[str, str], format: str = "md") -> List[str]:
@@ -663,12 +682,15 @@ classDiagram
 def main():
     parser = argparse.ArgumentParser(description="论文图表生成器")
     parser.add_argument("input", help="输入 Markdown 文件路径")
-    parser.add_argument("-o", "--output", default="charts", help="输出目录")
-    parser.add_argument("-f", "--format", default="md", choices=["md", "html", "json"], help="输出格式")
-    parser.add_argument("--replace", action="store_true", help="直接替换原文档中的占位符")
+    parser.add_argument("-o", "--output", default="workspace/final/images", help="输出目录（默认 workspace/final/images/）")
+    parser.add_argument("--replace", action="store_true", default=True, help="直接替换原文档中的占位符（原位覆盖，默认开启）")
+    parser.add_argument("--no-replace", action="store_true", help="不替换原文档，仅生成分析报告")
     parser.add_argument("--report", action="store_true", help="生成分析报告")
 
     args = parser.parse_args()
+
+    # 如果指定 --no-replace，则不替换
+    do_replace = not args.no_replace
 
     # 初始化日志（自动检测 thesis-workspace/logs 目录）
     init_logger(session_name="chart_generator")
@@ -687,21 +709,16 @@ def main():
     # 生成图表
     mermaid_codes = generator.generate_all(content)
 
-    # 导出图表
-    exported_files = generator.export_charts(mermaid_codes, format=args.format)
-
     print(f"\n[OK] 图表生成完成！")
     print(f"   共生成 {len(mermaid_codes)} 个图表")
     print(f"   输出目录: {args.output}")
-    for f in exported_files:
-        print(f"   - {f}")
 
-    # 替换原文档
-    if args.replace:
+    # 原位替代（默认行为，不产生副本）
+    if do_replace and mermaid_codes:
         new_content = generator.replace_placeholders(content, mermaid_codes)
-        output_file = input_path.stem + "_with_charts" + input_path.suffix
-        input_path.parent.joinpath(output_file).write_text(new_content, encoding='utf-8')
-        print(f"\n[文档] 已生成带图表的文档: {output_file}")
+        input_path.write_text(new_content, encoding='utf-8')
+        print(f"\n[文档] 已原位更新: {input_path}")
+        print(f"   占位符已替换为 Mermaid 代码块，等待渲染后替换为图片引用")
 
     # 生成报告
     if args.report:

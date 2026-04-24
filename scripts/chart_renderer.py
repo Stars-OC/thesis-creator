@@ -17,8 +17,8 @@
     pip install playwright && playwright install chromium
 
 使用方法：
-    python chart_renderer.py --input 论文终稿.md --output images/
-    python chart_renderer.py --input 图表代码.md --output images/ --format png
+    python chart_renderer.py --input workspace/final/论文终稿.md --output workspace/final/images/
+    python chart_renderer.py --input workspace/final/论文终稿.md --output workspace/final/images/ --method auto
 """
 
 import os
@@ -66,7 +66,7 @@ class ChartRenderer:
     # 图表编号正则
     CHART_ID_PATTERN = re.compile(r'%%\s*(图\d+-\d+)')
 
-    def __init__(self, output_dir: str = "images"):
+    def __init__(self, output_dir: str = "workspace/final/images"):
         self.logger = get_logger()
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -419,13 +419,14 @@ class ChartRenderer:
 
         return report
 
-    def update_markdown(self, content: str, results: Dict[str, Path]) -> str:
+    def update_markdown(self, content: str, results: Dict[str, Path], markdown_dir: Path) -> str:
         """
         更新 Markdown，将代码块替换为图片引用
 
         Args:
             content: 原始内容
             results: 渲染结果
+            markdown_dir: Markdown 文件所在目录
 
         Returns:
             更新后的内容
@@ -436,8 +437,8 @@ class ChartRenderer:
             # 查找对应的图表代码块
             for chart in self.charts:
                 if chart['id'] == chart_id:
-                    # 构建图片引用
-                    relative_path = output_path.name
+                    # 构建图片引用（相对 markdown 文件目录）
+                    relative_path = Path(os.path.relpath(output_path, start=markdown_dir)).as_posix()
                     img_ref = f"\n![{chart_id}]({relative_path})\n"
 
                     # 替换代码块为图片引用
@@ -451,12 +452,12 @@ class ChartRenderer:
 def main():
     parser = argparse.ArgumentParser(description="图表渲染工具")
     parser.add_argument("--input", "-i", required=True, help="输入 Markdown 文件")
-    parser.add_argument("--output", "-o", default="images", help="输出目录")
+    parser.add_argument("--output", "-o", default="workspace/final/images", help="输出目录（默认 workspace/final/images/）")
     parser.add_argument("--method", "-m", default="auto",
                         choices=['auto', 'mmdc', 'playwright', 'kroki'],
                         help="渲染方法")
     parser.add_argument("--report", action="store_true", help="生成渲染报告")
-    parser.add_argument("--update", action="store_true", help="更新 Markdown 文件")
+    parser.add_argument("--update", action="store_true", help="更新 Markdown 文件（原位覆盖）")
 
     args = parser.parse_args()
 
@@ -484,11 +485,9 @@ def main():
 
     # 更新 Markdown
     if args.update and results:
-        updated_content = renderer.update_markdown(content, results)
-        output_md = input_path.stem + "_with_images" + input_path.suffix
-        output_path = input_path.parent / output_md
-        output_path.write_text(updated_content, encoding='utf-8')
-        logger.info(f"Markdown 已更新: {output_path}")
+        updated_content = renderer.update_markdown(content, results, input_path.parent)
+        input_path.write_text(updated_content, encoding='utf-8')
+        logger.info(f"Markdown 已更新（原位覆盖）: {input_path}")
 
     logger.info(f"完成: 成功渲染 {renderer.rendered_count}/{len(renderer.charts)} 个图表")
 

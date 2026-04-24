@@ -1,6 +1,6 @@
 {
   "name": "thesis-creator",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "description": "面向中国本科生的毕业论文全流程写作辅助系统",
   "author": "Claude Code",
   "license": "MIT",
@@ -23,11 +23,15 @@
   "capabilities": [
     "论文大纲生成",
     "分章节撰写",
+    "摘要生成",
     "降重处理",
     "AIGC 降低",
     "本地 AIGC 检测",
     "格式检查",
-    "Markdown 转 Word"
+    "Markdown 转 Word",
+    "图片生成与渲染",
+    "文献引用验证",
+    "配置化系统"
   ],
   "requirements": {
     "python": ">=3.9",
@@ -46,7 +50,13 @@
     "aigc_detect": "scripts/aigc_detect.py",
     "synonym_replace": "scripts/synonym_replace.py",
     "text_analysis": "scripts/text_analysis.py",
-    "format_checker": "scripts/format_checker.py"
+    "format_checker": "scripts/format_checker.py",
+    "chart_generator": "scripts/chart_generator.py",
+    "chart_renderer": "scripts/chart_renderer.py",
+    "document_exporter": "scripts/document_exporter.py",
+    "reference_engine": "scripts/reference_engine.py",
+    "reference_validator": "scripts/reference_validator.py",
+    "merge_drafts": "scripts/merge_drafts.py"
   },
   "targets": {
     "production_speed": "3000字/30分钟",

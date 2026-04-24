@@ -42,26 +42,28 @@ flowchart TD
 
 ```bash
 # 合并所有章节（自动处理引用编号重排 + 生成参考文献MD）
-python scripts/merge_drafts.py -i workspace/drafts/ -o workspace/final/论文终稿.md --references workspace/verified_references.yaml
+python scripts/merge_drafts.py -i workspace/drafts/ -o workspace/final/论文终稿.md --references workspace/verified_references.yaml --outline workspace/outline.md
 
 # 查看统计信息
-python scripts/merge_drafts.py -i workspace/drafts/ -o workspace/final/论文终稿.md --references workspace/verified_references.yaml --stats
+python scripts/merge_drafts.py -i workspace/drafts/ -o workspace/final/论文终稿.md --references workspace/verified_references.yaml --outline workspace/outline.md --stats
 ```
 
 ### 合并脚本执行的关键操作
 
-1. **按 CHAPTER_ORDER 顺序拼接**各章节 MD 文件
+1. **自动匹配章节文件名并按顺序拼接**（支持 `chapter_1.md` / `chapter-1.md` / `chapter_1_xxx.md` / `第1章xxx.md`）
 2. **收集所有临时引用编号**（`[ref_XXX]` 格式）
 3. **按正文出现顺序重新编号**：`[ref_001]` → `[1]`，`[ref_012]` → `[2]`...
 4. **从 `verified_references.yaml` 提取对应文献**，按 GB/T 7714 格式生成参考文献列表
-5. **输出独立的参考文献 MD 文件**：`workspace/final/参考文献.md`
-6. **在论文终稿末尾插入参考文献引用**：`<!-- REFERENCES: workspace/final/参考文献.md -->`
+5. **输出独立的参考文献 MD 文件**：`workspace/drafts/参考文献.md`
+6. **在论文终稿末尾插入参考文献引用标记**：`<!-- REFERENCES: ../drafts/参考文献.md -->`（相对 `workspace/final/论文终稿.md`）
 
 ---
 
 ## 7.2 参考文献独立 MD 文件
 
-合并完成后，参考文献独立存放在 `workspace/final/参考文献.md`，格式如下：
+> **参考文献存放在 `workspace/drafts/` 目录**，与章节初稿同目录，便于统一管理。
+
+合并完成后，参考文献独立存放在 `workspace/drafts/参考文献.md`，格式如下：
 
 ```markdown
 # 参考文献
@@ -93,10 +95,10 @@ python scripts/aigc_detect.py workspace/final/论文终稿.md
 
 ```bash
 # 在线验证
-python scripts/reference_validator.py workspace/final/参考文献.md --validate-online
+python scripts/reference_validator.py workspace/drafts/参考文献.md --validate-online
 
 # 仅格式检查
-python scripts/reference_validator.py workspace/final/参考文献.md --offline
+python scripts/reference_validator.py workspace/drafts/参考文献.md --offline
 ```
 
 ---
@@ -104,6 +106,6 @@ python scripts/reference_validator.py workspace/final/参考文献.md --offline
 ## 输出文件
 
 - `workspace/final/论文终稿.md` - 终稿（Markdown，引用编号已重排）
-- `workspace/final/参考文献.md` - 参考文献（独立 MD 文件，GB/T 7714 格式）⭐
+- `workspace/drafts/参考文献.md` - 参考文献（独立 MD 文件，GB/T 7714 格式）⭐
 - `workspace/final/quality_report.md` - 质量报告
 - `workspace/reports/reference_validation_*.md` - 参考文献验证报告
