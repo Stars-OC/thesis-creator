@@ -154,16 +154,36 @@ def add_paragraph(doc, text: str, first_line_indent: bool = True):
 
 def process_inline_formatting(para, text: str):
     """处理行内格式（加粗、斜体、代码、上标）"""
-    # 移除 Markdown 格式标记但保留文本
-    text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)  # 加粗
-    text = re.sub(r'\*(.+?)\*', r'\1', text)  # 斜体
-    text = re.sub(r'`(.+?)`', r'\1', text)  # 行内代码
-
     # 处理上标引用 <sup>[1]</sup> -> [1]
     text = re.sub(r'<sup>\[(\d+)\]</sup>', r'[\1]', text)
 
-    run = para.add_run(text)
-    set_chinese_font(run, '宋体', 12)
+    # 逐段处理 **加粗**、*斜体*、`代码`
+    pattern = re.compile(r'(\*\*(.+?)\*\*|\*(.+?)\*|`(.+?)`)')
+    last_end = 0
+
+    for match in pattern.finditer(text):
+        if match.start() > last_end:
+            run = para.add_run(text[last_end:match.start()])
+            set_chinese_font(run, '宋体', 12)
+
+        if match.group(2):  # **加粗**
+            run = para.add_run(match.group(2))
+            set_chinese_font(run, '宋体', 12, bold=True)
+        elif match.group(3):  # *斜体*
+            run = para.add_run(match.group(3))
+            set_chinese_font(run, '宋体', 12)
+            run.font.italic = True
+        elif match.group(4):  # `代码`
+            run = para.add_run(match.group(4))
+            run.font.name = 'Consolas'
+            run.font.size = Pt(10.5)
+
+        last_end = match.end()
+
+    if last_end < len(text):
+        run = para.add_run(text[last_end:])
+        set_chinese_font(run, '宋体', 12)
+
 
 
 def add_code_block(doc, code_lines: list, language: str = ''):
@@ -178,29 +198,138 @@ def add_code_block(doc, code_lines: list, language: str = ''):
     run.font.size = Pt(10)
 
 
-def add_table(doc, rows: list):
-    """添加表格"""
+def add_table(doc, rows: list, caption: str = ''):
+    """
+    添加三线表
+
+    三线表规范：
+    - 顶线：1.5pt 粗线（w:sz="12"）
+    - 表头下线：0.75pt 细线（w:sz="6"）
+    - 底线：1.5pt 粗线
+    - 其余边框：无
+    - 表头文字加粗居中
+
+    Args:
+        doc: Word 文档对象
+        rows: 表格数据（第一行为表头）
+        caption: 表名（在表上方显示，格式：表X.X  名称）
+    """
     if not rows or len(rows) < 1:
         return
 
+    # 添加表名（表名在表的上方）
+    if caption:
+        add_table_caption(doc, caption)
+
     # 创建表格
-    table = doc.add_table(rows=len(rows), cols=len(rows[0]))
-    table.style = 'Table Grid'
+    num_cols = len(rows[0])
+    table = doc.add_table(rows=len(rows), cols=num_cols)
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
+
+    # 清除默认边框（先移除 Table Grid 样式的边框）
+    table.style = 'Table Grid'
 
     # 填充内容
     for i, row_data in enumerate(rows):
         for j, cell_text in enumerate(row_data):
-            if j < len(table.rows[i].cells):
+            if j < num_cols:
                 cell = table.rows[i].cells[j]
                 cell.text = cell_text.strip()
                 # 设置单元格字体
                 for para in cell.paragraphs:
+                    para.alignment = WD_ALIGN_PARAGRAPH.CENTER
                     for run in para.runs:
-                        set_chinese_font(run, '宋体', 10)
+                        if i == 0:
+                            # 表头加粗居中
+                            set_chinese_font(run, '宋体', 10, bold=True)
+                        else:
+                            set_chinese_font(run, '宋体', 10)
+
+    # 应用三线表边框
+    _apply_three_line_borders(table)
 
     # 表格后添加空行
     doc.add_paragraph()
+
+
+def _apply_three_line_borders(table):
+    """
+    应用三线表边框样式
+
+    通过 OxmlElement 直接操作 OOXML，为每个单元格设置边框：
+    - 第1行（表头）：顶线粗线 + 底线细线
+    - 中间行：无边框
+    - 最后1行：底线粗线
+    """
+    tbl = table._tbl
+
+    # 定义边框尺寸（w:sz 单位为 1/8 磅）
+    THICK_SZ = "12"   # 1.5pt = 12/8
+    THIN_SZ = "6"     # 0.75pt = 6/8
+    BORDER_COLOR = "000000"
+
+    for i, row in enumerate(table.rows):
+        for cell in row.cells:
+            tc = cell._tc
+            tcPr = tc.tcPr
+            if tcPr is None:
+                tcPr = OxmlElement('w:tcPr')
+                tc.insert(0, tcPr)
+
+            # 移除已有边框
+            existing = tcPr.find(qn('w:tcBorders'))
+            if existing is not None:
+                tcPr.remove(existing)
+
+            tcBorders = OxmlElement('w:tcBorders')
+
+            # 设置各边框
+            for side in ['top', 'bottom', 'left', 'right', 'insideH', 'insideV']:
+                border = OxmlElement(f'w:{side}')
+                border.set(qn('w:val'), 'none')
+                border.set(qn('w:sz'), '0')
+                border.set(qn('w:space'), '0')
+                border.set(qn('w:color'), BORDER_COLOR)
+
+                if i == 0 and side == 'top':
+                    # 顶线：粗线
+                    border.set(qn('w:val'), 'single')
+                    border.set(qn('w:sz'), THICK_SZ)
+                elif i == 0 and side == 'bottom':
+                    # 表头下线：细线
+                    border.set(qn('w:val'), 'single')
+                    border.set(qn('w:sz'), THIN_SZ)
+                elif i == len(table.rows) - 1 and side == 'bottom':
+                    # 底线：粗线
+                    border.set(qn('w:val'), 'single')
+                    border.set(qn('w:sz'), THICK_SZ)
+                elif side in ('left', 'right'):
+                    # 左右边框：无
+                    pass
+
+                tcBorders.append(border)
+
+            tcPr.append(tcBorders)
+
+
+def add_table_caption(doc, caption: str):
+    """
+    添加表名（表名在表的上方）
+
+    格式：居中、宋体、五号（10.5pt）
+
+    Args:
+        doc: Word 文档对象
+        caption: 表名文本，如 "表4.1  用户信息表结构"
+    """
+    para = doc.add_paragraph()
+    para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    para.paragraph_format.first_line_indent = Cm(0)
+    para.paragraph_format.space_before = Pt(12)
+    para.paragraph_format.space_after = Pt(3)
+
+    run = para.add_run(caption)
+    set_chinese_font(run, '宋体', 10.5)
 
 
 def add_list_item(doc, text: str, ordered: bool = False):
@@ -217,7 +346,7 @@ def add_list_item(doc, text: str, ordered: bool = False):
     set_chinese_font(run, '宋体', 12)
 
 
-def calculate_image_size(image_path: str, max_width_cm: float = 14.0, max_height_cm: float = 18.0) -> Tuple[float, float]:
+def calculate_image_size(image_path: str, max_width_cm: float = 14.0, max_height_cm: float = 12.0) -> Tuple[float, float]:
     """
     计算图片在 Word 文档中的合适尺寸
 
@@ -264,7 +393,7 @@ def calculate_image_size(image_path: str, max_width_cm: float = 14.0, max_height
         return max_width_cm, None
 
 
-def add_image(doc, image_path: str, width_cm: float = None, max_width_cm: float = 14.0, max_height_cm: float = 18.0, base_dir: str = ''):
+def add_image(doc, image_path: str, width_cm: float = None, max_width_cm: float = 14.0, max_height_cm: float = 12.0, base_dir: str = ''):
     """
     添加图片到文档（自动缩放）
 
@@ -419,6 +548,26 @@ def clean_markdown_content(content: str) -> str:
     return content
 
 
+def strip_doi_links(content: str) -> str:
+    """
+    清除 DOI 链接（仅在导出 docx 时使用）
+
+    Markdown 终稿中保留 DOI（便于溯源），仅在导出 docx 时去除。
+
+    Args:
+        content: Markdown 内容
+
+    Returns:
+        去除 DOI 链接后的内容
+    """
+    # '[DOI](https://doi.org/xxx)' → 删除
+    content = re.sub(r'\s*\[DOI\]\(https?://doi\.org/[^\)]+\)', '', content)
+    # 'DOI: 10.xxx/yyy' → 删除
+    content = re.sub(r'\s*DOI:\s*10\.\S+', '', content)
+
+    return content
+
+
 def parse_markdown(content: str) -> list:
     """解析 Markdown 内容，返回结构化数据"""
     lines = content.split('\n')
@@ -528,6 +677,9 @@ def convert_md_to_docx(input_path: str, output_path: str) -> Tuple[bool, str]:
 
         with open(input_path, 'r', encoding='utf-8') as f:
             content = f.read()
+
+        # 导出 docx 时清除 DOI 链接（Markdown 终稿中保留 DOI 便于溯源）
+        content = strip_doi_links(content)
 
         # 清理无意义字符
         content = clean_markdown_content(content)

@@ -3,7 +3,7 @@
 已验证文献池管理器（Verified Reference Pool Manager）
 
 核心功能：
-1. 加载/保存 `workspace/verified_references.yaml`
+1. 加载/保存 `workspace/references/verified_references.yaml`
 2. 按章节/主题管理文献分组
 3. 为段落内容推荐最相关的文献（基于关键词匹配）
 4. 防止同一文献被重复引用过多次
@@ -59,7 +59,7 @@ class PoolReference:
 class VerifiedReferencePool:
     """已验证文献池管理器"""
 
-    DEFAULT_POOL_FILE = "workspace/verified_references.yaml"
+    DEFAULT_POOL_FILE = "workspace/references/verified_references.yaml"
     MAX_USE_PER_REFERENCE = 3  # 单篇文献最大引用次数
 
     def __init__(self, pool_file: Optional[str] = None):

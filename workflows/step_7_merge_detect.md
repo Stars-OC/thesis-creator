@@ -1,5 +1,13 @@
 # Step 7: 合并与检测
 
+> **状态管理（强制执行）**：
+> 1. 启动前：`python scripts/status_manager.py thesis-workspace/ --ensure`
+> 2. 启动时：`python scripts/status_manager.py thesis-workspace/ --check-step 7`
+> 3. 前置条件通过后：`--update-step 7 --action start`
+> 4. 完成后：`--update-step 7 --action complete`
+>
+> **统一入口（推荐）**：`python scripts/lifecycle.py --workspace thesis-workspace/ --step 7 --event start|complete`
+
 ---
 
 ## 流程顺序（重要）
@@ -42,10 +50,10 @@ flowchart TD
 
 ```bash
 # 合并所有章节（自动处理引用编号重排 + 生成参考文献MD）
-python scripts/merge_drafts.py -i workspace/drafts/ -o workspace/final/论文终稿.md --references workspace/verified_references.yaml --outline workspace/outline.md
+python scripts/merge_drafts.py -i workspace/drafts/ -o workspace/final/论文终稿.md --references workspace/references/verified_references.yaml --outline workspace/outline.md
 
 # 查看统计信息
-python scripts/merge_drafts.py -i workspace/drafts/ -o workspace/final/论文终稿.md --references workspace/verified_references.yaml --outline workspace/outline.md --stats
+python scripts/merge_drafts.py -i workspace/drafts/ -o workspace/final/论文终稿.md --references workspace/references/verified_references.yaml --outline workspace/outline.md --stats
 ```
 
 ### 合并脚本执行的关键操作
@@ -76,6 +84,11 @@ python scripts/merge_drafts.py -i workspace/drafts/ -o workspace/final/论文终
 ```
 
 > **参考文献数量控制**：最终参考文献数量不得超出用户选择的上限（如20-30篇上限，最终数量应在15-35篇之间）。如超出，按相关度排序后截取。
+
+> **参考文献数量校验（强制）**：
+> - 合并完成后统计最终参考文献数量。
+> - 若数量 < 用户所选下限（如 20-30 篇对应下限 20），输出警告并建议回到 Step 4 补充引用。
+> - 若数量 < 15 篇，**强制中断后续流程**，必须先回到 Step 4 补充引用后再继续。
 
 ---
 

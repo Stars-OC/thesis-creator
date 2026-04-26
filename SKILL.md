@@ -48,6 +48,10 @@ flowchart LR
 ```
 
 > **⚠️ 流程顺序**：合并 → 图片生成 → 导出 Word
+> 状态文件路径：`thesis-workspace/.thesis-status.json`
+> 若文件不存在，`status_manager.py` 会自动创建。
+>
+> **推荐统一入口**：`scripts/lifecycle.py`（整合日志 + 状态管理）
 
 ---
 
@@ -67,14 +71,15 @@ flowchart LR
 
 ## 参考文献（独立存放）
 
-> **核心改进**：文献池独立存放在 `workspace/verified_references.yaml`
+> **核心改进**：文献池独立存放在 `workspace/references/verified_references.yaml`
 
 ### 流程
 
 1. **Step 3 大纲确认后询问文献数量**（默认 20-30 篇）
 2. **多源搜索**：Semantic Scholar + CrossRef + OpenAlex
 3. **DOI 验证**：判断 4xx 错误状态码
-4. **写作时从文献池选取引用**
+4. **合并去重**：多源结果合并，按相关度选出最相关 x 篇（`scripts/reference_merger.py`）
+5. **写作时从文献池选取引用**
 
 详见 `workflows/reference_workflow.md`
 
@@ -93,7 +98,8 @@ thesis-workspace/
 │   └── prompt/background.md   # 论文背景（必填）
 ├── workspace/                 # 论文产出
 │   ├── outline.md             # 大纲
-│   ├── verified_references.yaml  # 文献池（独立）⭐
+│   ├── references/                # 参考文献池（独立）⭐
+│   │   ├── verified_references.yaml  # 已验证文献池
 │   ├── cited_references.json  # 引用记录（每章引用的ref_id）⭐
 │   ├── drafts/                # 初稿（仅含临时引用编号，无参考文献列表）⭐
 │   │   ├── 参考文献.md         # 合并阶段生成的参考文献（独立MD文件，GB/T 7714格式）⭐
@@ -116,12 +122,15 @@ thesis-workspace/
 |------|------|------|
 | 缺少规定动作章节 | 致命 | 自动补充 |
 | 设计实现未分离 | 致命 | 强制拆分 |
+| **章节顺序错误** | **致命** | **强制调整为：系统分析→系统设计→系统实现→系统测试→总结与展望** |
 | **使用 LLM 上下文合并文档** | **致命** | **必须使用 merge_drafts.py 脚本** |
 | 图表不足 | 严重 | 提示补充 |
 | 参考文献虚构 | 严重 | DOI验证+重生成 |
 | 参考文献数量超标 | 严重 | 按相关度截取 |
+| **参考文献缺少中英文** | **严重** | **中文和英文文献都必须包含，缺少则触发补充搜索** |
 | AI模板词超标 | 中等 | 自动替换 |
 | **章节内自建参考文献列表** | 中等 | 删除，合并阶段统一生成 |
+| **background.md 为空或未完善** | **致命** | **提示用户编辑 `thesis-workspace/references/prompt/background.md`，禁止控制台交互式输入** |
 
 ---
 
@@ -132,7 +141,7 @@ thesis-workspace/
 | `prompts/writer_guidelines.md` | 写作规范 | Step 4 |
 | `prompts/aigc_reducer_prompt.md` | AIGC降重 | Step 4 |
 | `prompts/reference_citation_prompt.md` | 引用铁律 | Step 4 |
-| `workspace/verified_references.yaml` | 文献池 | **必须加载** |
+| `workspace/references/verified_references.yaml` | 文献池 | **必须加载** |
 
 ---
 
@@ -141,10 +150,16 @@ thesis-workspace/
 | 文件 | 说明 |
 |------|------|
 | `scripts/reference_engine.py` | 多源搜索 + DOI验证 |
+| `scripts/reference_merger.py` | 文献合并去重 + 选出最相关 x 篇 |
 | `scripts/document_exporter.py` | Word导出 + 图片插入 |
 | `scripts/merge_drafts.py` | 章节合并 |
 | `scripts/aigc_detect.py` | AIGC检测 |
+| `scripts/lifecycle.py` | 生命周期管理（日志+状态统一入口） |
 
 ---
 
-> **详细步骤请查看 `workflows/` 目录下的对应文档**
+## 致谢
+
+致谢生成位于 `Step 4`（与摘要同阶段），输出文件为 `workspace/drafts/致谢.md`，由 `merge_drafts.py` 在合并阶段自动纳入终稿。
+
+> 注意：致谢不计入七章正文结构，但属于论文交付的必备内容之一。

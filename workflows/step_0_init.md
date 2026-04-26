@@ -1,5 +1,12 @@
 # Step 0: 工作区初始化
 
+> **状态管理（强制执行）**：
+> 1. 启动前：`python scripts/status_manager.py thesis-workspace/ --ensure`
+> 2. 本步骤启动时执行：`python scripts/status_manager.py thesis-workspace/ --init`
+> 3. 完成后执行：`python scripts/status_manager.py thesis-workspace/ --update-step 0 --action complete`
+>
+> **统一入口（推荐）**：`python scripts/lifecycle.py --workspace thesis-workspace/ --step 0 --event start|complete`
+
 **触发**：
 - 「初始化工作区」
 - 或首次执行「帮我写论文」时自动触发
@@ -74,9 +81,16 @@ flowchart TD
 
 ### 5. 等待用户确认
 
-- 用户回复「继续」后，检查文件准备情况
-- 输出文件检查报告
-- 继续后续流程
+- 用户回复「继续」后，先检查 `thesis-workspace/references/prompt/background.md`
+- 校验规则（全部通过才可继续）：
+  - 文件存在
+  - 文件大小 > 100 字节
+  - 不包含模板占位内容（如 `请填写以下信息`、`（描述研究领域的现状和问题）`）
+- 若不通过：
+  - 自动创建 `thesis-workspace/references/prompt/background.md`（来源：`references/prompt/background_template.md`）
+  - 明确提示用户编辑该文件后再次回复「继续」
+  - **禁止在控制台进行交互式输入采集背景信息**
+- 通过后输出文件检查报告并继续后续流程
 
 ---
 
@@ -93,12 +107,19 @@ flowchart TD
 
 ```json
 {
-  "version": "1.0",
-  "status": "initialized",
+  "version": "2.0",
   "created_at": "2026-03-06T15:00:00",
+  "updated_at": "2026-03-06T15:00:00",
   "current_step": 0,
-  "steps_completed": ["initialization"],
-  "warnings": [],
-  "last_updated": "2026-03-06T15:00:00"
+  "steps": {
+    "0": {"name": "初始化", "status": "completed"}
+  },
+  "chapter_status": {},
+  "references_status": {
+    "pool_created": false,
+    "pool_path": "",
+    "total_refs": 0,
+    "zh_ratio": 0.0
+  }
 }
 ```

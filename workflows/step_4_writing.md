@@ -1,5 +1,14 @@
 # Step 4: 分章节撰写
 
+> **状态管理（强制执行）**：
+> 1. 启动前：`python scripts/status_manager.py thesis-workspace/ --ensure`
+> 2. 启动时：`python scripts/status_manager.py thesis-workspace/ --check-step 4`
+> 3. 前置条件通过后：`--update-step 4 --action start`
+> 4. 每章完成后：`--mark-done chapter_N --words 字数`
+> 5. 全部完成后：`--update-step 4 --action complete`
+>
+> **统一入口（推荐）**：`python scripts/lifecycle.py --workspace thesis-workspace/ --step 4 --event start|complete`
+
 > **⚠️ 强制前置：文献搜索验证**
 > 在开始写作前，必须先搜索真实文献建立"文献池"，AI 只能从池中引用，禁止编造。
 
@@ -7,24 +16,34 @@
 
 ## 4.0 摘要与关键词生成（所有章节完成后执行）
 
-> **执行时机**：所有正文章节（第1-7章）写完之后、Step 5 降重之前生成摘要，确保摘要内容与正文一致。
+> **执行时机**：所有正文章节（第1-6章）写完之后、Step 5 降重之前生成摘要，确保摘要内容与正文一致。
 
 ### 生成规则
 
 | 项目 | 要求 |
 |------|------|
-| 中文摘要 | 300-500 字，包含研究背景、方法、主要结果、结论 |
-| 英文摘要 | 与中文摘要对应，学术英语风格，200-300 词 |
+| 中文摘要 | **逻辑三段覆盖，篇幅约当前页面 2/3**（硬约束） |
+| 英文摘要 | 与中文摘要对应，学术英语风格，250-350 词 |
 | 中文关键词 | 3-5 个，分号分隔，反映论文核心主题 |
 | 英文关键词 | 与中文关键词对应，分号分隔 |
 
-### 摘要写作规范
+### 摘要三段逻辑写法（硬约束）
 
-1. **研究背景**（1-2句）：说明问题领域和研究意义
-2. **研究方法**（2-3句）：描述采用的技术方案和实现手段
-3. **主要结果**（2-3句）：概括系统核心功能和测试结论
-4. **结论与价值**（1-2句）：总结成果和应用价值
-5. **禁止出现**：引用标记、图表编号、第一人称（我/我们）
+> **必须覆盖三段逻辑结构，不强制自然段数必须等于3；中文篇幅建议约占当前页面2/3。**
+
+**第一部分：背景和本文目标**
+- 说明研究问题领域、现实需求和本文的研究目标
+- 篇幅约占摘要的三分之一
+
+**第二部分：主要内容和技术路线**
+- 描述本文的核心内容、采用的技术方案和实现路线
+- 篇幅约占摘要的三分之一
+
+**第三部分：主要功能模块、成果和意义**
+- 概括系统核心功能模块、最终成果及其应用价值与意义
+- 篇幅约占摘要的三分之一
+
+**禁止出现**：引用标记、图表编号、第一人称（我/我们）
 
 ### 输出文件
 
@@ -35,7 +54,11 @@
 ```markdown
 # 摘要
 
-中文摘要内容（300-500字）
+第一段：背景和本文目标。（约1/3篇幅）
+
+第二段：主要内容和技术路线。（约1/3篇幅）
+
+第三段：主要功能模块、成果和意义。（约1/3篇幅）
 
 **关键词**：关键词1；关键词2；关键词3；关键词4；关键词5
 
@@ -43,10 +66,57 @@
 
 # Abstract
 
-English abstract content (200-300 words)
+Paragraph 1: Background and research objectives.
+
+Paragraph 2: Main content and technical approach.
+
+Paragraph 3: Key functional modules, results and significance.
 
 **Keywords**: keyword1; keyword2; keyword3; keyword4; keyword5
 ```
+
+
+## 4.0.2 致谢生成（所有章节完成后执行）
+
+> **执行时机**：与摘要同步，在所有正文章节（第1-6章）写完后执行，Step 5 之前完成。
+
+### 生成规则
+
+| 项目 | 要求 |
+|------|------|
+| 字数 | 300-800 字 |
+| 风格 | 真诚朴实，避免模板化套话 |
+| 内容顺序 | 感谢导师 → 感谢同学/团队 → 感谢家人 → 感谢学校/平台 |
+| 禁止 | 「首先/其次/最后」等模板词、空泛套话 |
+
+### 输出文件
+
+- `workspace/drafts/致谢.md`
+
+### 致谢模板
+
+```markdown
+# 致谢
+
+（感谢导师指导，约100-200字）
+
+（感谢同学或项目团队帮助，约50-150字）
+
+（感谢家人支持，约50-150字）
+
+（感谢学校、实验室或平台支持，约50-150字）
+```
+
+---
+
+### 系统设计章节图表规则（硬约束）
+
+| 图表 | 来源 | 占位符标记 |
+|------|------|------------|
+| 系统整体架构图 | **用户手动提供** | `<!-- 用户提供图片：图4-1 系统架构图 -->` |
+| 功能模块图 | **用户手动提供** | `<!-- 用户提供图片：图4-2 系统功能模块图 -->` |
+| 各模块业务流程图 | **脚本自动生成** | 标准图表占位符格式 |
+| E-R 图 | **脚本自动生成** | 标准图表占位符格式 |
 
 ---
 
@@ -144,17 +214,17 @@ flowchart TD
    - 总计搜索到：35 条
    - 去重后保留：28 条
    - DOI验证通过：22 条
-   - 已保存到：workspace/verified_references.yaml
+   - 已保存到：workspace/references/verified_references.yaml
 ```
 
 ### 执行命令
 
 ```bash
 # 用户选择「20-30 篇」时执行：
-python scripts/reference_engine.py --query "章节主题关键词" --limit 30 --format yaml -o workspace/verified_references.yaml --verify-doi
+python scripts/reference_engine.py --query "章节主题关键词" --limit 30 --format yaml -o workspace/references/verified_references.yaml --verify-doi
 
 # 用户选择「稍后校验」时执行：
-python scripts/reference_engine.py --query "章节主题关键词" --limit 30 --format yaml -o workspace/verified_references.yaml --no-verify
+python scripts/reference_engine.py --query "章节主题关键词" --limit 30 --format yaml -o workspace/references/verified_references.yaml --no-verify
 ```
 
 ---
@@ -169,7 +239,7 @@ python scripts/reference_engine.py --query "章节主题关键词" --limit 30 --
 | `prompts/aigc_reducer_prompt.md` | AIGC 降重核心策略 | 写作前 |
 | `prompts/reference_citation_prompt.md` | 引用生成铁律 | 写作前 |
 | `prompts/reference_format_gbt7714.md` | GB/T 7714 格式规范 | 写作前 |
-| `workspace/verified_references.yaml` | 已验证的文献池 | **必须加载** |
+| `workspace/references/verified_references.yaml` | 已验证的文献池 | **必须加载** |
 
 ### 写作规范
 
@@ -220,9 +290,21 @@ python scripts/reference_engine.py --query "章节主题关键词" --limit 30 --
 
 | 检查项 | 要求 | 不达标处理 |
 |--------|------|-----------|
-| 图表占位符 | 每章至少 2 个图表占位符 | 提示补充 |
+| 图片密度 | 第3-5章每章 ≥3 张图 | 补充占位符 |
+| 图文顺序 | 文字→图表→代码 | 调整排版 |
+| 图表说明 | 每张图下方 ≥50 字说明 | 补充 |
+| 图名位置 | 图名在图的下方，格式 `图X-X  名称` | 修正 |
+| 表名位置 | 表名在表的上方，格式 `表X.X  名称` | 修正 |
+| 编号格式 | 图用短横线(X-X)、表用句点(X.X) | 修正 |
+| 引导语/分析语 | 图表前「如图X-X所示」+ 图表后「从图X-X可以看出」 | 补充 |
+| 模块→流程顺序 | 先模块划分后流程描述（第3-5章） | 重组 |
+| 截图+代码组合 | 第5章每功能含截图+代码 | 补充 |
+| 测试用例 | 第6章 ≥8 条 | 补充 |
+| 摘要字数 | 建议页面约2/3，覆盖三段逻辑 | 精简或重写 |
 | 代码长度 | ≤20 行，且需设计说明+效果分析 | 拆分或精简 |
 | **引用来自文献池** | 所有引用必须在 verified_references.yaml 中 | **触发重生成** |
+| **单句多引用** | 每句话最多 1 篇引用，禁止 `[1,3]` / `[1-3]` / `[1][2]` | **拆分为多句，每句引用一篇** |
+| **引用密度不足** | 每章完成后检查引用数量，不足则从文献池补充 | **补充引用后再进入下一章** |
 | **DOI 链接完整** | 每条引用含 [DOI](https://doi.org/xxx) | 自动补充或标记 |
 | **禁止章节内建参考文献** | 章节内不得出现「## 参考文献」标题 | **删除章节内参考文献，合并阶段统一处理** |
 
@@ -231,5 +313,5 @@ python scripts/reference_engine.py --query "章节主题关键词" --limit 30 --
 ## 输出文件
 
 - `workspace/drafts/chapter_N.md` - 各章节初稿（仅含临时引用编号，无参考文献列表）
-- `workspace/verified_references.yaml` - 文献池（独立存放）
+- `workspace/references/verified_references.yaml` - 文献池（独立存放）
 - `workspace/cited_references.json` - 引用记录（每章引用了哪些 ref_id，合并时使用）

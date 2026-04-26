@@ -48,6 +48,9 @@ except ImportError:
         return get_logger()
 
 
+MAX_MERMAID_HEIGHT_PX = 800
+
+
 class ChartRenderer:
     """图表渲染器"""
 
@@ -64,7 +67,7 @@ class ChartRenderer:
     )
 
     # 图表编号正则
-    CHART_ID_PATTERN = re.compile(r'%%\s*(图\d+-\d+)')
+    CHART_ID_PATTERN = re.compile(r'%%\s*(图\d+-\d+(?:-\d+)?)')
 
     def __init__(self, output_dir: str = "workspace/final/images"):
         self.logger = get_logger()
@@ -169,7 +172,7 @@ class ChartRenderer:
         try:
             # 调用 mmdc
             result = subprocess.run(
-                ['mmdc', '-i', temp_input, '-o', str(output_file), '-b', 'white'],
+                ['mmdc', '-i', temp_input, '-o', str(output_file), '-b', 'white', '-H', str(MAX_MERMAID_HEIGHT_PX)],
                 capture_output=True,
                 text=True,
                 timeout=60

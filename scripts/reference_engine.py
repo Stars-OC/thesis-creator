@@ -31,6 +31,38 @@ from dataclasses import dataclass, asdict, field
 from difflib import SequenceMatcher
 
 
+def safe_print(*args, **kwargs):
+    """在 Windows 控制台编码不支持时，安全降级输出。"""
+    try:
+        __import__('builtins').print(*args, **kwargs)
+    except UnicodeEncodeError:
+        text = " ".join(str(a) for a in args)
+        replacements = {
+            "✅": "[OK]",
+            "❌": "[FAIL]",
+            "⚠️": "[WARN]",
+            "🔍": "[SEARCH]",
+            "📊": "[STAT]",
+            "⏱️": "[TIME]",
+            "📝": "[NOTE]",
+            "📚": "[REF]",
+            "⏳": "[WAIT]",
+            "💡": "[TIP]",
+            "🔄": "[RUN]",
+            "⬜": "[TODO]",
+            "❓": "[?]",
+            "🎯": "[TARGET]",
+            "🚀": "[START]",
+            "✨": "[*]"
+        }
+        for src, dst in replacements.items():
+            text = text.replace(src, dst)
+        __import__('builtins').print(text, **kwargs)
+
+
+print = safe_print
+
+
 @dataclass
 class VerifiedReference:
     """已验证的参考文献数据结构"""
@@ -105,8 +137,8 @@ class SemanticScholarSearcher:
 
         self._last_request_time = 0
         self._rate_limit_warned = False  # 是否已提示过限流警告
-        self._max_retries = 3  # 最大重试次数
-        self._retry_wait = 60  # 429错误等待时间（秒）
+        self._max_retries = 2  # 最大重试次数
+        self._retry_wait = 5  # 429错误等待时间（秒，避免长时间阻塞）
 
     def _load_api_key_from_config(self, config_path: str) -> Optional[str]:
         """从配置文件读取 API Key"""
@@ -692,7 +724,6 @@ class MultiSourceSearcher:
                 api_key=semantic_scholar_key,
                 config_path=ss_config_path
             )
-            self.searchers["semantic-scholar"] = SemanticScholarSearcher(api_key=semantic_scholar_key)
 
         if "crossref" in sources:
             self.searchers["crossref"] = CrossRefSearcher()
@@ -1053,8 +1084,7 @@ class ReferenceFormatter:
             lines.append(f"    doi_url: \"{ref.doi_url}\"")
             lines.append(f"    verified: {ref.cross_verified}")
             lines.append(f"    source: \"{ref.source_api}\"")
-            lines.append(f"    citation_count: {ref.citation_count}")
-            lines.append(f"    relevance_score: {ref.relevance_score:.2f}")
+            lines.append(f"    language: \"{ref.language}\"")
             lines.append(f"    keywords: []  # 待填充")
             lines.append(f"    gb7714: \"{gb7714}\"")
             lines.append("")
@@ -1101,7 +1131,8 @@ def search_and_format(
     cross_verify: bool = True,
     language: str = "all",
     api_key: Optional[str] = None,
-    config_path: Optional[str] = None
+    config_path: Optional[str] = None,
+    zh_ratio: float = 0.65
 ) -> str:
     """
     多源搜索并格式化输出
@@ -1116,6 +1147,7 @@ def search_and_format(
         language: 语言过滤
         api_key: Semantic Scholar API Key
         config_path: 配置文件路径（自动读取API Key）
+        zh_ratio: 中文文献占比（默认0.65，要求中文>65%）
 
     Returns:
         格式化后的输出
@@ -1126,13 +1158,66 @@ def search_and_format(
         config_path=config_path
     )
 
-    results = searcher.search(
-        query=query,
-        year_range=year_range,
-        limit=limit,
-        cross_verify=cross_verify,
-        language=language
-    )
+    if zh_ratio > 0 and zh_ratio < 1.0 and language == "all":
+        # 分批搜索：先中文后英文，确保比例
+        zh_limit = int(limit * zh_ratio) + 2  # 多搜2篇备用
+        en_limit = int(limit * (1 - zh_ratio)) + 2
+
+        print(f"\n[比例控制] 中文目标: {zh_limit} 篇, 英文目标: {en_limit} 篇 (比例 {zh_ratio:.0%})")
+
+        # 搜索中文文献
+        zh_results = searcher.search(
+            query=query,
+            year_range=year_range,
+            limit=zh_limit,
+            cross_verify=False,
+            language="zh"
+        )
+        print(f"[比例控制] 中文文献搜索完成: {len(zh_results)} 篇")
+
+        # 搜索英文文献
+        en_results = searcher.search(
+            query=query,
+            year_range=year_range,
+            limit=en_limit,
+            cross_verify=False,
+            language="en"
+        )
+        print(f"[比例控制] 英文文献搜索完成: {len(en_results)} 篇")
+
+        # 合并结果
+        results = zh_results + en_results
+
+        # 检查比例是否达标
+        zh_count = sum(1 for r in results if r.language == "zh")
+        actual_ratio = zh_count / len(results) if results else 0
+        if actual_ratio <= zh_ratio:
+            print(f"[比例控制] ⚠️ 中文比例 {actual_ratio:.1%} 未超过目标 {zh_ratio:.0%}，触发补充搜索")
+            supplement_limit = int((zh_ratio * len(results) - zh_count) / (1 - zh_ratio)) + 3
+            supplement_zh = searcher.search(
+                query=query,
+                year_range=year_range,
+                limit=supplement_limit,
+                cross_verify=False,
+                language="zh"
+            )
+            results.extend(supplement_zh)
+            print(f"[比例控制] 补充中文文献: {len(supplement_zh)} 篇")
+
+        # DOI 交叉验证
+        if cross_verify:
+            results = searcher._cross_verify_dois_with_progress(results)
+
+        # 加权排序
+        results = searcher._sort_by_relevance(results, query)
+    else:
+        results = searcher.search(
+            query=query,
+            year_range=year_range,
+            limit=limit,
+            cross_verify=cross_verify,
+            language=language
+        )
 
     if not results:
         return "未找到相关文献"
@@ -1193,6 +1278,8 @@ def main():
                         default="all",
                         help="语言过滤")
     parser.add_argument("--api-key", help="Semantic Scholar API Key")
+    parser.add_argument("--zh-ratio", type=float, default=0.65,
+                        help="中文文献占比（默认0.65，要求中文>65%），仅在language=all时生效")
 
     args = parser.parse_args()
 
@@ -1215,7 +1302,8 @@ def main():
             output_format=args.format,
             cross_verify=cross_verify,
             language=args.language,
-            api_key=args.api_key
+            api_key=args.api_key,
+            zh_ratio=args.zh_ratio
         )
 
     elif args.doi:

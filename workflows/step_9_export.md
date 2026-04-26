@@ -1,5 +1,13 @@
 # Step 9: 文档导出与图片插入
 
+> **状态管理（强制执行）**：
+> 1. 启动前：`python scripts/status_manager.py thesis-workspace/ --ensure`
+> 2. 启动时：`python scripts/status_manager.py thesis-workspace/ --check-step 9`
+> 3. 前置条件通过后：`--update-step 9 --action start`
+> 4. 完成后：`--update-step 9 --action complete`
+>
+> **统一入口（推荐）**：`python scripts/lifecycle.py --workspace thesis-workspace/ --step 9 --event start|complete`
+
 > **自动将图片插入到 Word 文档，并添加规范图注**
 
 ---
@@ -30,7 +38,7 @@ flowchart TD
 | 特性 | 说明 | 格式标准 |
 |------|------|----------|
 | 自动居中 | 图片居中显示 | `doc.add_picture()` + 段落居中 |
-| 尺寸控制 | 自动计算，默认最大宽度 14cm | 适合 A4 纸张 |
+| 尺寸控制 | 自动计算，默认最大宽度 14cm、最大高度 12cm | 适合 A4 纸张 |
 | 图注格式 | 五号宋体、居中 | 符合学术论文规范 |
 | 路径解析 | 支持相对路径，自动 resolve 为绝对路径 | 处理 Windows 反斜杠 |
 | 格式检查 | 仅支持 png/jpg/jpeg/gif/bmp/tiff/emf/wmf | 非法格式自动跳过 |

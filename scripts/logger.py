@@ -13,6 +13,7 @@ thesis-creator 日志工具模块
 import os
 import sys
 import logging
+from logging.handlers import RotatingFileHandler
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, Dict, Any
@@ -24,8 +25,22 @@ try:
 except ImportError:
     YAML_AVAILABLE = False
 
+MAX_LOG_FILE_SIZE = 5 * 1024 * 1024  # 5MB
+LOG_BACKUP_COUNT = 5
 
-def _load_config() -> Dict[str, Any]:
+
+def _normalize_workspace_path(workspace_path: Optional[str]) -> Optional[Path]:
+    """规范化工作区路径，兼容传入 thesis-workspace/workspace 的场景"""
+    if not workspace_path:
+        return None
+
+    p = Path(workspace_path)
+    if p.name == "workspace":
+        return p.parent
+    return p
+
+
+def _load_config(workspace_path: Optional[str] = None) -> Dict[str, Any]:
     """
     加载 thesis-workspace/.thesis-config.yaml 配置文件
 
@@ -41,12 +56,19 @@ def _load_config() -> Dict[str, Any]:
         }
     }
 
+    normalized_workspace = _normalize_workspace_path(workspace_path)
+
     # 搜索配置文件位置
     script_dir = Path(__file__).parent
-    possible_paths = [
+    possible_paths = []
+
+    if normalized_workspace:
+        possible_paths.append(normalized_workspace / ".thesis-config.yaml")
+
+    possible_paths.extend([
         Path.cwd() / "thesis-workspace" / ".thesis-config.yaml",
         script_dir.parent.parent.parent / "thesis-workspace" / ".thesis-config.yaml",
-    ]
+    ])
 
     for config_path in possible_paths:
         if config_path.exists():
@@ -72,14 +94,14 @@ def _load_config() -> Dict[str, Any]:
     return default_config
 
 
-def _is_logging_enabled() -> bool:
+def _is_logging_enabled(workspace_path: Optional[str] = None) -> bool:
     """
     检查日志功能是否启用
 
     Returns:
         True 如果启用，False 如果禁用
     """
-    config = _load_config()
+    config = _load_config(workspace_path=workspace_path)
     return config.get('logging', {}).get('enabled', True)
 
 
@@ -135,7 +157,6 @@ class ThesisLogger:
             return
 
         self.log_dir = Path(log_dir)
-        self.log_dir.mkdir(parents=True, exist_ok=True)
 
         # 生成会话 ID
         self.session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -156,21 +177,29 @@ class ThesisLogger:
             datefmt='%H:%M:%S'
         )
 
-        # 文件处理器
-        log_file = self.log_dir / f"{self.session_name}.log"
-        file_handler = logging.FileHandler(log_file, encoding='utf-8')
-        file_handler.setLevel(log_level)
-        file_handler.setFormatter(file_formatter)
-        self.logger.addHandler(file_handler)
-
-        # 控制台处理器
+        # 控制台处理器（始终可用）
         console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setLevel(console_level)
         console_handler.setFormatter(console_formatter)
         self.logger.addHandler(console_handler)
 
-        # 记录日志文件路径
+        # 文件处理器（失败时优雅降级，仅保留控制台日志）
+        log_file = self.log_dir / f"{self.session_name}.log"
         self.log_file = log_file
+        try:
+            self.log_dir.mkdir(parents=True, exist_ok=True)
+            file_handler = RotatingFileHandler(
+                log_file,
+                maxBytes=MAX_LOG_FILE_SIZE,
+                backupCount=LOG_BACKUP_COUNT,
+                encoding='utf-8'
+            )
+            file_handler.setLevel(log_level)
+            file_handler.setFormatter(file_formatter)
+            self.logger.addHandler(file_handler)
+        except Exception as e:
+            self.log_file = Path("disabled")
+            self.logger.warning(f"日志目录不可写，已降级为仅控制台输出: {self.log_dir} | {e}")
 
         self._initialized = True
 
@@ -178,8 +207,9 @@ class ThesisLogger:
         self.logger.info("=" * 60)
         self.logger.info(f"Thesis-Creator Session Started")
         self.logger.info(f"Session ID: {self.session_id}")
-        self.logger.info(f"Log File: {log_file}")
+        self.logger.info(f"Log File: {self.log_file}")
         self.logger.info("=" * 60)
+
 
     def debug(self, msg: str, *args, **kwargs):
         """记录调试信息"""
@@ -405,7 +435,8 @@ def get_logger(
     log_dir: str = None,
     session_name: Optional[str] = None,
     use_workspace: bool = True,
-    check_config: bool = True
+    check_config: bool = True,
+    workspace_path: Optional[str] = None
 ):
     """
     获取全局日志实例
@@ -415,14 +446,17 @@ def get_logger(
         session_name: 会话名称
         use_workspace: 是否优先使用 thesis-workspace/logs 目录
         check_config: 是否检查配置文件中的 enabled 开关（默认 True）
+        workspace_path: 显式工作区路径（优先于自动检测）
 
     Returns:
         ThesisLogger 实例（如果启用）或 NullLogger 实例（如果禁用）
     """
     global _logger, _null_logger
 
+    normalized_workspace = _normalize_workspace_path(workspace_path)
+
     # 检查配置是否启用日志
-    if check_config and not _is_logging_enabled():
+    if check_config and not _is_logging_enabled(workspace_path=str(normalized_workspace) if normalized_workspace else None):
         if _null_logger is None:
             _null_logger = NullLogger()
         return _null_logger
@@ -430,7 +464,9 @@ def get_logger(
     if _logger is None:
         # 自动检测 log_dir
         if log_dir is None:
-            if use_workspace:
+            if normalized_workspace:
+                log_dir = str(normalized_workspace / "logs")
+            elif use_workspace:
                 log_dir = str(_find_workspace_log_dir())
             else:
                 log_dir = "logs"
@@ -443,7 +479,8 @@ def init_logger(
     session_name: Optional[str] = None,
     use_workspace: bool = True,
     check_config: bool = True,
-    force_enable: bool = False
+    force_enable: bool = False,
+    workspace_path: Optional[str] = None
 ):
     """
     初始化日志（创建新实例）
@@ -454,14 +491,17 @@ def init_logger(
         use_workspace: 是否优先使用 thesis-workspace/logs 目录
         check_config: 是否检查配置文件中的 enabled 开关（默认 True）
         force_enable: 强制启用日志（忽略配置，默认 False）
+        workspace_path: 显式工作区路径（优先于自动检测）
 
     Returns:
         新的 ThesisLogger 实例（如果启用）或 NullLogger 实例（如果禁用）
     """
     global _logger, _null_logger
 
+    normalized_workspace = _normalize_workspace_path(workspace_path)
+
     # 检查配置是否启用日志（除非强制启用）
-    if not force_enable and check_config and not _is_logging_enabled():
+    if not force_enable and check_config and not _is_logging_enabled(workspace_path=str(normalized_workspace) if normalized_workspace else None):
         ThesisLogger._instance = None
         ThesisLogger._initialized = False
         _logger = None
@@ -470,7 +510,9 @@ def init_logger(
 
     # 自动检测 log_dir
     if log_dir is None:
-        if use_workspace:
+        if normalized_workspace:
+            log_dir = str(normalized_workspace / "logs")
+        elif use_workspace:
             log_dir = str(_find_workspace_log_dir())
         else:
             log_dir = "logs"

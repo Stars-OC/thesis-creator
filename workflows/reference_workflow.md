@@ -6,7 +6,7 @@
 
 ## 核心原则
 
-1. **文献池独立存放**：`workspace/verified_references.yaml`
+1. **文献池独立存放**：`workspace/references/verified_references.yaml`
 2. **写作前生成文献池**：确保引用来源真实可靠
 3. **默认数量 20-30 篇**：适合标准本科论文
 
@@ -25,10 +25,18 @@ flowchart TD
     E --> G
     F --> G
     G --> H[多源搜索]
-    H --> I[DOI验证]
-    I --> J[写入 verified_references.yaml]
-    J --> K[Step 4 写作]
-    K --> L[从文献池选取引用]
+    H --> I{实际数量 >= 目标的80%?}
+    I -->|否| J[调整关键词与语种配比]
+    J --> K[扩大范围补充搜索]
+    K --> H
+    I -->|是| L[DOI验证]
+    L --> M[写入 verified_references.yaml]
+    M --> N[Step 4 写作]
+    N --> O[每章检查引用密度]
+    O --> P{每章引用数量达标?}
+    P -->|否| Q[从文献池补充引用]
+    Q --> O
+    P -->|是| R[进入 Step 7 合并]
 ```
 
 ---
@@ -70,7 +78,7 @@ flowchart TD
 
 ## 文献池格式
 
-`workspace/verified_references.yaml`：
+`workspace/references/verified_references.yaml`：
 
 ```yaml
 # 已验证的真实文献池
@@ -106,6 +114,23 @@ references:
 | 禁止编造 DOI | 不能虚构 DOI 号 | 触发重生成 |
 | 必须包含 DOI 链接 | 格式：[DOI](https://doi.org/xxx) | 自动补充或标记 |
 | **数量严格控制** | 最终参考文献不得超出用户选择的上限 | 合并时按相关度截取 |
+| **中英文文献均需包含** | 参考文献中中文和英文文献都必须有 | 缺少任一语种则触发补充搜索 |
+| **中文文献占比 >65%** | 中文文献占参考文献总数需严格大于 65% | 比例不达标则补充中文文献搜索 |
+
+### 中英文比例硬约束
+
+> **以 error.md 为准**：中文文献 >65%，英文文献 <35%。
+> 此比例在 SKILL.md 中可配置（`zh_ratio` 参数），默认 0.65。
+
+| 语种 | 占比要求 | 说明 |
+|------|---------|------|
+| 中文文献 | > 65% | 中文期刊、学位论文 |
+| 英文文献 | < 35% | 国际前沿研究 |
+
+**搜索策略**：
+1. 先用中文关键词搜索目标×65%数量以上的文献
+2. 再用英文关键词搜索目标×35%数量以下的文献
+3. 合并后检查比例，不达标触发补充搜索（优先补充中文）
 
 ### 数量控制规则
 
@@ -152,11 +177,11 @@ def check_doi_reachable(doi: str) -> bool:
 
 ```bash
 # 搜索并验证文献
-python scripts/reference_engine.py --query "关键词" --limit 25 --verify-doi -o workspace/verified_references.yaml
+python scripts/reference_engine.py --query "关键词" --limit 25 --verify-doi -o workspace/references/verified_references.yaml
 
 # 验证单个 DOI
 python scripts/reference_engine.py --doi "10.xxx/yyy" --verify-doi
 
 # 导出 GB/T 7714 格式
-python scripts/reference_engine.py --query "关键词" --format gbt7714 -o workspace/references.md
+python scripts/reference_engine.py --query "关键词" --format gbt7714 -o workspace/references/references_gbt7714.md
 ```
