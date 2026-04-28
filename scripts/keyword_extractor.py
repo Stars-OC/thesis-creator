@@ -25,6 +25,7 @@ try:
 except ImportError:
     import logging
     def get_logger():
+        """get_logger"""
         return logging.getLogger()
 
 
@@ -56,6 +57,7 @@ class KeywordExtractor:
     ACTION_KEYWORDS = ['登录', '注册', '提交', '查询', '删除', '修改', '添加', '创建', '审核', '批准', '拒绝', '发送', '接收', '处理', '验证', '检查']
 
     def __init__(self):
+        """__init__"""
         self.logger = get_logger()
 
     def extract_entities(self, text: str) -> Dict[str, List[str]]:

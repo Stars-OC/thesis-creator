@@ -60,7 +60,7 @@ class VerifiedReferencePool:
     """已验证文献池管理器"""
 
     DEFAULT_POOL_FILE = "workspace/references/verified_references.yaml"
-    MAX_USE_PER_REFERENCE = 3  # 单篇文献最大引用次数
+    MAX_USE_PER_REFERENCE = 1  # 单篇文献最大引用次数
 
     def __init__(self, pool_file: Optional[str] = None):
         """
@@ -371,8 +371,10 @@ class VerifiedReferencePool:
             return False
 
         ref = self.references[ref_id]
-        ref.used_count += 1
+        if ref.used_count >= self.MAX_USE_PER_REFERENCE:
+            return False
 
+        ref.used_count += 1
         if chapter not in ref.chapters_used:
             ref.chapters_used.append(chapter)
 
@@ -533,6 +535,7 @@ class VerifiedReferencePool:
 
 
 def main():
+    """main"""
     parser = argparse.ArgumentParser(description="已验证文献池管理器")
 
     parser.add_argument("--init", action="store_true", help="初始化文献池")

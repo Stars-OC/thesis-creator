@@ -65,6 +65,9 @@ cp template.md background.md
 
 打开 `background.md`，逐项填写各项内容。
 
+> [!IMPORTANT]
+> 如果需要自动生成第4章 E-R 图，请优先填写“数据库表设计”区块，并尽量为每张表提供标准 Markdown 表格（字段名、类型、长度、允许空、主键、说明）。脚本会优先按这里的表结构生成“一表一图 + 一图一说明”。
+
 ### 步骤 3：启动 Skill
 
 在 Claude Code 中说：

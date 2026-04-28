@@ -136,6 +136,7 @@ class EnhancedSynonymReplacer:
     """增强版同义词替换器"""
 
     def __init__(self, whitelist: set, ratio: float = 0.5):
+        """__init__"""
         self.whitelist = whitelist
         self.ratio = ratio
         self.replacement_history = defaultdict(list)  # 记录每个词的替换历史

@@ -59,6 +59,7 @@ class SubTask:
     timeout: int = 300  # 超时时间（秒）
 
     def to_dict(self) -> Dict:
+        """to_dict"""
         return {
             "task_type": self.task_type.value,
             "input_data": self.input_data,
@@ -69,6 +70,7 @@ class SubTask:
 
     @classmethod
     def from_dict(cls, data: Dict) -> 'SubTask':
+        """from_dict"""
         return cls(
             task_type=TaskType(data["task_type"]),
             input_data=data["input_data"],
@@ -90,10 +92,12 @@ class TaskResult:
     timestamp: str = ""
 
     def __post_init__(self):
+        """__post_init__"""
         if not self.timestamp:
             self.timestamp = datetime.now().isoformat()
 
     def to_dict(self) -> Dict:
+        """to_dict"""
         return {
             "task_id": self.task_id,
             "task_type": self.task_type.value,
@@ -585,6 +589,7 @@ python scripts/task_dispatcher.py --result task_id_here
 
 
 def main():
+    """main"""
     parser = argparse.ArgumentParser(description="任务分发器")
     parser.add_argument("--type", "-t", choices=[e.value for e in TaskType],
                         help="任务类型")

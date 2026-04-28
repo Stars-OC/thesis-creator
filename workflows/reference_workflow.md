@@ -54,7 +54,7 @@ flowchart TD
       "multiSelect": false,
       "options": [
         {
-          "label": "20-30 篇（推荐）",
+          "label": "20-30 篇(推荐)",
           "description": "标准本科论文参考文献数量，适合大多数情况。",
           "markdown": "📚 标准本科论文配置\n✅ 适合大多数学科\n⏱️ 搜索时间适中"
         },
@@ -120,7 +120,7 @@ references:
 ### 中英文比例硬约束
 
 > **以 error.md 为准**：中文文献 >65%，英文文献 <35%。
-> 此比例在 SKILL.md 中可配置（`zh_ratio` 参数），默认 0.65。
+> 此比例在 SKILL.md 中可配置(`zh_ratio` 参数)，默认 0.65。
 
 | 语种 | 占比要求 | 说明 |
 |------|---------|------|
@@ -130,7 +130,7 @@ references:
 **搜索策略**：
 1. 先用中文关键词搜索目标×65%数量以上的文献
 2. 再用英文关键词搜索目标×35%数量以下的文献
-3. 合并后检查比例，不达标触发补充搜索（优先补充中文）
+3. 合并后检查比例，不达标触发补充搜索(优先补充中文)
 
 ### 数量控制规则
 
@@ -140,7 +140,7 @@ references:
 | 30-50 篇 | 搜索 55 篇 | 50 篇 | 25-55 篇 |
 | 15-20 篇 | 搜索 25 篇 | 20 篇 | 10-25 篇 |
 
-> **截取规则**：如实际引用数量超出上限，按 `relevance_score`（相关度）排序后截取。合并脚本会自动处理。
+> **截取规则**：如实际引用数量超出上限，按 `relevance_score`(相关度)排序后截取。合并脚本会自动处理。
 
 ---
 
@@ -154,8 +154,8 @@ def check_doi_reachable(doi: str) -> bool:
     检查DOI链接可达性
 
     返回值：
-    - True: 链接可达（状态码 < 400）
-    - False: 链接不可达（4xx 或 5xx 错误）
+    - True: 链接可达(状态码 < 400)
+    - False: 链接不可达(4xx 或 5xx 错误)
     """
     try:
         response = requests.head(
@@ -184,4 +184,9 @@ python scripts/reference_engine.py --doi "10.xxx/yyy" --verify-doi
 
 # 导出 GB/T 7714 格式
 python scripts/reference_engine.py --query "关键词" --format gbt7714 -o workspace/references/references_gbt7714.md
+
+# Step 7 合并前执行在线验证与 404 检查
+python scripts/reference_validator.py workspace/drafts/参考文献.md --validate-online --check-404
 ```
+
+> **硬约束**：合并前必须执行 `--validate-online --check-404`，存在 404 的文献必须替换后才能继续。

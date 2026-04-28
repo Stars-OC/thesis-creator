@@ -1,12 +1,12 @@
 # Step 9: 文档导出与图片插入
 
-> **状态管理（强制执行）**：
+> **状态管理(强制执行)**：
 > 1. 启动前：`python scripts/status_manager.py thesis-workspace/ --ensure`
 > 2. 启动时：`python scripts/status_manager.py thesis-workspace/ --check-step 9`
 > 3. 前置条件通过后：`--update-step 9 --action start`
 > 4. 完成后：`--update-step 9 --action complete`
 >
-> **统一入口（推荐）**：`python scripts/lifecycle.py --workspace thesis-workspace/ --step 9 --event start|complete`
+> **统一入口(推荐)**：`python scripts/lifecycle.py --workspace thesis-workspace/ --step 9 --event start|complete`
 
 > **自动将图片插入到 Word 文档，并添加规范图注**
 
@@ -49,7 +49,7 @@ flowchart TD
 ## 执行命令
 
 ```bash
-# 导出 Word 文档（自动插入图片）
+# 导出 Word 文档(自动插入图片)
 python scripts/document_exporter.py --input workspace/final/论文终稿.md --output workspace/final/ --format docx
 
 # 导出 PDF 文档
@@ -87,12 +87,12 @@ DOCX: [成功]
 - 正文字体：宋体 12pt
 - 标题字体：黑体，一级标题 14pt，二级标题 12pt
 - 行距：1.5 倍行距
-- 首行缩进：0.74cm（两个字符）
+- 首行缩进：0.74cm(两个字符)
 
 ---
 
 ## 输出文件
 
-- `workspace/final/论文终稿.docx` - Word 文档（含图片）
+- `workspace/final/论文终稿.docx` - Word 文档(含图片)
 - `workspace/final/论文终稿.pdf` - PDF 文档
 - `workspace/final/导出报告.md` - 导出报告

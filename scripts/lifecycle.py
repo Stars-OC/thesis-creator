@@ -10,6 +10,8 @@
 """
 
 import argparse
+import shutil
+import venv
 from pathlib import Path
 from typing import Dict, Any
 
@@ -18,7 +20,6 @@ from logger import init_logger, get_logger
 
 
 def _load_lifecycle_config(workspace: Path) -> Dict[str, Any]:
-    """加载 lifecycle 配置（可选）。"""
     default = {
         "logging": {"enabled": True},
         "status": {"enabled": True, "auto_init": True},
@@ -43,6 +44,47 @@ def _load_lifecycle_config(workspace: Path) -> Dict[str, Any]:
     return default
 
 
+def _copy_runtime_scripts(source_dir: Path, target_dir: Path):
+    target_dir.mkdir(parents=True, exist_ok=True)
+    for item in source_dir.iterdir():
+        if item.name == "__pycache__":
+            continue
+        if item.is_file() and item.suffix.lower() in {".py", ".txt"}:
+            target = target_dir / item.name
+            if not target.exists():
+                shutil.copyfile(item, target)
+
+
+
+def ensure_workspace_structure(workspace_path: str, sync_scripts: bool = True) -> Path:
+    workspace = Path(workspace_path)
+    workspace.mkdir(parents=True, exist_ok=True)
+
+    scripts_dir = workspace / "scripts"
+    scripts_dir.mkdir(parents=True, exist_ok=True)
+
+    venv_dir = scripts_dir / ".venv"
+    if not venv_dir.exists():
+        venv.create(venv_dir, with_pip=True)
+
+    target_background = workspace / "references" / "prompt" / "background.md"
+    if not target_background.exists():
+        target_background.parent.mkdir(parents=True, exist_ok=True)
+        template_candidates = [
+            workspace.parent / ".claude" / "skills" / "thesis-creator" / "references" / "prompt" / "background_template.md",
+            Path(__file__).resolve().parent.parent / "references" / "prompt" / "background_template.md",
+        ]
+        for template in template_candidates:
+            if template.exists():
+                shutil.copyfile(template, target_background)
+                break
+
+    if sync_scripts:
+        _copy_runtime_scripts(Path(__file__).resolve().parent, scripts_dir)
+
+    return workspace
+
+
 class LifecycleEvent:
     START = "start"
     COMPLETE = "complete"
@@ -52,7 +94,7 @@ class LifecycleEvent:
 
 class ThesisLifecycle:
     def __init__(self, workspace_path: str):
-        self.workspace = Path(workspace_path)
+        self.workspace = ensure_workspace_structure(workspace_path, sync_scripts=True)
         self.config = _load_lifecycle_config(self.workspace)
 
         if self.config["logging"]["enabled"]:
@@ -108,8 +150,14 @@ def main():
     parser.add_argument("--message", default="", help="错误信息")
     parser.add_argument("--status", action="store_true", help="查看状态")
     parser.add_argument("--resume", action="store_true", help="查看断点续写位置")
+    parser.add_argument("--prepare-runtime", action="store_true", help="仅准备工作区脚本目录与虚拟环境")
 
     args = parser.parse_args()
+
+    if args.prepare_runtime:
+        prepared = ensure_workspace_structure(args.workspace, sync_scripts=True)
+        print(f"[成功] 工作区运行环境已就绪: {prepared}")
+        return
 
     lifecycle = ThesisLifecycle(args.workspace)
 

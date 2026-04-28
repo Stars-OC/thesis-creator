@@ -109,6 +109,7 @@ class PaperReducer:
     """论文降重处理器"""
 
     def __init__(self, whitelist: Set[str] = None, ratio: float = 0.5):
+        """__init__"""
         self.whitelist = whitelist or DEFAULT_WHITELIST
         self.ratio = ratio
         self.replacements = []

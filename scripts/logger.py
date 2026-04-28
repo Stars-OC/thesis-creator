@@ -120,6 +120,7 @@ class ColoredFormatter(logging.Formatter):
 
     def format(self, record):
         # 添加颜色
+        """format"""
         color = self.COLORS.get(record.levelname, self.RESET)
         record.levelname = f"{color}{record.levelname}{self.RESET}"
         return super().format(record)
@@ -352,45 +353,58 @@ class NullLogger:
     """
 
     def __init__(self):
+        """__init__"""
         self.session_id = "disabled"
         self.session_name = "null_logger"
         self.log_file = Path("disabled")
         self.log_dir = Path("disabled")
 
     def debug(self, msg: str, *args, **kwargs):
+        """debug"""
         pass
 
     def info(self, msg: str, *args, **kwargs):
+        """info"""
         pass
 
     def warning(self, msg: str, *args, **kwargs):
+        """warning"""
         pass
 
     def error(self, msg: str, *args, **kwargs):
+        """error"""
         pass
 
     def critical(self, msg: str, *args, **kwargs):
+        """critical"""
         pass
 
     def step(self, step_name: str, status: str = "start"):
+        """step"""
         pass
 
     def file_operation(self, operation: str, file_path: str, success: bool = True):
+        """file_operation"""
         pass
 
     def chapter_progress(self, chapter: str, word_count: int, total_words: int):
+        """chapter_progress"""
         pass
 
     def quality_check(self, check_item: str, passed: bool, details: str = ""):
+        """quality_check"""
         pass
 
     def error_with_context(self, error: Exception, context: dict):
+        """error_with_context"""
         pass
 
     def get_log_content(self) -> str:
+        """get_log_content"""
         return ""
 
     def export_session_report(self, output_path: Optional[str] = None) -> str:
+        """export_session_report"""
         return ""
 
 

@@ -56,6 +56,7 @@ class ThesisStatusManager:
     """论文状态管理器"""
 
     def __init__(self, workspace_dir: str):
+        """__init__"""
         self.workspace_dir = self._resolve_workspace_dir(workspace_dir)
         self.status_file = self.workspace_dir / ".thesis-status.json"
 
@@ -287,6 +288,7 @@ class ThesisStatusManager:
 
 
 def main():
+    """main"""
     parser = argparse.ArgumentParser(description="论文状态管理器")
     parser.add_argument("workspace", help="工作区目录路径")
     parser.add_argument("--init", action="store_true", help="初始化状态文件")

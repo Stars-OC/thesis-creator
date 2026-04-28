@@ -20,6 +20,8 @@ from pathlib import Path
 from datetime import datetime
 from typing import Optional, Tuple
 
+import yaml
+
 try:
     from docx import Document
     from docx.shared import Pt, Inches, Cm, RGBColor, Twips
@@ -41,6 +43,40 @@ except ImportError:
     PIL_AVAILABLE = False
     print("[警告] Pillow 未安装，图片尺寸自动缩放功能不可用")
     print("安装命令: pip install Pillow")
+
+
+def _load_format_config(config_path: Optional[str] = None) -> dict:
+    default = {
+        "table_font": "黑体",
+    }
+
+    candidates = []
+    if config_path:
+        candidates.append(Path(config_path))
+
+    candidates.extend([
+        Path.cwd() / "thesis-workspace" / ".thesis-config.yaml",
+        Path.cwd() / ".thesis-config.yaml",
+        Path(__file__).resolve().parents[3] / "thesis-workspace" / ".thesis-config.yaml",
+    ])
+
+    for candidate in candidates:
+        if not candidate.exists():
+            continue
+        try:
+            data = yaml.safe_load(candidate.read_text(encoding="utf-8")) or {}
+            if isinstance(data, dict):
+                format_cfg = data.get("format", {})
+                if isinstance(format_cfg, dict):
+                    default.update({k: v for k, v in format_cfg.items() if v is not None})
+                    return default
+        except Exception:
+            continue
+
+    return default
+
+
+FORMAT_CONFIG = _load_format_config()
 
 
 def set_chinese_font(run, font_name: str = '宋体', font_size: int = 12, bold: bool = False):
@@ -230,6 +266,8 @@ def add_table(doc, rows: list, caption: str = ''):
     table.style = 'Table Grid'
 
     # 填充内容
+    table_font = FORMAT_CONFIG.get('table_font', '黑体')
+
     for i, row_data in enumerate(rows):
         for j, cell_text in enumerate(row_data):
             if j < num_cols:
@@ -241,9 +279,9 @@ def add_table(doc, rows: list, caption: str = ''):
                     for run in para.runs:
                         if i == 0:
                             # 表头加粗居中
-                            set_chinese_font(run, '宋体', 10, bold=True)
+                            set_chinese_font(run, table_font, 10, bold=True)
                         else:
-                            set_chinese_font(run, '宋体', 10)
+                            set_chinese_font(run, table_font, 10)
 
     # 应用三线表边框
     _apply_three_line_borders(table)

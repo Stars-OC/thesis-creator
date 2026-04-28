@@ -502,6 +502,7 @@ def verify_doi(doi: str, api_key: Optional[str] = None, crossref_verify: bool = 
 
 
 def main():
+    """main"""
     parser = argparse.ArgumentParser(description="文献搜索工具")
     parser.add_argument("--query", "-q", help="搜索关键词")
     parser.add_argument("--doi", "-d", help="验证 DOI")

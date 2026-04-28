@@ -39,6 +39,7 @@ class TextAnalyzer:
     """文本特征分析器"""
 
     def __init__(self):
+        """__init__"""
         self.sentences: List[str] = []
         self.words: List[str] = []
         self.paragraphs: List[str] = []

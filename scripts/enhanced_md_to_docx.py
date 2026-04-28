@@ -445,6 +445,7 @@ def convert_md_to_docx(
 
 
 def main():
+    """main"""
     parser = argparse.ArgumentParser(description='增强版 Markdown 转 Word 文档转换器')
     parser.add_argument('--input', '-i', required=True, help='输入 Markdown 文件路径')
     parser.add_argument('--output', '-o', help='输出 Word 文件路径（默认：同名 .docx）')

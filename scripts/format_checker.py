@@ -53,6 +53,7 @@ class FormatChecker:
     """论文格式检查器"""
 
     def __init__(self, verbose: bool = False):
+        """__init__"""
         self.results: List[CheckResult] = []
         self.content: str = ""
         self.lines: List[str] = []

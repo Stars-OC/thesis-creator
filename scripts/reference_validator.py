@@ -31,8 +31,10 @@ except ImportError:
     import logging
     logging.basicConfig(level=logging.INFO)
     def get_logger():
+        """get_logger"""
         return logging.getLogger()
     def init_logger():
+        """init_logger"""
         return get_logger()
 
 # 导入在线验证模块
@@ -72,6 +74,7 @@ class Reference:
     verified_online: bool = False     # 新增：已在线验证标记
 
     def __post_init__(self):
+        """__post_init__"""
         if self.issues is None:
             self.issues = []
 
@@ -119,26 +122,38 @@ class ReferenceValidator:
     )
 
     # 年份提取模式
-    YEAR_PATTERN = re.compile(r'[，,.\s](\d{4})[，,.\s]')
+    YEAR_PATTERN = re.compile(r'(?:^|[，,.\s])(\d{4})(?=[，,.\s(]|$)')
 
-    def __init__(self, output_dir: str = "reports", enable_online_validation: bool = True):
+    def __init__(self, output_dir: str = "reports", enable_online_validation: bool = True, check_404: bool = False):
         """
         初始化验证器
 
         Args:
             output_dir: 输出目录
             enable_online_validation: 是否启用在线验证（需网络连接）
+            check_404: 是否执行 DOI/URL 的 404 与可达性检查
         """
         self.logger = get_logger()
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.enable_online_validation = enable_online_validation
+        self.check_404 = check_404
 
         # 优先初始化 CrossRef 搜索器（无限流问题，完全免费）
         if enable_online_validation and CROSSREF_AVAILABLE:
             self.crossref_searcher = CrossRefSearcher()
         else:
             self.crossref_searcher = None
+
+        # OpenAlex 作为中文标题搜索兜底
+        if enable_online_validation and CROSSREF_AVAILABLE:
+            try:
+                from reference_engine import OpenAlexSearcher
+                self.openalex_searcher = OpenAlexSearcher()
+            except ImportError:
+                self.openalex_searcher = None
+        else:
+            self.openalex_searcher = None
 
         # Semantic Scholar 作为备用（可能触发429限流）
         if enable_online_validation and SemanticScholarSearcher is not None:
@@ -154,9 +169,23 @@ class ReferenceValidator:
             'suspicious_authors': 0,
             'format_issues': 0,
             'missing_info': 0,
-            'hallucination_risk': 0,  # 新增：幻觉风险统计
-            'online_verified': 0      # 新增：在线验证通过统计
+            'hallucination_risk': 0,
+            'online_verified': 0,
+            'broken_links': 0
         }
+
+    def _has_broken_link_issue(self, ref: Reference) -> bool:
+        """判断文献是否存在 DOI/URL 链接异常问题"""
+        link_markers = (
+            "404",
+            "链接不可达",
+            "链接无法访问",
+            "网页不存在",
+            "网页访问失败",
+            "网页访问超时",
+            "网页连接失败",
+        )
+        return any(any(marker in issue for marker in link_markers) for issue in ref.issues)
 
     def parse_references(self, content: str) -> List[Reference]:
         """
@@ -236,29 +265,54 @@ class ReferenceValidator:
         type_match = re.search(r'\[([JCMCDPSRNZ])\]', text)
         ref_type = type_match.group(1) if type_match else 'Z'
 
-        # 提取作者（在第一个标题分隔符之前）
-        author_text = text[index_match.end():]
+        body = text[index_match.end():].strip()
+
+        authors: List[str] = []
+        title = ""
+        journal = None
+
         if type_match:
-            author_text = author_text[:author_text.find('[' + ref_type + ']')]
+            marker_start = type_match.start()
+            marker_end = type_match.end()
+            before_type = text[index_match.end():marker_start].strip(' .，,;；')
+            after_type = text[marker_end:].strip().lstrip(' .，,;；')
 
-        authors = self._extract_authors(author_text)
+            title = before_type
 
-        # 提取标题
-        title = self._extract_title(text, ref_type)
+            sentence_break = None
+            if ref_type == 'C' and after_type.startswith('//'):
+                after_type = after_type[2:].strip()
+
+            delimiter_positions = [
+                pos for pos in (after_type.find(delimiter) for delimiter in ['. ', '。', '，', ','])
+                if pos != -1
+            ]
+            if delimiter_positions:
+                sentence_break = min(delimiter_positions)
+
+            if sentence_break is None:
+                source_part = after_type
+            else:
+                source_part = after_type[:sentence_break]
+
+            journal = source_part.strip(' .，,;；') or None
+
+            authors = self._extract_authors_from_title_prefix(title)
+            if authors:
+                title = self._remove_authors_prefix(title, authors)
+        else:
+            authors = []
+            title = ""
 
         # 提取年份
         year_match = self.YEAR_PATTERN.search(text)
         year = int(year_match.group(1)) if year_match else None
 
-        # 提取期刊名
-        journal = self._extract_journal(text, ref_type)
-
         # 提取 DOI
-        doi_match = re.search(r'DOI[:：]?\s*([10]\.\d{4,}/[^\s.,]+)', text, re.IGNORECASE)
-        doi = doi_match.group(1) if doi_match else None
+        doi = self._extract_doi(text)
 
         # 提取 URL
-        url_match = re.search(r'https?://[^\s]+', text)
+        url_match = re.search(r'https?://[^\s)\]]+', text)
         url = url_match.group(0) if url_match else None
 
         return Reference(
@@ -277,12 +331,24 @@ class ReferenceValidator:
             url=url
         )
 
+    def _extract_doi(self, text: str) -> Optional[str]:
+        """提取 DOI"""
+        patterns = [
+            r'https?://doi\.org/([^\s)\]]+)',
+            r'DOI[:：]?\s*([10]\.\d{4,}/[^\s)\],]+)',
+        ]
+
+        for pattern in patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                return match.group(1).rstrip('.,;')
+
+        return None
+
     def _extract_authors(self, author_text: str) -> List[str]:
         """提取作者列表"""
-        # 清理文本
         author_text = author_text.strip('.,;，。；')
 
-        # 按分隔符分割
         separators = [',', '，', ';', '；', '、', ' and ', ' AND ']
         authors = [author_text]
 
@@ -292,40 +358,58 @@ class ReferenceValidator:
                 new_authors.extend(author.split(sep))
             authors = new_authors
 
-        # 清理和过滤
-        authors = [a.strip() for a in authors if a.strip()]
-        return authors
+        return [a.strip() for a in authors if a.strip()]
 
-    def _extract_title(self, text: str, ref_type: str) -> str:
-        """提取标题"""
-        # 在文献类型标识之后，下一分隔符之前
-        type_pos = text.find('[' + ref_type + ']')
-        if type_pos == -1:
-            return ""
+    def _extract_authors_from_title_prefix(self, prefix: str) -> List[str]:
+        """从类型标识前的文本中提取作者"""
+        candidates = [m.start() for m in re.finditer(r'(?<!\b[A-Z])[.。](?:\s+|$)', prefix)]
 
-        after_type = text[type_pos + 4:].strip()
+        for split_index in candidates:
+            author_part = prefix[:split_index].strip(' .，,;；')
+            title_part = prefix[split_index + 1:].strip()
+            authors = self._extract_authors(author_part)
+            if title_part and self._authors_look_reasonable(authors):
+                return authors
 
-        # 标题通常在第一个句号或逗号之前
-        title_end_chars = ['.', '。', '，', ',']
-        for char in title_end_chars:
-            pos = after_type.find(char)
-            if pos > 0:
-                after_type = after_type[:pos]
-                break
+        return []
 
-        return after_type.strip()
+    def _remove_authors_prefix(self, prefix: str, authors: List[str]) -> str:
+        """从标题前缀中移除作者部分"""
+        author_part = ', '.join(authors)
+        if prefix.startswith(author_part):
+            remainder = prefix[len(author_part):].lstrip(' .，,;；')
+            if remainder:
+                return remainder
 
-    def _extract_journal(self, text: str, ref_type: str) -> Optional[str]:
-        """提取期刊名"""
-        if ref_type != 'J':
-            return None
+        candidates = [m.start() for m in re.finditer(r'(?<!\b[A-Z])[.。](?:\s+|$)', prefix)]
+        for split_index in candidates:
+            title_part = prefix[split_index + 1:].strip()
+            if title_part:
+                return title_part
 
-        # 期刊名通常在标题之后
-        parts = text.split('.,')
-        if len(parts) >= 3:
-            return parts[2].strip()
+        return prefix.strip()
 
-        return None
+    def _authors_look_reasonable(self, authors: List[str]) -> bool:
+        """判断作者列表是否像作者名"""
+        if not authors:
+            return False
+
+        invalid_tokens = {'等', 'et al'}
+
+        for author in authors:
+            cleaned = author.strip()
+            if not cleaned:
+                return False
+            if any(token.lower() == cleaned.lower() for token in invalid_tokens):
+                continue
+            if len(cleaned) > 40:
+                return False
+            if re.search(r'\d{4}', cleaned):
+                return False
+            if '[DOI]' in cleaned or 'http' in cleaned.lower():
+                return False
+
+        return True
 
     def _validate_url_content(self, ref: Reference) -> List[str]:
         """
@@ -338,6 +422,9 @@ class ReferenceValidator:
             验证发现的问题列表
         """
         issues = []
+
+        if not self.check_404:
+            return issues
 
         if not ref.url:
             return issues
@@ -417,19 +504,28 @@ class ReferenceValidator:
                         issues.append(
                             f"标题不匹配: 原文 '{ref.title}' vs 实际 '{crossref_result.title}'"
                         )
-                # 检查 DOI 链接可达性（判断 4xx 错误）
-                reachable, status_code = self.crossref_searcher.check_doi_reachable(ref.doi)
-                if not reachable:
-                    # 404 或其他 4xx/5xx 错误
-                    if status_code == 404:
-                        issues.append(f"DOI 不存在 (404): https://doi.org/{ref.doi}")
-                    elif status_code > 0:
-                        issues.append(f"DOI 链接不可达 ({status_code}): https://doi.org/{ref.doi}")
+                if self.check_404:
+                    # 检查 DOI 链接可达性（仅将真实不存在的 404 视为致命问题）
+                    reachable, status_code = self.crossref_searcher.check_doi_reachable(ref.doi)
+                    if not reachable:
+                        if status_code == 404:
+                            issues.append(f"DOI 不存在 (404): https://doi.org/{ref.doi}")
+                            ref.hallucination_risk = True
+                        elif status_code in {401, 403, 405, 418, 429}:
+                            self.logger.warning(
+                                f"DOI 可达性检查受限，跳过拦截: {ref.doi} ({status_code})"
+                            )
+                        elif status_code >= 500:
+                            self.logger.warning(
+                                f"DOI 可达性检查服务异常，跳过拦截: {ref.doi} ({status_code})"
+                            )
+                        else:
+                            issues.append(f"DOI 链接无法访问: https://doi.org/{ref.doi}")
+                            ref.hallucination_risk = True
                     else:
-                        issues.append(f"DOI 链接无法访问: https://doi.org/{ref.doi}")
-                    ref.hallucination_risk = True
+                        self.logger.info(f"DOI 验证通过: {ref.doi}")
                 else:
-                    self.logger.info(f"DOI 验证通过: {ref.doi}")
+                    self.logger.info(f"DOI 元数据验证通过: {ref.doi}")
             else:
                 # CrossRef 验证失败，标记为幻觉风险
                 issues.append(f"DOI 无效或不存在: {ref.doi}")
@@ -440,41 +536,72 @@ class ReferenceValidator:
             keywords = self._extract_keywords(ref.title)
             self.logger.info(f"CrossRef 标题搜索验证: {keywords}")
 
+            def has_similar_title(results) -> bool:
+                return any(self._titles_similar(ref.title, r.title) for r in results if getattr(r, 'title', None))
+
             try:
-                # 使用 CrossRef 搜索（无 API Key 限流问题）
                 results = self.crossref_searcher.search(keywords, year_range=(2020, 2025), limit=5)
 
-                if not results:
-                    issues.append("标题搜索无结果，疑似虚构文献")
-                    ref.hallucination_risk = True
+                if results and has_similar_title(results):
+                    ref.verified_online = True
+                    self.logger.info(f"CrossRef 标题验证通过")
                 else:
-                    # 检查是否有相似标题
-                    similar_found = any(
-                        self._titles_similar(ref.title, r.title)
-                        for r in results if r.title
-                    )
-                    if not similar_found:
-                        issues.append("未找到相似标题，疑似虚构文献")
-                        ref.hallucination_risk = True
-                    else:
+                    openalex_results = []
+                    if self.openalex_searcher is not None:
+                        try:
+                            self.logger.info(f"OpenAlex 标题搜索验证: {keywords}")
+                            openalex_results = self.openalex_searcher.search(keywords, year_range=(2020, 2025), limit=5)
+                        except Exception as e_openalex:
+                            self.logger.warning(f"OpenAlex 搜索失败: {e_openalex}")
+
+                    if openalex_results and has_similar_title(openalex_results):
                         ref.verified_online = True
-                        self.logger.info(f"标题验证通过")
-            except Exception as e:
-                self.logger.warning(f"CrossRef 搜索失败: {e}")
-                # CrossRef 失败时，尝试 Semantic Scholar 作为备用
-                if self.searcher is not None:
-                    try:
-                        results = self.searcher.search(keywords, limit=5)
-                        if results:
-                            similar_found = any(
-                                self._titles_similar(ref.title, r.title)
-                                for r in results if r.title
-                            )
-                            if similar_found:
+                        self.logger.info(f"OpenAlex 备用验证通过")
+                    elif self.searcher is not None:
+                        try:
+                            results = self.searcher.search(keywords, limit=5)
+                            if results and has_similar_title(results):
                                 ref.verified_online = True
                                 self.logger.info(f"Semantic Scholar 备用验证通过")
+                            else:
+                                issues.append("未找到相似标题，疑似虚构文献")
+                                ref.hallucination_risk = True
+                        except Exception as e2:
+                            self.logger.warning(f"Semantic Scholar 搜索也失败: {e2}")
+                            issues.append("未找到相似标题，疑似虚构文献")
+                            ref.hallucination_risk = True
+                    else:
+                        issues.append("未找到相似标题，疑似虚构文献")
+                        ref.hallucination_risk = True
+            except Exception as e:
+                self.logger.warning(f"CrossRef 搜索失败: {e}")
+                openalex_results = []
+                if self.openalex_searcher is not None:
+                    try:
+                        self.logger.info(f"OpenAlex 标题搜索验证: {keywords}")
+                        openalex_results = self.openalex_searcher.search(keywords, year_range=(2020, 2025), limit=5)
+                    except Exception as e_openalex:
+                        self.logger.warning(f"OpenAlex 搜索失败: {e_openalex}")
+
+                if openalex_results and has_similar_title(openalex_results):
+                    ref.verified_online = True
+                    self.logger.info(f"OpenAlex 备用验证通过")
+                elif self.searcher is not None:
+                    try:
+                        results = self.searcher.search(keywords, limit=5)
+                        if results and has_similar_title(results):
+                            ref.verified_online = True
+                            self.logger.info(f"Semantic Scholar 备用验证通过")
+                        else:
+                            issues.append("未找到相似标题，疑似虚构文献")
+                            ref.hallucination_risk = True
                     except Exception as e2:
                         self.logger.warning(f"Semantic Scholar 搜索也失败: {e2}")
+                        issues.append("未找到相似标题，疑似虚构文献")
+                        ref.hallucination_risk = True
+                else:
+                    issues.append("未找到相似标题，疑似虚构文献")
+                    ref.hallucination_risk = True
 
         return issues
 
@@ -571,6 +698,9 @@ class ReferenceValidator:
         )
         self.stats['online_verified'] = sum(
             1 for r in self.references if r.verified_online
+        )
+        self.stats['broken_links'] = sum(
+            1 for r in self.references if self._has_broken_link_issue(r)
         )
 
         self.logger.quality_check(
@@ -696,6 +826,9 @@ class ReferenceValidator:
         """生成验证报告"""
         self.logger.info("生成验证报告...")
 
+        recent_count = 0
+        recent_ratio = 0
+
         report_lines = [
             "# 参考文献验证报告",
             "",
@@ -713,6 +846,7 @@ class ReferenceValidator:
             f"| 可疑作者名 | {self.stats['suspicious_authors']} |",
             f"| [WARN] 幻觉风险文献 | {self.stats['hallucination_risk']} |",
             f"| [OK] 在线验证通过 | {self.stats['online_verified']} |",
+            f"| [WARN] 404/链接异常 | {self.stats['broken_links']} |",
             "",
         ]
 
@@ -891,6 +1025,7 @@ class ReferenceValidator:
 
 
 def main():
+    """main"""
     parser = argparse.ArgumentParser(description="参考文献验证工具")
     parser.add_argument("input", help="输入 Markdown 文件路径")
     parser.add_argument("-o", "--output", default=None, help="输出目录（默认: thesis-workspace/workspace/reports）")
@@ -899,6 +1034,8 @@ def main():
                         help="启用在线验证（检查 DOI 和标题真实性）")
     parser.add_argument("--offline", action="store_true",
                         help="禁用在线验证（仅检查格式）")
+    parser.add_argument("--check-404", action="store_true",
+                        help="执行 DOI/URL 的 404 与可达性检查（通常与 --validate-online 搭配使用）")
 
     args = parser.parse_args()
 
@@ -939,7 +1076,8 @@ def main():
     # 创建验证器（支持在线验证）
     validator = ReferenceValidator(
         output_dir=output_dir,
-        enable_online_validation=enable_online
+        enable_online_validation=enable_online,
+        check_404=args.check_404 and enable_online
     )
 
     # 解析参考文献
@@ -963,11 +1101,16 @@ def main():
     if enable_online:
         print(f"   [WARN] 幻觉风险文献: {stats['hallucination_risk']}")
         print(f"   [OK] 在线验证通过: {stats['online_verified']}")
+        if args.check_404:
+            print(f"   [WARN] 404/链接异常: {stats['broken_links']}")
     print(f"\n[文档] 验证报告: {report_file}")
 
     # 提示幻觉风险
     if stats['hallucination_risk'] > 0:
         print(f"\n[WARN] 发现 {stats['hallucination_risk']} 篇疑似虚构文献，请查看报告详情！")
+
+    if args.check_404 and stats['broken_links'] > 0:
+        print(f"[WARN] 发现 {stats['broken_links']} 篇文献存在 404 或链接异常，请先替换后再继续。")
 
     logger.step("参考文献验证", "complete")
 

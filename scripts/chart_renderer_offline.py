@@ -30,6 +30,7 @@ try:
 except ImportError:
     import logging
     def get_logger():
+        """get_logger"""
         return logging.getLogger()
 
 
@@ -52,6 +53,7 @@ class FontConfig:
     ]
 
     def __init__(self):
+        """__init__"""
         self.logger = get_logger()
         self.available_font = None
         self._configure_chinese_font()
@@ -153,6 +155,7 @@ class OfflineChartRenderer:
     }
 
     def __init__(self, output_dir: str = "images", theme: str = "academic"):
+        """__init__"""
         self.logger = get_logger()
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)

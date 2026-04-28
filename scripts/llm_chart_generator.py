@@ -26,6 +26,7 @@ try:
 except ImportError:
     import logging
     def get_logger():
+        """get_logger"""
         return logging.getLogger()
 
 
@@ -41,7 +42,7 @@ class LLMChartGenerator:
 上下文信息：{context}
 
 要求：
-1. 使用 graph TB 格式
+1. 使用 graph LR 格式，横向展开，避免纵向堆叠
 2. 包含表现层、接口层、业务层、数据层四个子图
 3. 每个层级的组件名称要具体，不要使用通用名称
 4. 使用中文标注
@@ -56,7 +57,7 @@ class LLMChartGenerator:
 上下文信息：{context}
 
 要求：
-1. 使用 flowchart TD 格式
+1. 使用 flowchart LR 格式，横向展开，避免纵向堆叠
 2. 包含开始和结束节点（使用圆角矩形）
 3. 决策节点使用菱形 {decision}
 4. 处理节点使用矩形 [process]
@@ -67,17 +68,19 @@ class LLMChartGenerator:
 请只输出 Mermaid 代码，不要其他解释。
 """,
         'E-R图': """
-请根据以下描述生成一个实体关系图（E-R图）的 Mermaid 代码。
+请根据以下描述生成一个概念ER图的 Mermaid 代码。
 
 图表描述：{description}
 上下文信息：{context}
 
 要求：
-1. 使用 erDiagram 格式
-2. 实体使用大写命名
-3. 包含实体的主要字段（使用中文注释）
-4. 使用 ||--o{ 等关系符号表示实体间的关系
-5. 标注 PK（主键）、FK（外键）
+1. 使用 flowchart LR 格式，不要使用 erDiagram
+2. 实体使用矩形 [实体名]
+3. 属性使用椭圆 ((属性名))
+4. 联系使用菱形 {联系名}
+5. 主键属性统一命名为 PK_xxx，外键属性统一命名为 FK_xxx
+6. 至少包含 1 个核心实体、1 个联系、4 个属性
+7. 使用中文标注
 
 请只输出 Mermaid 代码，不要其他解释。
 """,
@@ -131,6 +134,7 @@ class LLMChartGenerator:
     }
 
     def __init__(self, api_key: str = None, model: str = "claude-3-haiku-20240307"):
+        """__init__"""
         self.logger = get_logger()
         self.api_key = api_key or os.environ.get("ANTHROPIC_API_KEY", "")
         self.model = model
@@ -350,6 +354,7 @@ class HybridChartGenerator:
     """
 
     def __init__(self):
+        """__init__"""
         self.logger = get_logger()
 
         # 初始化组件
@@ -426,7 +431,7 @@ class HybridChartGenerator:
             return f'''```mermaid
 %% {chart_id} {chart_name}
 %% 自动生成于 {timestamp}
-graph TB
+graph LR
     subgraph 表现层
         A1[前端应用]
         A2[移动端]
@@ -450,9 +455,9 @@ graph TB
             return f'''```mermaid
 %% {chart_id} {chart_name}
 %% 自动生成于 {timestamp}
-flowchart TD
+flowchart LR
     A([开始]) --> B[处理请求]
-    B --> C{判断条件}
+    B --> C{{判断条件}}
     C -->|是| D[继续处理]
     C -->|否| Z([结束])
     D --> Z

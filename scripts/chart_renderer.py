@@ -1,24 +1,30 @@
 # -*- coding: utf-8 -*-
 """
-图表渲染工具 - 将 Mermaid/PlantUML 代码渲染为 PNG 图片
+图表渲染工具 - 将 Mermaid、DOT、PlantUML 代码渲染为 PNG 图片
 
 功能：
-1. 解析 Markdown 中的 Mermaid/PlantUML 代码块
+1. 解析 Markdown 中的 Mermaid、DOT、PlantUML 代码块
 2. 自动渲染为 PNG 图片
 3. 支持多种渲染方式：
-   - Puppeteer + Mermaid CLI（推荐）
+   - Graphviz + Python graphviz（DOT）
+   - Mermaid CLI（推荐）
    - Playwright + Mermaid（备选）
    - 在线 API（fallback）
 4. 图片保存到本地目录
 
 依赖安装：
-    npm install -g @mermaid-js/mermaid-cli
-    或
-    pip install playwright && playwright install chromium
+    DOT 渲染：
+        pip install graphviz
+        并安装 Graphviz 可执行程序（dot）
+
+    Mermaid 渲染：
+        npm install -g @mermaid-js/mermaid-cli
+        或
+        pip install playwright && playwright install chromium
 
 使用方法：
-    python chart_renderer.py --input workspace/final/论文终稿.md --output workspace/final/images/
-    python chart_renderer.py --input workspace/final/论文终稿.md --output workspace/final/images/ --method auto
+    python chart_renderer.py --input workspace/final/ER图_erd烟测.md --output workspace/final/images/ --method auto
+    python chart_renderer.py --input workspace/final/ER图_dot测试_由易到难.md --output workspace/final/images/ --method auto --update --report
 """
 
 import os
@@ -43,12 +49,19 @@ except ImportError:
     import logging
     logging.basicConfig(level=logging.INFO)
     def get_logger():
+        """get_logger"""
         return logging.getLogger()
     def init_logger():
+        """init_logger"""
         return get_logger()
 
 
 MAX_MERMAID_HEIGHT_PX = 800
+GRAPHVIZ_BIN_CANDIDATES = [
+    Path(r"D:/Program Files (x86)/Graphviz/bin"),
+    Path(r"C:/Program Files/Graphviz/bin"),
+    Path(r"C:/Program Files (x86)/Graphviz/bin"),
+]
 
 
 class ChartRenderer:
@@ -60,6 +73,12 @@ class ChartRenderer:
         re.DOTALL | re.IGNORECASE
     )
 
+    # DOT 代码块正则
+    DOT_PATTERN = re.compile(
+        r'```dot\n(.*?)```',
+        re.DOTALL | re.IGNORECASE
+    )
+
     # PlantUML 代码块正则
     PLANTUML_PATTERN = re.compile(
         r'```plantuml\n(.*?)```',
@@ -68,8 +87,10 @@ class ChartRenderer:
 
     # 图表编号正则
     CHART_ID_PATTERN = re.compile(r'%%\s*(图\d+-\d+(?:-\d+)?)')
+    DOT_CHART_ID_PATTERN = re.compile(r'//\s*(图\d+-\d+(?:-\d+)?)')
 
     def __init__(self, output_dir: str = "workspace/final/images"):
+        """__init__"""
         self.logger = get_logger()
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -115,6 +136,45 @@ class ChartRenderer:
 
         self.charts = charts
         self.logger.info(f"解析到 {len(charts)} 个 Mermaid 图表")
+
+        return charts
+
+    def parse_dot_blocks(self, content: str) -> List[Dict]:
+        """
+        解析 Markdown 中的 DOT 代码块
+
+        Args:
+            content: Markdown 内容
+
+        Returns:
+            图表信息列表
+        """
+        charts = []
+
+        for match in self.DOT_PATTERN.finditer(content):
+            code = match.group(1).strip()
+
+            chart_id_match = self.DOT_CHART_ID_PATTERN.search(code)
+            chart_id = chart_id_match.group(1) if chart_id_match else f"dot_{len(charts) + 1}"
+
+            lines = code.split('\n')
+            title = ""
+            for line in lines:
+                if line.strip().startswith('//'):
+                    title = line.strip().lstrip('/').strip()
+                    break
+
+            charts.append({
+                'id': chart_id,
+                'type': 'dot',
+                'code': code,
+                'title': title,
+                'start': match.start(),
+                'end': match.end()
+            })
+
+        self.charts.extend(charts)
+        self.logger.info(f"解析到 {len(charts)} 个 DOT 图表")
 
         return charts
 
@@ -332,6 +392,53 @@ class ChartRenderer:
             self.failed_count += 1
             return None
 
+    def _ensure_graphviz_on_path(self) -> None:
+        current_path = os.environ.get("PATH", "")
+        segments = current_path.split(os.pathsep) if current_path else []
+
+        for candidate in GRAPHVIZ_BIN_CANDIDATES:
+            if not candidate.exists():
+                continue
+            candidate_str = str(candidate)
+            if candidate_str not in segments:
+                os.environ["PATH"] = candidate_str + os.pathsep + current_path if current_path else candidate_str
+            return
+
+    def render_with_graphviz(self, chart: Dict) -> Optional[Path]:
+        """
+        使用 Python graphviz 渲染 DOT 图表
+
+        Args:
+            chart: 图表信息
+
+        Returns:
+            输出文件路径，失败返回 None
+        """
+        safe_id = re.sub(r'[^\w\-]', '_', chart['id'])
+        output_file = self.output_dir / f"{safe_id}.png"
+
+        try:
+            from graphviz import Source
+        except ImportError:
+            self.logger.warning("graphviz 未安装，请运行: pip install graphviz")
+            return None
+
+        try:
+            self._ensure_graphviz_on_path()
+            source = Source(chart['code'], format='png')
+            rendered_path = Path(source.render(filename=safe_id, directory=str(self.output_dir), cleanup=True))
+            if rendered_path.exists():
+                self.logger.info(f"渲染成功: {chart['id']} -> {rendered_path.name}")
+                self.rendered_count += 1
+                return rendered_path
+            self.logger.error(f"渲染失败: {chart['id']}: 未生成输出文件")
+            self.failed_count += 1
+            return None
+        except Exception as e:
+            self.logger.error(f"Graphviz 渲染失败: {chart['id']}: {e}")
+            self.failed_count += 1
+            return None
+
     def render_chart(self, chart: Dict, method: str = 'auto') -> Optional[Path]:
         """
         渲染单个图表
@@ -343,8 +450,11 @@ class ChartRenderer:
         Returns:
             输出文件路径
         """
+        if chart['type'] == 'dot':
+            return self.render_with_graphviz(chart)
+
         if chart['type'] != 'mermaid':
-            self.logger.warning(f"跳过: {chart['id']}: 仅支持 Mermaid 图表")
+            self.logger.warning(f"跳过: {chart['id']}: 仅支持 Mermaid/DOT 图表")
             return None
 
         if method == 'mmdc':
@@ -377,7 +487,9 @@ class ChartRenderer:
             {图表ID: 输出路径} 字典
         """
         # 解析图表
+        self.charts = []
         self.parse_mermaid_blocks(content)
+        self.parse_dot_blocks(content)
         self.parse_plantuml_blocks(content)
 
         if not self.charts:
@@ -416,9 +528,21 @@ class ChartRenderer:
         for chart in self.charts:
             safe_id = re.sub(r'[^\w\-]', '_', chart['id'])
             output_file = f"{safe_id}.png"
-            exists = (self.output_dir / output_file).exists()
-            status = "[OK]" if exists else "[FAIL]"
-            report += f"| {chart['id']} | {status} | {output_file if exists else '-'} |\n"
+            output_path = self.output_dir / output_file
+
+            if not output_path.exists():
+                status = "[FAIL]"
+                file_label = "-"
+            else:
+                file_size = output_path.stat().st_size
+                if output_path.suffix.lower() == '.png' and file_size <= 1024:
+                    status = "[WARN]"
+                    file_label = f"{output_file} (<=1KB)"
+                else:
+                    status = "[OK]"
+                    file_label = output_file
+
+            report += f"| {chart['id']} | {status} | {file_label} |\n"
 
         return report
 
@@ -453,6 +577,7 @@ class ChartRenderer:
 
 
 def main():
+    """main"""
     parser = argparse.ArgumentParser(description="图表渲染工具")
     parser.add_argument("--input", "-i", required=True, help="输入 Markdown 文件")
     parser.add_argument("--output", "-o", default="workspace/final/images", help="输出目录（默认 workspace/final/images/）")

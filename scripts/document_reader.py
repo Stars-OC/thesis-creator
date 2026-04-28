@@ -157,6 +157,7 @@ class DocumentReader:
 
 
 def main():
+    """main"""
     parser = argparse.ArgumentParser(description="文档读取器")
     parser.add_argument("--input", "-i", required=True, help="输入文件路径（PDF/Word）")
     parser.add_argument("--structure", "-s", action="store_true", help="提取文档结构")

@@ -20,6 +20,7 @@
 """
 
 import re
+import math
 import json
 import time
 import argparse
@@ -119,6 +120,7 @@ class SemanticScholarSearcher:
     """
 
     def __init__(self, api_key: Optional[str] = None, config_path: Optional[str] = None):
+        """__init__"""
         self.session = requests.Session()
         self.session.headers.update({
             "User-Agent": "thesis-creator/1.0 (https://github.com/thesis-creator)"
@@ -350,6 +352,7 @@ class CrossRefSearcher:
     BASE_URL = "https://api.crossref.org"
 
     def __init__(self):
+        """__init__"""
         self.session = requests.Session()
         self.session.headers.update({
             "User-Agent": "thesis-creator/1.0 (mailto:example@example.com)"
@@ -593,6 +596,7 @@ class OpenAlexSearcher:
     BASE_URL = "https://api.openalex.org"
 
     def __init__(self):
+        """__init__"""
         self.session = requests.Session()
         self.session.headers.update({
             "User-Agent": "thesis-creator/1.0 (mailto:example@example.com)"
@@ -697,7 +701,6 @@ class OpenAlexSearcher:
 class MultiSourceSearcher:
     """多源聚合搜索引擎"""
 
-    # 默认配置文件路径（相对于工作区）
     DEFAULT_CONFIG_PATH = "thesis-workspace/.thesis-config.yaml"
 
     def __init__(
@@ -706,19 +709,9 @@ class MultiSourceSearcher:
         sources: List[str] = ["semantic-scholar", "crossref", "openalex"],
         config_path: Optional[str] = None
     ):
-        """
-        初始化多源搜索器
-
-        Args:
-            semantic_scholar_key: Semantic Scholar API Key（可选）
-            sources: 使用的API源列表
-            config_path: 配置文件路径（可选，用于自动读取API Key）
-        """
         self.searchers = {}
 
-        # 尝试从配置文件读取 API Key
         if "semantic-scholar" in sources:
-            # 优先使用传入的 Key，其次从配置文件读取
             ss_config_path = config_path or self.DEFAULT_CONFIG_PATH
             self.searchers["semantic-scholar"] = SemanticScholarSearcher(
                 api_key=semantic_scholar_key,
@@ -731,7 +724,7 @@ class MultiSourceSearcher:
         if "openalex" in sources:
             self.searchers["openalex"] = OpenAlexSearcher()
 
-        self.crossref_searcher = CrossRefSearcher()  # 专门用于DOI验证
+        self.crossref_searcher = CrossRefSearcher()
 
     def search(
         self,
@@ -741,19 +734,6 @@ class MultiSourceSearcher:
         cross_verify: bool = True,
         language: str = "all"
     ) -> List[VerifiedReference]:
-        """
-        多源搜索并合并结果
-
-        Args:
-            query: 搜索关键词
-            year_range: 年份范围
-            limit: 每个API返回的结果数量
-            cross_verify: 是否进行DOI交叉验证
-            language: 语言过滤 ("zh", "en", "all")
-
-        Returns:
-            合并后的参考文献列表（已去重、排序）
-        """
         print(f"\n{'='*50}")
         print(f"[搜索进度] 多源搜索: {query}")
         print(f"[搜索进度] API源: {list(self.searchers.keys())}")
@@ -763,7 +743,6 @@ class MultiSourceSearcher:
         all_results = []
         total_sources = len(self.searchers)
 
-        # 并行搜索各API
         for i, (source_name, searcher) in enumerate(self.searchers.items(), 1):
             print(f"\n[搜索进度] ({i}/{total_sources}) 搜索 {source_name}...")
             try:
@@ -773,32 +752,22 @@ class MultiSourceSearcher:
             except Exception as e:
                 print(f"[搜索进度] {source_name}: ❌ 失败 ({e})")
 
-        # 去重合并
         deduplicated = self._deduplicate(all_results)
         print(f"\n[搜索进度] 去重合并: {len(all_results)} → {len(deduplicated)} 条")
 
-        # DOI交叉验证（带进度汇报）
         if cross_verify:
             deduplicated = self._cross_verify_dois_with_progress(deduplicated)
             verified_count = sum(1 for r in deduplicated if r.cross_verified)
             print(f"\n[DOI验证] ✅ 验证完成: {verified_count}/{len(deduplicated)} 条通过")
 
-        # 语言过滤
         if language != "all":
             deduplicated = [r for r in deduplicated if r.language == language]
             print(f"[信息] 语言过滤后 {language}: {len(deduplicated)} 条")
 
-        # 加权排序
         sorted_results = self._sort_by_relevance(deduplicated, query)
-
         return sorted_results
 
     def _deduplicate(self, results: List[VerifiedReference]) -> List[VerifiedReference]:
-        """
-        去重合并
-
-        基于DOI和标题相似度去重
-        """
         if not results:
             return []
 
@@ -807,13 +776,11 @@ class MultiSourceSearcher:
         seen_titles = []
 
         for ref in results:
-            # DOI去重
             if ref.doi:
                 if ref.doi in seen_dois:
                     continue
                 seen_dois.add(ref.doi)
 
-            # 标题相似度去重
             is_duplicate = False
             for seen_title in seen_titles:
                 similarity = self._title_similarity(ref.title, seen_title)
@@ -828,57 +795,18 @@ class MultiSourceSearcher:
         return deduplicated
 
     def _title_similarity(self, title1: str, title2: str) -> float:
-        """计算标题相似度"""
         if not title1 or not title2:
             return 0.0
 
-        # 清理标题
         t1 = title1.lower().strip()
         t2 = title2.lower().strip()
 
         if t1 == t2:
             return 1.0
 
-        # 使用SequenceMatcher计算相似度
         return SequenceMatcher(None, t1, t2).ratio()
 
-    def _cross_verify_dois(self, results: List[VerifiedReference]) -> List[VerifiedReference]:
-        """
-        DOI交叉验证
-
-        使用CrossRef验证DOI真实性
-        """
-        for ref in results:
-            if ref.doi:
-                valid, crossref_ref = self.crossref_searcher.verify_doi(ref.doi)
-                if valid and crossref_ref:
-                    ref.cross_verified = True
-                    # 用CrossRef数据补充缺失字段
-                    if not ref.journal and crossref_ref.journal:
-                        ref.journal = crossref_ref.journal
-                    if not ref.volume and crossref_ref.volume:
-                        ref.volume = crossref_ref.volume
-                    if not ref.issue and crossref_ref.issue:
-                        ref.issue = crossref_ref.issue
-                    if not ref.pages and crossref_ref.pages:
-                        ref.pages = crossref_ref.pages
-                else:
-                    ref.cross_verified = False
-
-        return results
-
     def _cross_verify_dois_with_progress(self, results: List[VerifiedReference]) -> List[VerifiedReference]:
-        """
-        DOI交叉验证（带进度汇报）
-
-        使用CrossRef验证DOI真实性，每5篇汇报一次进度
-
-        Args:
-            results: 待验证的文献列表
-
-        Returns:
-            验证后的文献列表
-        """
         total = len(results)
         doi_refs = [r for r in results if r.doi]
         doi_count = len(doi_refs)
@@ -888,13 +816,12 @@ class MultiSourceSearcher:
         verified = 0
         failed = 0
 
-        for i, ref in enumerate(results, 1):
+        for ref in results:
             if ref.doi:
                 valid, crossref_ref = self.crossref_searcher.verify_doi(ref.doi)
                 if valid and crossref_ref:
                     ref.cross_verified = True
                     verified += 1
-                    # 用CrossRef数据补充缺失字段
                     if not ref.journal and crossref_ref.journal:
                         ref.journal = crossref_ref.journal
                     if not ref.volume and crossref_ref.volume:
@@ -907,18 +834,16 @@ class MultiSourceSearcher:
                     ref.cross_verified = False
                     failed += 1
 
-                # 每5篇或最后一篇汇报进度
                 checked = verified + failed
                 if checked % 5 == 0 or checked == doi_count:
                     remaining = doi_count - checked
-                    est_seconds = remaining * 4  # 预估每条约4秒
+                    est_seconds = remaining * 4
                     if remaining > 0:
                         print(f"[DOI验证] 验证进度: {checked}/{doi_count} (通过:{verified} 失败:{failed}) 约还需 {est_seconds} 秒")
                     else:
                         print(f"[DOI验证] 验证进度: {checked}/{doi_count} ✅")
 
         print(f"[DOI验证] 结果: 通过 {verified}, 失败 {failed}, 无DOI {total - doi_count}")
-
         return results
 
     def _sort_by_relevance(
@@ -926,62 +851,30 @@ class MultiSourceSearcher:
         results: List[VerifiedReference],
         query: str
     ) -> List[VerifiedReference]:
-        """
-        加权排序
-
-        排序因子：
-        - 相关度：标题与查询的相似度
-        - 引用数：citation_count
-        - 时效性：年份权重（近年更高）
-        - 验证状态：cross_verified权重
-        """
         query_words = set(query.lower().split())
         current_year = datetime.now().year
 
         for ref in results:
-            # 相关度得分
             title_words = set(ref.title.lower().split()) if ref.title else set()
             overlap = len(query_words & title_words)
             relevance = overlap / max(len(query_words), 1) if query_words else 0
             ref.relevance_score = relevance
 
-        # 计算综合得分
         def compute_score(ref: VerifiedReference) -> float:
-            # 相关度权重 0.4
             relevance_score = ref.relevance_score * 0.4
-
-            # 引用数权重 0.2（归一化）
             citation_score = min(ref.citation_count / 1000, 1.0) * 0.2
-
-            # 时效性权重 0.2
             year_diff = current_year - ref.year if ref.year else 10
             year_score = max(0, 1 - year_diff / 10) * 0.2
-
-            # 验证状态权重 0.2
             verify_score = 0.2 if ref.cross_verified else 0.1
-
             return relevance_score + citation_score + year_score + verify_score
 
-        sorted_results = sorted(results, key=compute_score, reverse=True)
-        return sorted_results
+        return sorted(results, key=compute_score, reverse=True)
 
     def verify_doi(self, doi: str) -> Tuple[bool, Optional[VerifiedReference]]:
-        """
-        验证单个DOI
-
-        Args:
-            doi: DOI字符串
-
-        Returns:
-            (是否有效, 文献信息)
-        """
-        # 首先检查DOI链接可达性（判断 4xx 错误）
         reachable, status_code = self.crossref_searcher.check_doi_reachable(doi)
         if not reachable:
-            # 404 或其他错误，DOI 不存在
             return False, None
 
-        # 使用CrossRef验证
         valid, ref = self.crossref_searcher.verify_doi(doi)
 
         if valid and ref:
@@ -989,7 +882,6 @@ class MultiSourceSearcher:
             return True, ref
 
         return False, None
-
 
 class ReferenceFormatter:
     """参考文献格式化器"""
@@ -1132,7 +1024,8 @@ def search_and_format(
     language: str = "all",
     api_key: Optional[str] = None,
     config_path: Optional[str] = None,
-    zh_ratio: float = 0.65
+    zh_ratio: float = 0.65,
+    search_multiplier: float = 1.5
 ) -> str:
     """
     多源搜索并格式化输出
@@ -1140,7 +1033,7 @@ def search_and_format(
     Args:
         query: 搜索关键词
         year_range: 年份范围
-        limit: 每个API结果数量
+        limit: 最终目标数量
         sources: API源列表
         output_format: 输出格式 (yaml, gbt7714, json, table)
         cross_verify: 是否进行DOI交叉验证
@@ -1148,6 +1041,7 @@ def search_and_format(
         api_key: Semantic Scholar API Key
         config_path: 配置文件路径（自动读取API Key）
         zh_ratio: 中文文献占比（默认0.65，要求中文>65%）
+        search_multiplier: 搜索放大倍数（默认 1.5 倍）
 
     Returns:
         格式化后的输出
@@ -1158,42 +1052,40 @@ def search_and_format(
         config_path=config_path
     )
 
+    expanded_limit = max(limit, int(math.ceil(limit * search_multiplier)))
+
     if zh_ratio > 0 and zh_ratio < 1.0 and language == "all":
-        # 分批搜索：先中文后英文，确保比例
-        zh_limit = int(limit * zh_ratio) + 2  # 多搜2篇备用
-        en_limit = int(limit * (1 - zh_ratio)) + 2
+        zh_target = int(math.ceil(expanded_limit * zh_ratio))
+        en_target = max(1, expanded_limit - zh_target)
 
-        print(f"\n[比例控制] 中文目标: {zh_limit} 篇, 英文目标: {en_limit} 篇 (比例 {zh_ratio:.0%})")
+        print(f"\n[比例控制] 搜索目标: {expanded_limit} 篇（约 {search_multiplier:.1f}x）")
+        print(f"[比例控制] 中文目标: {zh_target} 篇, 英文目标: {en_target} 篇 (比例 {zh_ratio:.0%})")
 
-        # 搜索中文文献
         zh_results = searcher.search(
             query=query,
             year_range=year_range,
-            limit=zh_limit,
+            limit=zh_target,
             cross_verify=False,
             language="zh"
         )
         print(f"[比例控制] 中文文献搜索完成: {len(zh_results)} 篇")
 
-        # 搜索英文文献
         en_results = searcher.search(
             query=query,
             year_range=year_range,
-            limit=en_limit,
+            limit=en_target,
             cross_verify=False,
             language="en"
         )
         print(f"[比例控制] 英文文献搜索完成: {len(en_results)} 篇")
 
-        # 合并结果
         results = zh_results + en_results
 
-        # 检查比例是否达标
         zh_count = sum(1 for r in results if r.language == "zh")
         actual_ratio = zh_count / len(results) if results else 0
         if actual_ratio <= zh_ratio:
             print(f"[比例控制] ⚠️ 中文比例 {actual_ratio:.1%} 未超过目标 {zh_ratio:.0%}，触发补充搜索")
-            supplement_limit = int((zh_ratio * len(results) - zh_count) / (1 - zh_ratio)) + 3
+            supplement_limit = max(3, int((zh_ratio * len(results) - zh_count) / max(1e-6, (1 - zh_ratio))) + 3)
             supplement_zh = searcher.search(
                 query=query,
                 year_range=year_range,
@@ -1204,23 +1096,24 @@ def search_and_format(
             results.extend(supplement_zh)
             print(f"[比例控制] 补充中文文献: {len(supplement_zh)} 篇")
 
-        # DOI 交叉验证
         if cross_verify:
             results = searcher._cross_verify_dois_with_progress(results)
 
-        # 加权排序
         results = searcher._sort_by_relevance(results, query)
     else:
         results = searcher.search(
             query=query,
             year_range=year_range,
-            limit=limit,
+            limit=expanded_limit,
             cross_verify=cross_verify,
             language=language
         )
 
     if not results:
         return "未找到相关文献"
+
+    if len(results) > limit:
+        results = results[:limit]
 
     print(f"[成功] 找到 {len(results)} 篇文献")
 
@@ -1249,9 +1142,8 @@ def search_and_format(
         return ReferenceFormatter.format_table(results)
     else:
         return ReferenceFormatter.format_gbt7714(results[0])
-
-
 def main():
+    """main"""
     parser = argparse.ArgumentParser(description="多源学术搜索引擎")
 
     parser.add_argument("--query", "-q", help="搜索关键词")
@@ -1279,7 +1171,9 @@ def main():
                         help="语言过滤")
     parser.add_argument("--api-key", help="Semantic Scholar API Key")
     parser.add_argument("--zh-ratio", type=float, default=0.65,
-                        help="中文文献占比（默认0.65，要求中文>65%），仅在language=all时生效")
+                        help="中文文献占比（默认0.65，要求中文大于65），仅在language=all时生效")
+    parser.add_argument("--search-multiplier", type=float, default=1.5,
+                        help="搜索放大倍数（默认1.5，先搜到目标数量的1.5倍再筛选）")
 
     args = parser.parse_args()
 
@@ -1303,7 +1197,8 @@ def main():
             cross_verify=cross_verify,
             language=args.language,
             api_key=args.api_key,
-            zh_ratio=args.zh_ratio
+            zh_ratio=args.zh_ratio,
+            search_multiplier=args.search_multiplier
         )
 
     elif args.doi:

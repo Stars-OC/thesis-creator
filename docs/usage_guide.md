@@ -301,7 +301,7 @@ Step 8: 文档导出（Word/PDF）
 |----------|-------------|----------|
 | 系统架构图 | `graph TB` | 第4章 系统设计 |
 | 流程图 | `flowchart TD` | 第4-5章 功能设计/实现 |
-| E-R 图 | `erDiagram` | 第4章 数据库设计 |
+| 概念 ER 图 | `flowchart LR` | 第4章 数据库设计 |
 | 用例图 | `graph LR` | 第4章 需求分析 |
 | 时序图 | `sequenceDiagram` | 第5章 接口调用 |
 | 类图 | `classDiagram` | 第5章 类设计 |
@@ -498,7 +498,7 @@ python scripts/chart_generator.py workspace/final/论文终稿.md --output works
 |----------|-------------|----------|
 | 系统架构图 | `graph TB` | 系统整体架构 |
 | 流程图 | `flowchart TD` | 业务流程、操作流程 |
-| E-R 图 | `erDiagram` | 数据库设计 |
+| 概念 ER 图 | `flowchart LR` | 数据库设计（实体/属性/联系） |
 | 用例图 | `graph LR` | 功能需求分析 |
 | 时序图 | `sequenceDiagram` | 接口调用流程 |
 | 类图 | `classDiagram` | 类结构设计 |

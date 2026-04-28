@@ -28,6 +28,7 @@ try:
 except ImportError:
     import logging
     def get_logger():
+        """get_logger"""
         return logging.getLogger()
 
 
@@ -35,6 +36,7 @@ class ChartTemplateLoader:
     """图表模板加载器"""
 
     def __init__(self, template_dir: str = None):
+        """__init__"""
         self.logger = get_logger()
 
         # 默认模板目录

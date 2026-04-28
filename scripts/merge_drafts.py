@@ -60,6 +60,7 @@ class DraftMerger:
     """论文章节合并器"""
 
     def __init__(self, input_dir: str, output_path: str, references_yaml: str = None, outline_path: str = None):
+        """__init__"""
         self.input_dir = Path(input_dir)
         self.output_path = Path(output_path)
         self.references_yaml = Path(references_yaml) if references_yaml else None
@@ -78,7 +79,10 @@ class DraftMerger:
             'total_words': 0,
             'missing_chapters': [],
             'errors': [],
-            'references_count': 0
+            'warnings': [],
+            'references_count': 0,
+            'reference_pool_total': 0,
+            'reference_selection_limit': 0,
         }
 
     @staticmethod
@@ -92,6 +96,7 @@ class DraftMerger:
             return text.encode(encoding, errors='replace').decode(encoding, errors='replace')
 
     def _list_markdown_files(self) -> List[str]:
+        """_list_markdown_files"""
         if not self.input_dir.exists() or not self.input_dir.is_dir():
             return []
         # 排除参考文献.md，避免误合并
@@ -147,6 +152,7 @@ class DraftMerger:
         return len(self.outline_chapters) > 0
 
     def _find_abstract_file(self, file_names: List[str]) -> Optional[str]:
+        """_find_abstract_file"""
         lowered = {name.lower(): name for name in file_names}
 
         for candidate in ABSTRACT_CANDIDATES:
@@ -214,6 +220,7 @@ class DraftMerger:
         return matched[0]
 
     def _build_merge_targets(self) -> Tuple[List[str], List[str]]:
+        """_build_merge_targets"""
         files = self._list_markdown_files()
         targets: List[str] = []
         missing: List[str] = []
@@ -254,6 +261,7 @@ class DraftMerger:
         return targets, missing
 
     def validate_input(self) -> Tuple[bool, List[str]]:
+        """validate_input"""
         targets, missing = self._build_merge_targets()
         self.merge_targets = targets
         self.merge_report['missing_chapters'] = missing
@@ -266,6 +274,7 @@ class DraftMerger:
         return len(missing) == 0, missing
 
     def read_chapter(self, filename: str) -> Optional[str]:
+        """read_chapter"""
         chapter_path = self.input_dir / filename
         if not chapter_path.exists():
             return None
@@ -283,6 +292,7 @@ class DraftMerger:
             return None
 
     def clean_content(self, content: str) -> str:
+        """clean_content"""
         content = RE_HORIZONTAL_LINE.sub('\n\n', content)
         content = RE_HORIZONTAL_LINE_START.sub('\n\n', content)
         content = re.sub(r'^-{3,}\s*\n', '', content)
@@ -294,6 +304,7 @@ class DraftMerger:
         return content
 
     def _needs_page_break(self, filename: str) -> bool:
+        """_needs_page_break"""
         stem = Path(filename).stem.lower()
         if stem.startswith('摘要') or stem.startswith('abstract'):
             return False
@@ -302,9 +313,11 @@ class DraftMerger:
         return True
 
     def add_page_break(self, content: str) -> str:
+        """add_page_break"""
         return PAGE_BREAK_MARKER + content
 
     def get_chapter_info(self, filename: str, content: str) -> Dict:
+        """get_chapter_info"""
         chinese_chars = len(re.findall(r'[\u4e00-\u9fff]', content))
         english_words = len(re.findall(r'[a-zA-Z]+', content))
         total_chars = len(content)
@@ -322,6 +335,7 @@ class DraftMerger:
         }
 
     def load_references_pool(self) -> bool:
+        """load_references_pool"""
         if not self.references_yaml or not self.references_yaml.exists():
             print(f"[警告] 文献池文件不存在: {self.references_yaml}")
             return False
@@ -333,6 +347,10 @@ class DraftMerger:
         try:
             data = yaml.safe_load(self.references_yaml.read_text(encoding='utf-8'))
             refs = data.get('references', []) if isinstance(data, dict) else []
+            if isinstance(data, dict):
+                self.merge_report['reference_pool_total'] = int(data.get('total', len(refs)) or len(refs))
+                selection_limit = data.get('selection_limit', data.get('max_references', len(refs)))
+                self.merge_report['reference_selection_limit'] = int(selection_limit or len(refs))
             for ref in refs:
                 ref_id = ref.get('id', '')
                 if ref_id:
@@ -344,6 +362,7 @@ class DraftMerger:
             return False
 
     def collect_cited_references(self, content: str) -> List[str]:
+        """collect_cited_references"""
         seen = set()
         ordered = []
 
@@ -356,6 +375,7 @@ class DraftMerger:
         return ordered
 
     def renumber_references(self, content: str) -> Tuple[str, Dict[str, int]]:
+        """renumber_references"""
         cited_refs = self.collect_cited_references(content)
         mapping: Dict[str, int] = {}
 
@@ -363,6 +383,7 @@ class DraftMerger:
             mapping[ref_id] = idx
 
         def replace_ref(match):
+            """replace_ref"""
             ref_id = f"ref_{match.group(1)}"
             if ref_id in mapping:
                 return f"[{mapping[ref_id]}]"
@@ -372,6 +393,7 @@ class DraftMerger:
         return new_content, mapping
 
     def generate_references_md(self, mapping: Dict[str, int], output_path: Path) -> bool:
+        """generate_references_md"""
         if not mapping:
             print("[警告] 没有引用编号需要生成参考文献")
             return False
@@ -431,10 +453,23 @@ class DraftMerger:
             lines.append("")
 
         try:
+            reference_count = len(sorted_refs)
+            self.merge_report['references_count'] = reference_count
+
+            pool_total = self.merge_report.get('reference_pool_total', 0)
+            selection_limit = self.merge_report.get('reference_selection_limit', 0)
+            if pool_total and reference_count > pool_total:
+                self.merge_report['warnings'].append(
+                    f"最终参考文献数量 {reference_count} 超过文献池总量 {pool_total}"
+                )
+            if selection_limit and reference_count > selection_limit:
+                self.merge_report['warnings'].append(
+                    f"最终参考文献数量 {reference_count} 超过文献池上限 {selection_limit}"
+                )
+
             output_path.parent.mkdir(parents=True, exist_ok=True)
             output_path.write_text('\n'.join(lines), encoding='utf-8')
-            self.merge_report['references_count'] = len(sorted_refs)
-            print(f"[成功] 参考文献已生成: {output_path} ({len(sorted_refs)} 篇)")
+            print(f"[成功] 参考文献已生成: {output_path} ({reference_count} 篇)")
             return True
         except Exception as e:
             print(f"[失败] 生成参考文献失败: {e}")
@@ -442,6 +477,7 @@ class DraftMerger:
             return False
 
     def merge(self) -> bool:
+        """merge"""
         print("[信息] 开始合并论文章节...")
         print(f"[信息] 输入目录: {self.input_dir}")
         print(f"[信息] 输出文件: {self.output_path}")
@@ -553,6 +589,7 @@ class DraftMerger:
             return False
 
     def print_report(self):
+        """print_report"""
         print()
         print("=" * 60)
         print("[论文合并报告]")
@@ -589,6 +626,7 @@ class DraftMerger:
 
 
 def main():
+    """main"""
     parser = argparse.ArgumentParser(
         description='论文章节合并脚本',
         formatter_class=argparse.RawDescriptionHelpFormatter,

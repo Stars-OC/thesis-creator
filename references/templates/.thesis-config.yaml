@@ -1,5 +1,6 @@
 # Thesis-Creator 配置文件模板
 # 位置：thesis-workspace/.thesis-config.yaml
+# 生成前请先检查并按学校要求修改本文件，再执行图片生成与文档导出
 
 # ========================================
 # 学术搜索 API 配置
@@ -33,8 +34,37 @@ semantic_scholar:
 # OpenAlex: 完全免费，无需注册，中文文献覆盖较好
 
 # ========================================
-# 日志设置
+# ER 建模输出策略（非交互配置驱动）
 # ========================================
+# graph_type 可选值：
+# - chen: 概念ER图（Mermaid flowchart LR，实体矩形+属性椭圆）
+# - erd: 工程ERD（Mermaid erDiagram）
+# - dot: 教科书ER图（Graphviz DOT）
+# diagram_scope 可选值：
+# - single: 单表单图，适合逐表讲解
+# - multi: 多表同图，适合展示实体关系
+er_modeling:
+  enabled: true
+  graph_type: chen
+  diagram_scope: single
+  strict_single_table: true
+  line_style: straight
+  interactive_confirmation: false
+  allow_optional_extensions: true
+
+# ========================================
+# 图表生成策略
+# ========================================
+# architecture_mode:
+# - llm: 优先使用模型生成系统架构图
+# - template: 强制使用本地兜底模板
+# flowchart_direction:
+# - 推荐 LR，使流程图尽量横向展开
+# - 也可选 RL / TB / BT
+
+diagram_generation:
+  architecture_mode: llm
+  flowchart_direction: LR
 
 logging:
   # 是否启用日志功能
@@ -101,3 +131,6 @@ format:
 
   # 图注字号（五号）
   caption_size: 10.5
+
+  # 三线表字体（表头和正文统一）
+  table_font: 黑体

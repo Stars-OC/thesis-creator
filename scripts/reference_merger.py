@@ -145,40 +145,54 @@ def check_language_balance(refs: List[Dict]) -> Dict[str, int]:
     return {"zh": zh_count, "en": en_count}
 
 
+def _is_language(ref: Dict, target_lang: str) -> bool:
+    lang = ref.get("language", "")
+    title = ref.get("title", "")
+    if target_lang == "zh":
+        return lang == "zh" or (not lang and bool(re.findall(r"[一-鿿]", title)))
+    return lang != "zh" and not bool(re.findall(r"[一-鿿]", title))
+
+
 def select_top(refs: List[Dict], top_n: int) -> List[Dict]:
     """按综合得分排序并选出 top_n 篇，同时确保中英文文献都有"""
     sorted_refs = sorted(refs, key=compute_score, reverse=True)
     selected = sorted_refs[:top_n]
 
-    # 确保中英文文献都有
+    if not selected:
+        return selected
+
     lang_stats = check_language_balance(selected)
     if lang_stats["zh"] == 0 or lang_stats["en"] == 0:
         missing_lang = "zh" if lang_stats["zh"] == 0 else "en"
         print(f"[警告] 选出的 {top_n} 篇中缺少{('中文' if missing_lang == 'zh' else '英文')}文献，尝试补充...")
 
-        # 从剩余文献中补充缺失语种
-        remaining = sorted_refs[top_n:]
-        supplement = []
-        for ref in remaining:
-            lang = ref.get("language", "")
-            title = ref.get("title", "")
-            is_missing_lang = (
-                (missing_lang == "zh" and (lang == "zh" or re.findall(r"[一-鿿]", title)))
-                or (missing_lang == "en" and lang != "zh" and not re.findall(r"[一-鿿]", title))
-            )
-            if is_missing_lang:
-                supplement.append(ref)
-                if len(supplement) >= 5:  # 最多补充 5 篇
-                    break
+        replacement = None
+        for ref in sorted_refs[top_n:]:
+            if _is_language(ref, missing_lang):
+                replacement = ref
+                break
 
-        if supplement:
-            selected.extend(supplement)
-            new_stats = check_language_balance(selected)
-            print(f"[补充] 添加了 {len(supplement)} 篇{('中文' if missing_lang == 'zh' else '英文')}文献")
+        if replacement:
+            removable_lang = "en" if missing_lang == "zh" else "zh"
+            removal_index = None
+            removable_candidates = [
+                (idx, compute_score(ref))
+                for idx, ref in enumerate(selected)
+                if _is_language(ref, removable_lang)
+            ]
+            if removable_candidates:
+                removal_index = min(removable_candidates, key=lambda item: item[1])[0]
+
+            if removal_index is not None:
+                selected[removal_index] = replacement
+                print(f"[补充] 已用1篇{('中文' if missing_lang == 'zh' else '英文')}文献替换低分文献")
+            else:
+                print(f"[警告] 未找到可替换的{('英文' if missing_lang == 'zh' else '中文')}文献")
         else:
             print(f"[警告] 未找到可补充的{('中文' if missing_lang == 'zh' else '英文')}文献")
 
-    return selected
+    return sorted(selected, key=compute_score, reverse=True)[:top_n]
+
 
 
 def renumber(refs: List[Dict]) -> List[Dict]:
@@ -188,7 +202,13 @@ def renumber(refs: List[Dict]) -> List[Dict]:
     return refs
 
 
-def save_yaml(refs: List[Dict], output_path: Path, pool_id: str = "thesis_references"):
+def save_yaml(
+    refs: List[Dict],
+    output_path: Path,
+    pool_id: str = "thesis_references",
+    selection_limit: Optional[int] = None,
+    language_balance: Optional[Dict[str, int]] = None,
+):
     """保存为 YAML 格式"""
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -196,6 +216,8 @@ def save_yaml(refs: List[Dict], output_path: Path, pool_id: str = "thesis_refere
         "pool_id": pool_id,
         "generated_at": datetime.now().strftime("%Y-%m-%d"),
         "total": len(refs),
+        "selection_limit": selection_limit if selection_limit is not None else len(refs),
+        "language_balance": language_balance or check_language_balance(refs),
         "references": refs,
     }
 
@@ -206,6 +228,7 @@ def save_yaml(refs: List[Dict], output_path: Path, pool_id: str = "thesis_refere
 
 
 def main():
+    """main"""
     parser = argparse.ArgumentParser(description="文献合并去重脚本")
     parser.add_argument(
         "-i", "--inputs", nargs="+", required=True,
@@ -278,7 +301,13 @@ def main():
 
     # 6. 保存
     output_path = Path(args.output)
-    save_yaml(selected, output_path, pool_id=args.pool_id)
+    save_yaml(
+        selected,
+        output_path,
+        pool_id=args.pool_id,
+        selection_limit=args.top,
+        language_balance=lang_stats,
+    )
 
     # 打印摘要
     print(f"\n{'='*40}")
