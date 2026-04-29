@@ -84,6 +84,11 @@ class VerifiedReference:
     pages: Optional[str] = None
     abstract: Optional[str] = None
     paper_id: Optional[str] = None        # API内部ID
+    source_url: str = ""
+    verification_status: str = "verified_doi"
+    verification_reason: str = ""
+    metadata_verified: bool = False
+    doi_reachable: bool = False
 
     def to_dict(self) -> Dict:
         """转换为字典"""
@@ -976,7 +981,12 @@ class ReferenceFormatter:
             lines.append(f"    doi_url: \"{ref.doi_url}\"")
             lines.append(f"    verified: {ref.cross_verified}")
             lines.append(f"    source: \"{ref.source_api}\"")
+            lines.append(f"    source_url: \"{ref.source_url}\"")
             lines.append(f"    language: \"{ref.language}\"")
+            lines.append(f"    verification_status: \"{ref.verification_status}\"")
+            lines.append(f"    verification_reason: \"{ref.verification_reason}\"")
+            lines.append(f"    metadata_verified: {str(ref.metadata_verified).lower()}")
+            lines.append(f"    doi_reachable: {str(ref.doi_reachable).lower()}")
             lines.append(f"    keywords: []  # 待填充")
             lines.append(f"    gb7714: \"{gb7714}\"")
             lines.append("")

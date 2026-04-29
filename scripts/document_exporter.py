@@ -606,6 +606,32 @@ def strip_doi_links(content: str) -> str:
     return content
 
 
+def preflight_validate_images(markdown_path: Path) -> Tuple[bool, str]:
+    content = markdown_path.read_text(encoding='utf-8')
+
+    remaining = re.findall(r'\[image_\d+\]', content)
+    if remaining:
+        return False, f"检测到未替换图片占位符: {', '.join(remaining)}"
+
+    image_refs = re.findall(r'!\[[^\]]*\]\(([^)]+)\)', content)
+    missing = []
+    empty = []
+    for image_ref in image_refs:
+        candidate = (markdown_path.parent / image_ref).resolve()
+        if not candidate.exists():
+            missing.append(image_ref)
+            continue
+        if candidate.stat().st_size <= 0:
+            empty.append(image_ref)
+
+    if missing:
+        return False, f"检测到缺失图片文件: {', '.join(missing)}"
+    if empty:
+        return False, f"检测到空图片文件: {', '.join(empty)}"
+
+    return True, "图片预检查通过"
+
+
 def parse_markdown(content: str) -> list:
     """解析 Markdown 内容，返回结构化数据"""
     lines = content.split('\n')
@@ -712,6 +738,10 @@ def convert_md_to_docx(input_path: str, output_path: str) -> Tuple[bool, str]:
         # 获取输入文件所在目录，用于解析图片相对路径
         input_file = Path(input_path)
         base_dir = input_file.parent
+
+        preflight_ok, preflight_message = preflight_validate_images(input_file)
+        if not preflight_ok:
+            return False, preflight_message
 
         with open(input_path, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -861,12 +891,22 @@ def export_document(input_path: str, output_dir: str, format_type: str = 'both')
     base_name = input_path.stem
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
+    preflight_ok, preflight_message = preflight_validate_images(input_path)
+
     results = {
         'input': str(input_path),
         'output_dir': str(output_dir),
         'timestamp': timestamp,
         'formats': {}
     }
+
+    if not preflight_ok:
+        results['formats']['preflight'] = {
+            'path': str(input_path),
+            'success': False,
+            'message': preflight_message
+        }
+        return results
 
     # 转换为 Word
     if format_type in ['docx', 'both']:

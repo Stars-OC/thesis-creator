@@ -16,22 +16,14 @@
 
 ```mermaid
 flowchart TD
-    A[扫描论文占位符] --> B[chart_generator.py 解析]
-    B --> C[生成 Mermaid 或 DOT 代码]
-    C --> D[chart_renderer.py 渲染]
-    D --> E{代码类型}
-    E -->|Mermaid| F{渲染方法选择}
-    F -->|mmdc| G[Mermaid CLI]
-    F -->|playwright| H[浏览器渲染]
-    F -->|kroki| I[在线API]
-    E -->|DOT| J[Python graphviz + dot]
-    G --> K[生成 PNG 图片]
-    H --> K
-    I --> K
-    J --> K
-    K --> L[更新 Markdown 图片引用(原位覆盖)]
-    L --> M[✅ 图片生成完成]
-    M --> N[进入 Step 9 导出]
+    A[扫描正文中的 image 占位符] --> B[读取 references/images.yaml]
+    B --> C[校验占位符与清单一致性]
+    C --> D[按 source 类型生成或校验图片]
+    D --> E[渲染 PNG 或检查用户图片]
+    E --> F[将 [image_N] 替换为 Markdown 图片引用]
+    F --> G[输出更新后的终稿]
+    G --> H[✅ 图片生成完成]
+    H --> I[进入 Step 9 导出]
 ```
 
 ---

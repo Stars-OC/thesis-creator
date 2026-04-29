@@ -22,6 +22,11 @@ try:
 except ImportError:
     HybridChartGenerator = None
 
+try:
+    from chart_renderer_offline import OfflineChartRenderer
+except ImportError:
+    OfflineChartRenderer = None
+
 MAX_FLOWCHART_NODES = 10
 
 FLOW_TEMPLATES: Dict[str, List[Dict[str, str]]] = {
@@ -165,6 +170,7 @@ class ChartGenerator:
         r'<!--\s*图表占位符结束\s*-->',
         re.DOTALL
     )
+    IMAGE_PLACEHOLDER_PATTERN = re.compile(r'\[image_(\d+)\]')
     SIMPLE_PATTERN = re.compile(r'\[图表占位符\][：:]?\s*(\w+图)?[，,]?\s*展示(.+?)(?:\n|$)')
     USER_PROVIDED_PATTERN = re.compile(r'<!--\s*用户提供图片[：:]\s*(图\d+-\d+)\s+(.+?)\s*-->')
     TABLE_SECTION_PATTERN = re.compile(r'^##\s+(?:数据库表设计|数据表清单)\s*$', re.MULTILINE)
@@ -319,6 +325,257 @@ class ChartGenerator:
             })
         return self.user_provided
 
+    def parse_image_placeholders(self, content: str) -> List[str]:
+        seen = set()
+        placeholders: List[str] = []
+        for match in self.IMAGE_PLACEHOLDER_PATTERN.finditer(content):
+            placeholder_id = f"image_{match.group(1)}"
+            if placeholder_id in seen:
+                continue
+            seen.add(placeholder_id)
+            placeholders.append(placeholder_id)
+        return placeholders
+
+    def load_image_manifest(self, manifest_path: Path) -> List[Dict[str, Any]]:
+        data = yaml.safe_load(manifest_path.read_text(encoding="utf-8")) or {}
+        images = data.get("images", [])
+        if not isinstance(images, list):
+            raise ValueError("images.yaml 中的 images 必须是列表")
+        return images
+
+    def resolve_image_manifest_path(self) -> Optional[Path]:
+        search_roots: List[Path] = []
+        if self.input_path:
+            search_roots.append(self.input_path.parent)
+            search_roots.extend(self.input_path.parents)
+        search_roots.append(Path.cwd())
+
+        seen = set()
+        for root in search_roots:
+            for candidate in [
+                root / "references" / "images.yaml",
+                root / "thesis-workspace" / "references" / "images.yaml",
+            ]:
+                normalized = str(candidate)
+                if normalized in seen:
+                    continue
+                seen.add(normalized)
+                if candidate.exists():
+                    return candidate
+        return None
+
+    def validate_image_manifest(self, placeholders: List[str], manifest: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        manifest_by_id: Dict[str, Dict[str, Any]] = {}
+        for item in manifest:
+            image_id = str(item.get("id", "")).strip()
+            if not image_id:
+                raise ValueError("images.yaml 中存在缺少 id 的记录")
+            manifest_by_id[image_id] = item
+
+        missing_ids = [placeholder for placeholder in placeholders if placeholder not in manifest_by_id]
+        if missing_ids:
+            raise ValueError(f"images.yaml 缺少占位符记录: {', '.join(missing_ids)}")
+
+        validated: List[Dict[str, Any]] = []
+        for placeholder in placeholders:
+            item = dict(manifest_by_id[placeholder])
+            source = str(item.get("source", "")).strip()
+            if source not in {"ai", "user"}:
+                raise ValueError(f"{placeholder} 的 source 必须是 ai 或 user")
+            if source == "ai" and not str(item.get("description", "")).strip():
+                raise ValueError(f"{placeholder} 的 description 不能为空")
+            validated.append(item)
+
+        return validated
+
+    def _resolve_manifest_output_file(self, output_path: str) -> Path:
+        normalized = output_path.strip().replace('\\', '/')
+        relative_path = Path(normalized)
+        if relative_path.parts and relative_path.parts[0] == 'images':
+            relative_path = Path(*relative_path.parts[1:])
+        if str(relative_path) in {'', '.'}:
+            relative_path = Path(Path(normalized).name)
+        return (self.output_dir / relative_path).resolve()
+
+    def _build_manifest_placeholder(self, item: Dict[str, Any]) -> ChartPlaceholder:
+        image_id = str(item.get("id", "")).strip() or "image_unknown"
+        title = str(item.get("title", image_id)).strip() or image_id
+        description = str(item.get("description", "")).strip()
+        chart_type = self._detect_chart_type(title, description)
+        chart_id_match = re.search(r'(图\d+-\d+)', title)
+        chart_id = chart_id_match.group(1) if chart_id_match else image_id
+        return ChartPlaceholder(
+            raw_text=image_id,
+            chart_type=chart_type,
+            chart_id=chart_id,
+            chart_name=title,
+            description=description,
+        )
+
+    def _build_sequence_render_data(self, placeholder: ChartPlaceholder) -> Tuple[List[Dict[str, str]], List[Dict[str, str]]]:
+        participants = [
+            {"id": "U", "name": "用户"},
+            {"id": "S", "name": "系统"},
+            {"id": "D", "name": "数据库"},
+        ]
+        step_names = [step["name"] for step in self._extract_steps_from_description(placeholder.description)]
+        if not step_names:
+            step_names = ["提交请求", "处理业务", "持久化数据", "返回结果"]
+
+        route = [("U", "S", "sync"), ("S", "D", "sync"), ("D", "S", "return"), ("S", "U", "return")]
+        messages: List[Dict[str, str]] = []
+        for index, step_name in enumerate(step_names[:4]):
+            from_id, to_id, message_type = route[index if index < len(route) else -1]
+            messages.append({
+                "from": from_id,
+                "to": to_id,
+                "content": step_name,
+                "type": message_type,
+            })
+        return participants, messages
+
+    def _build_er_render_data(self, placeholder: ChartPlaceholder) -> Tuple[List[Dict[str, Any]], List[Dict[str, str]]]:
+        core_entity = self._extract_er_core_entity(placeholder.chart_name, placeholder.description)
+        entity_names = self._extract_er_entities(placeholder.description, core_entity) or [core_entity, "关联实体"]
+        attribute_map = self._extract_er_attributes(placeholder.description, entity_names)
+        entities: List[Dict[str, Any]] = []
+        for entity_name in entity_names[:3]:
+            raw_attributes = attribute_map.get(entity_name, self._default_er_attributes(entity_name))
+            entities.append({
+                "name": entity_name,
+                "attributes": [
+                    {"name": self._sanitize_er_field_name(attr), "type": ""}
+                    for attr in raw_attributes[:4]
+                ],
+            })
+
+        relation_info = self._extract_er_relationship(placeholder.description, entity_names)
+        left = relation_info.get("left", entities[0]["name"])
+        right = relation_info.get("right", entities[-1]["name"])
+        if left == right and len(entities) > 1:
+            right = entities[1]["name"]
+        relations = [{
+            "from": left,
+            "to": right,
+            "type": self._sanitize_er_field_name(relation_info.get("name", "关联")),
+        }] if entities else []
+        return entities, relations
+
+    def _render_text_image(self, title: str, description: str, output_path: Path) -> bool:
+        try:
+            import matplotlib.pyplot as plt
+
+            figure, axis = plt.subplots(figsize=(10, 4.5))
+            axis.axis("off")
+            axis.text(0.5, 0.82, title, ha="center", va="top", fontsize=16, fontweight="bold", wrap=True)
+            axis.text(
+                0.08,
+                0.6,
+                description or "根据图片清单自动生成的示意图。",
+                ha="left",
+                va="top",
+                fontsize=11,
+                wrap=True,
+            )
+            axis.text(0.5, 0.12, "Step 8 自动生成", ha="center", va="center", fontsize=10)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            figure.savefig(output_path, dpi=150, bbox_inches="tight", facecolor="white")
+            plt.close(figure)
+            return True
+        except Exception as exc:
+            self.logger.warning(f"文本示意图生成失败: {exc}")
+            return False
+
+    def _generate_ai_image(self, item: Dict[str, Any], output_path: Path) -> None:
+        placeholder = self._build_manifest_placeholder(item)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        if placeholder.chart_type not in {"流程图", "时序图", "E-R图"}:
+            raise ValueError(f"{placeholder.chart_name} 的 AI 图片类型暂不支持自动生成: {placeholder.chart_type}")
+
+        if OfflineChartRenderer is not None:
+            try:
+                renderer = OfflineChartRenderer(output_dir=str(self.output_dir))
+                if placeholder.chart_type == "流程图":
+                    steps = self._template_steps(placeholder) or self._extract_steps_from_description(placeholder.description)
+                    if not steps:
+                        steps = [
+                            {"name": "提交请求", "type": "io"},
+                            {"name": "校验输入", "type": "decision", "yes_action": "通过", "no_action": "返回错误"},
+                            {"name": "处理业务", "type": "process"},
+                            {"name": "返回结果", "type": "process"},
+                        ]
+                    if renderer.render_flowchart(steps, str(output_path), placeholder.chart_name, placeholder.chart_id):
+                        return
+                elif placeholder.chart_type == "时序图":
+                    participants, messages = self._build_sequence_render_data(placeholder)
+                    if renderer.render_sequence_diagram(participants, messages, str(output_path), placeholder.chart_name):
+                        return
+                elif placeholder.chart_type == "E-R图":
+                    entities, relations = self._build_er_render_data(placeholder)
+                    if renderer.render_er_diagram(entities, relations, str(output_path), placeholder.chart_name):
+                        return
+            except Exception as exc:
+                self.logger.warning(f"AI 图片离线渲染失败，改用文本示意图: {exc}")
+
+        if not self._render_text_image(placeholder.chart_name, placeholder.description, output_path):
+            raise ValueError(f"{item.get('id', 'image')} 对应 AI 图片生成失败: {output_path.name}")
+
+    def _ensure_manifest_image_file(self, item: Dict[str, Any]) -> Path:
+        image_id = str(item.get("id", "")).strip() or "image_unknown"
+        output_path = str(item.get("output_path", "")).strip()
+        if not output_path:
+            title = str(item.get("title", image_id)).strip() or image_id
+            output_filename = f"{title.replace('/', '_').replace('\\', '_')}.png"
+            output_path = f"images/{output_filename}"
+            item["output_path"] = output_path
+
+        candidate_path = self._resolve_manifest_output_file(output_path)
+        if candidate_path.exists() and candidate_path.stat().st_size > 0:
+            return candidate_path
+
+        source = str(item.get("source", "")).strip()
+        if source == "ai":
+            self._generate_ai_image(item, candidate_path)
+            if candidate_path.exists() and candidate_path.stat().st_size > 0:
+                return candidate_path
+
+        raise ValueError(f"{image_id} 对应图片文件不存在或为空: {output_path}")
+
+    def replace_image_placeholders(self, content: str, manifest_items: List[Dict[str, Any]]) -> str:
+        for item in manifest_items:
+            image_id = str(item.get("id", "")).strip()
+            if not image_id:
+                continue
+
+            title = str(item.get("title", image_id)).strip() or image_id
+            output_path = str(item.get("output_path", "")).strip()
+            if not output_path:
+                output_filename = f"{title.replace('/', '_').replace('\\', '_')}.png"
+                output_path = f"images/{output_filename}"
+                item["output_path"] = output_path
+
+            self._ensure_manifest_image_file(item)
+
+            placeholder = f"[{image_id}]"
+            markdown_image = f"![{title}]({output_path})"
+            if placeholder not in content:
+                continue
+
+            content = content.replace(placeholder, markdown_image)
+            item["status"] = "inserted"
+            if hasattr(self.logger, "record_replacement"):
+                self.logger.record_replacement(
+                    step=8,
+                    operation="placeholder_replace",
+                    file=str(self.input_path) if self.input_path else "",
+                    before=placeholder,
+                    after=markdown_image,
+                    reason="回填图片 Markdown 引用",
+                )
+
+        return content
+
     def parse_placeholders(self, content: str) -> List[ChartPlaceholder]:
         self.charts = []
         self.logger.info("开始解析图表占位符...")
@@ -352,7 +609,9 @@ class ChartGenerator:
         return self.charts
 
     def validate_image_integrity(self, content: str) -> Dict[str, Any]:
-        remaining_placeholders = len(re.findall(r'<!--\s*图表占位符[：:]', content))
+        manifest_placeholder_count = len(self.parse_image_placeholders(content))
+        legacy_placeholder_count = len(self.PLACEHOLDER_PATTERN.findall(content))
+        remaining_placeholders = manifest_placeholder_count + legacy_placeholder_count
         image_refs = re.findall(r'!\[[^\]]*\]\(([^)]+)\)', content)
 
         missing_files = []
@@ -366,7 +625,7 @@ class ChartGenerator:
             if image_path.name != normalized and not normalized.startswith('images/'):
                 path_mismatches.append(normalized)
 
-            candidate = self.output_dir / image_path.name
+            candidate = self._resolve_manifest_output_file(normalized)
             if not candidate.exists():
                 missing_files.append(normalized)
                 continue
@@ -1394,7 +1653,22 @@ def main():
         config_path=args.config,
         input_path=str(input_path),
     )
-    mermaid_codes = generator.generate_all(content, context=context_text)
+
+    updated_content = content
+    image_placeholders = generator.parse_image_placeholders(content)
+    if image_placeholders:
+        manifest_path = generator.resolve_image_manifest_path()
+        if manifest_path is None:
+            print("[FAIL] 未找到 references/images.yaml")
+            return
+        manifest_items = generator.validate_image_manifest(
+            image_placeholders,
+            generator.load_image_manifest(manifest_path),
+        )
+        if do_replace:
+            updated_content = generator.replace_image_placeholders(updated_content, manifest_items)
+
+    mermaid_codes = generator.generate_all(updated_content, context=context_text)
 
     print("\n[OK] 图表生成完成！")
     print(f"   共生成 {len(mermaid_codes)} 个图表")
@@ -1405,12 +1679,14 @@ def main():
         print(f"   用户手填图片: {len(generator.user_provided)} 个")
 
     if do_replace and mermaid_codes:
-        new_content = generator.replace_placeholders(content, mermaid_codes)
-        input_path.write_text(new_content, encoding='utf-8')
+        updated_content = generator.replace_placeholders(updated_content, mermaid_codes)
+
+    if do_replace and updated_content != content:
+        input_path.write_text(updated_content, encoding='utf-8')
         print(f"\n[文档] 已原位更新: {input_path}")
 
     if args.report:
-        report = generator.generate_report(content)
+        report = generator.generate_report(updated_content)
         report_file = Path(args.output) / "chart_report.md"
         report_file.write_text(report, encoding='utf-8')
         print(f"\n[统计] 分析报告: {report_file}")

@@ -17,21 +17,21 @@
 
 ```mermaid
 flowchart TD
-    A[检查工作区是否存在] -->|不存在| B[创建目录结构]
+    A[检查工作区是否存在] -->|不存在| B[直接初始化工作区]
     A -->|已存在| C[读取 .thesis-status.json]
-    B --> D[生成 README.md]
-    D --> E[创建日志目录]
-    E --> F[创建 .thesis-status.json]
-    F --> G[记录初始化日志]
-    G --> H[输出初始化报告]
-    H --> I[⏸️ 暂停，等待用户]
-    I --> J{用户回复「继续」?}
-    J -->|是| K[检查用户文件]
-    J -->|否| I
-    K --> L[继续后续流程]
-    C --> M{工作区状态?}
-    M -->|已初始化| K
-    M -->|未完成| N[恢复到中断点]
+    B --> D[创建目录结构]
+    D --> E[生成 README.md]
+    E --> F[创建日志目录]
+    F --> G[创建 references/prompt/background.md]
+    G --> H[创建 .thesis-status.json]
+    H --> I[记录初始化日志]
+    I --> J[输出初始化报告]
+    J --> K[提示填写 references/prompt/background.md]
+    C --> L{工作区状态?}
+    L -->|已初始化| M[检查 background.md]
+    L -->|未完成| N[恢复到中断点]
+    N --> M
+    K --> M
 ```
 
 ---
@@ -45,9 +45,10 @@ flowchart TD
 
 ### 2. 创建工作区(如不存在)
 
-- 创建完整目录结构
-- 生成 `README.md` 使用说明
-- 创建 `logs/` 目录
+- 工作区不存在时直接初始化工作区
+- 自动创建完整目录结构
+- 自动生成 `README.md` 使用说明
+- 自动创建 `logs/` 目录
 - 复制模板文件：
   - `references/prompt/background_template.md` → `references/prompt/background.md`
 - 初始化 `.thesis-status.json`
@@ -58,7 +59,7 @@ flowchart TD
 - 写入 `step_0_init.log`：记录初始化详情
 - 更新 `logs/latest` 软链接
 
-### 4. 输出初始化报告并暂停
+### 4. 输出初始化报告
 
 ```
 ✅ 工作区初始化完成！
@@ -66,17 +67,17 @@ flowchart TD
 📂 工作区位置：thesis-workspace/
 📝 日志目录：thesis-workspace/logs/latest/
 
-📋 请按以下步骤准备参考资料：
+📋 请先完成以下准备：
 
 1. 打开 thesis-workspace/README.md 阅读详细说明
 2. 将学校模板放入 references/templates/
 3. 将优秀范文放入 references/examples/
 4. 将写作规范放入 references/guidelines/
-5. 填写 references/prompt/background.md(必填)
+5. 填写 references/prompt/background.md（必填）
 6. 将参考文献放入 references/reference/doc/
 7. 将参考代码放入 references/reference/code/
 
-⏸️ 准备完成后，请回复「继续」开始论文创作。
+⏸️ 请先填写 references/prompt/background.md，再回复「继续」开始论文创作。
 ```
 
 ### 5. 等待用户确认
@@ -88,7 +89,7 @@ flowchart TD
   - 不包含模板占位内容(如 `请填写以下信息`、`(描述研究领域的现状和问题)`)
 - 若不通过：
   - 自动创建 `thesis-workspace/references/prompt/background.md`(来源：`references/prompt/background_template.md`)
-  - 明确提示用户编辑该文件后再次回复「继续」
+  - 明确提示用户填写 references/prompt/background.md 后再次回复「继续」
   - **禁止在控制台进行交互式输入采集背景信息**
 - 通过后输出文件检查报告并继续后续流程
 

@@ -72,6 +72,10 @@ class Reference:
     issues: List[str] = None
     hallucination_risk: bool = False  # 新增：幻觉风险标记
     verified_online: bool = False     # 新增：已在线验证标记
+    verification_status: str = "invalid_reference"
+    verification_reason: str = ""
+    metadata_verified: bool = False
+    doi_reachable: bool = False
 
     def __post_init__(self):
         """__post_init__"""
@@ -498,38 +502,51 @@ class ReferenceValidator:
 
             if crossref_valid and crossref_result:
                 ref.verified_online = True
-                # 验证标题是否匹配
+                ref.metadata_verified = True
                 if ref.title and crossref_result.title:
                     if not self._titles_similar(ref.title, crossref_result.title):
                         issues.append(
                             f"标题不匹配: 原文 '{ref.title}' vs 实际 '{crossref_result.title}'"
                         )
                 if self.check_404:
-                    # 检查 DOI 链接可达性（仅将真实不存在的 404 视为致命问题）
                     reachable, status_code = self.crossref_searcher.check_doi_reachable(ref.doi)
+                    ref.doi_reachable = reachable
                     if not reachable:
                         if status_code == 404:
-                            issues.append(f"DOI 不存在 (404): https://doi.org/{ref.doi}")
-                            ref.hallucination_risk = True
+                            ref.verification_status = "broken_doi_metadata_ok"
+                            ref.verification_reason = f"DOI 404，但元数据匹配通过: {ref.doi}"
+                            self.logger.warning(f"DOI 404，但保留元数据验证结果: {ref.doi}")
                         elif status_code in {401, 403, 405, 418, 429}:
+                            ref.verification_status = "verified_doi"
+                            ref.verification_reason = f"DOI 可达性检查受限，但元数据匹配通过: {ref.doi}"
                             self.logger.warning(
                                 f"DOI 可达性检查受限，跳过拦截: {ref.doi} ({status_code})"
                             )
                         elif status_code >= 500:
+                            ref.verification_status = "verified_doi"
+                            ref.verification_reason = f"DOI 检查服务异常，但元数据匹配通过: {ref.doi}"
                             self.logger.warning(
                                 f"DOI 可达性检查服务异常，跳过拦截: {ref.doi} ({status_code})"
                             )
                         else:
                             issues.append(f"DOI 链接无法访问: https://doi.org/{ref.doi}")
                             ref.hallucination_risk = True
+                            ref.verification_status = "invalid_reference"
+                            ref.verification_reason = f"DOI 链接无法访问: {ref.doi}"
                     else:
+                        ref.verification_status = "verified_doi"
+                        ref.verification_reason = f"DOI 可达且元数据匹配: {ref.doi}"
                         self.logger.info(f"DOI 验证通过: {ref.doi}")
                 else:
+                    ref.doi_reachable = False
+                    ref.verification_status = "verified_doi"
+                    ref.verification_reason = f"DOI 元数据验证通过: {ref.doi}"
                     self.logger.info(f"DOI 元数据验证通过: {ref.doi}")
             else:
-                # CrossRef 验证失败，标记为幻觉风险
                 issues.append(f"DOI 无效或不存在: {ref.doi}")
                 ref.hallucination_risk = True
+                ref.verification_status = "invalid_reference"
+                ref.verification_reason = f"DOI 无效或不存在: {ref.doi}"
 
         # 2. 标题搜索验证（无 DOI 时）- 使用 CrossRef 搜索
         elif ref.title and len(ref.title) >= 5:
@@ -544,6 +561,10 @@ class ReferenceValidator:
 
                 if results and has_similar_title(results):
                     ref.verified_online = True
+                    ref.metadata_verified = True
+                    ref.doi_reachable = False
+                    ref.verification_status = "verified_metadata_only"
+                    ref.verification_reason = "文献本身没有 DOI，但标题/作者/年份匹配通过"
                     self.logger.info(f"CrossRef 标题验证通过")
                 else:
                     openalex_results = []
@@ -556,23 +577,37 @@ class ReferenceValidator:
 
                     if openalex_results and has_similar_title(openalex_results):
                         ref.verified_online = True
+                        ref.metadata_verified = True
+                        ref.doi_reachable = False
+                        ref.verification_status = "verified_metadata_only"
+                        ref.verification_reason = "文献本身没有 DOI，但标题/作者/年份匹配通过"
                         self.logger.info(f"OpenAlex 备用验证通过")
                     elif self.searcher is not None:
                         try:
                             results = self.searcher.search(keywords, limit=5)
                             if results and has_similar_title(results):
                                 ref.verified_online = True
+                                ref.metadata_verified = True
+                                ref.doi_reachable = False
+                                ref.verification_status = "verified_metadata_only"
+                                ref.verification_reason = "文献本身没有 DOI，但标题/作者/年份匹配通过"
                                 self.logger.info(f"Semantic Scholar 备用验证通过")
                             else:
                                 issues.append("未找到相似标题，疑似虚构文献")
                                 ref.hallucination_risk = True
+                                ref.verification_status = "missing_doi_unverified"
+                                ref.verification_reason = "无 DOI 且无法通过元数据验证"
                         except Exception as e2:
                             self.logger.warning(f"Semantic Scholar 搜索也失败: {e2}")
                             issues.append("未找到相似标题，疑似虚构文献")
                             ref.hallucination_risk = True
+                            ref.verification_status = "missing_doi_unverified"
+                            ref.verification_reason = "无 DOI 且无法通过元数据验证"
                     else:
                         issues.append("未找到相似标题，疑似虚构文献")
                         ref.hallucination_risk = True
+                        ref.verification_status = "missing_doi_unverified"
+                        ref.verification_reason = "无 DOI 且无法通过元数据验证"
             except Exception as e:
                 self.logger.warning(f"CrossRef 搜索失败: {e}")
                 openalex_results = []
@@ -585,23 +620,37 @@ class ReferenceValidator:
 
                 if openalex_results and has_similar_title(openalex_results):
                     ref.verified_online = True
+                    ref.metadata_verified = True
+                    ref.doi_reachable = False
+                    ref.verification_status = "verified_metadata_only"
+                    ref.verification_reason = "文献本身没有 DOI，但标题/作者/年份匹配通过"
                     self.logger.info(f"OpenAlex 备用验证通过")
                 elif self.searcher is not None:
                     try:
                         results = self.searcher.search(keywords, limit=5)
                         if results and has_similar_title(results):
                             ref.verified_online = True
+                            ref.metadata_verified = True
+                            ref.doi_reachable = False
+                            ref.verification_status = "verified_metadata_only"
+                            ref.verification_reason = "文献本身没有 DOI，但标题/作者/年份匹配通过"
                             self.logger.info(f"Semantic Scholar 备用验证通过")
                         else:
                             issues.append("未找到相似标题，疑似虚构文献")
                             ref.hallucination_risk = True
+                            ref.verification_status = "missing_doi_unverified"
+                            ref.verification_reason = "无 DOI 且无法通过元数据验证"
                     except Exception as e2:
                         self.logger.warning(f"Semantic Scholar 搜索也失败: {e2}")
                         issues.append("未找到相似标题，疑似虚构文献")
                         ref.hallucination_risk = True
+                        ref.verification_status = "missing_doi_unverified"
+                        ref.verification_reason = "无 DOI 且无法通过元数据验证"
                 else:
                     issues.append("未找到相似标题，疑似虚构文献")
                     ref.hallucination_risk = True
+                    ref.verification_status = "missing_doi_unverified"
+                    ref.verification_reason = "无 DOI 且无法通过元数据验证"
 
         return issues
 

@@ -10,6 +10,7 @@ thesis-creator 日志工具模块
 - 配置开关（thesis-workspace/.thesis-config.yaml）
 """
 
+import json
 import os
 import sys
 import logging
@@ -298,6 +299,43 @@ class ThesisLogger:
         self.logger.error(f"[ERROR] {type(error).__name__}: {error}")
         for key, value in context.items():
             self.logger.error(f"   └─ {key}: {value}")
+
+
+    def record_replacement(
+        self,
+        step: int,
+        operation: str,
+        file: str,
+        before: str,
+        after: str,
+        reason: str,
+        rule_id: str = "",
+        success: bool = True,
+    ):
+        """记录替换操作摘要与结构化 JSONL 日志"""
+        replacement_dir = self.log_dir / self.session_name
+        replacement_dir.mkdir(parents=True, exist_ok=True)
+        replacement_log = replacement_dir / "replacements.jsonl"
+
+        payload = {
+            "timestamp": datetime.now().isoformat(timespec="seconds"),
+            "step": step,
+            "operation": operation,
+            "file": file,
+            "rule_id": rule_id,
+            "before": before,
+            "after": after,
+            "reason": reason,
+            "success": success,
+        }
+
+        with open(replacement_log, 'a', encoding='utf-8') as f:
+            f.write(json.dumps(payload, ensure_ascii=False) + "\n")
+
+        status = "OK" if success else "FAIL"
+        self.logger.info(
+            f"[替换][{status}] step={step} op={operation} file={file} before={before} after={after} reason={reason}"
+        )
 
     def get_log_content(self) -> str:
         """获取当前日志文件内容"""

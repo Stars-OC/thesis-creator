@@ -63,8 +63,6 @@ models/
 worktrees/
 
 # Test files
-test_*.py
-*_test.py
 .pytest_cache/
 .coverage
 htmlcov/

@@ -74,7 +74,9 @@ python scripts/merge_drafts.py -i workspace/drafts/ -o workspace/final/论文终
 python scripts/reference_validator.py workspace/drafts/参考文献.md --validate-online --check-404
 ```
 
-- 若存在 404、DOI 不可达或明显格式问题：先替换文献或回退 Step 6 审校后，再重新执行 Step 7。
+- 允许继续的状态：`verified_doi`、`verified_metadata_only`、`broken_doi_metadata_ok`
+- 必须阻断并先修复的状态：`missing_doi_unverified`、`invalid_reference`
+- 若存在 `missing_doi_unverified` 或 `invalid_reference`：先替换文献或回退 Step 6 审校后，再重新执行 Step 7。
 - 仅当参考文献在线校验通过后，才允许继续 AIGC 检测。
 
 ---
