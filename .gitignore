@@ -60,6 +60,7 @@ models/
 
 # Logs
 *.log
+worktrees/
 
 # Test files
 test_*.py
