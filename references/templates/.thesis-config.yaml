@@ -36,16 +36,18 @@ semantic_scholar:
 # ========================================
 # ER 建模输出策略（非交互配置驱动）
 # ========================================
+# 默认使用 dot：教科书风格概念 ER 图（Graphviz DOT）
+# 唯一事实源：thesis-workspace/references/prompt/background.md
 # graph_type 可选值：
+# - dot: 教科书ER图（Graphviz DOT，默认）
 # - chen: 概念ER图（Mermaid flowchart LR，实体矩形+属性椭圆）
 # - erd: 工程ERD（Mermaid erDiagram）
-# - dot: 教科书ER图（Graphviz DOT）
 # diagram_scope 可选值：
 # - single: 单表单图，适合逐表讲解
 # - multi: 多表同图，适合展示实体关系
 er_modeling:
   enabled: true
-  graph_type: chen
+  graph_type: dot
   diagram_scope: single
   strict_single_table: true
   line_style: straight

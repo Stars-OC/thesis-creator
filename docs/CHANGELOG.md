@@ -4,6 +4,16 @@
 
 ---
 
+## [Unreleased]
+
+### 更新功能 (Changed)
+
+- **ER 图默认策略调整**：`er_modeling.graph_type` 默认改为 `dot`，输出教科书风格 Graphviz DOT 概念 ER 图。
+- **background.md 驱动增强**：E-R 图优先读取 `thesis-workspace/references/prompt/background.md` 中的表级业务说明、关联表与字段说明。
+- **字段中文语义增强**：主键与普通字段优先采用字段说明中的中文业务名，而非通用“编号/名称”兜底。
+
+---
+
 ## [v1.2.0] - 2026-04-24
 
 ### 新增功能 ⭐

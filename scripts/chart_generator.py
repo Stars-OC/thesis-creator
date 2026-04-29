@@ -80,6 +80,7 @@ class TableSchema:
     display_name: str
     fields: List[TableField] = field(default_factory=list)
     related_tables: List[str] = field(default_factory=list)
+    business_description: str = ""
 
 
 def resolve_config_candidates(input_path: Optional[str] = None, explicit_config: Optional[str] = None) -> List[Path]:
@@ -129,7 +130,7 @@ def _load_config_section(section_name: str, default: Dict[str, Any], config_path
 def _load_er_modeling_config(config_path: Optional[str] = None, input_path: Optional[str] = None) -> Tuple[Dict[str, Any], Optional[Path]]:
     default = {
         "enabled": True,
-        "graph_type": "chen",
+        "graph_type": "dot",
         "diagram_scope": "single",
         "strict_single_table": True,
         "line_style": "straight",
@@ -142,7 +143,7 @@ def _load_er_modeling_config(config_path: Optional[str] = None, input_path: Opti
 def _load_diagram_generation_config(config_path: Optional[str] = None, input_path: Optional[str] = None) -> Tuple[Dict[str, Any], Optional[Path]]:
     default = {
         "architecture_mode": "llm",
-        "flowchart_direction": "LR",
+        "flowchart_direction": "AUTO",
     }
     return _load_config_section("diagram_generation", default, config_path=config_path, input_path=input_path)
 
@@ -177,12 +178,13 @@ class ChartGenerator:
         self.user_provided: List[Dict[str, str]] = []
         self.context_text: str = ""
         self.input_path = Path(input_path) if input_path else None
-        self.config_path = config_path
         loaded_config, resolved_config_path = _load_er_modeling_config(config_path, input_path=input_path)
         if er_modeling_config:
             loaded_config.update({k: v for k, v in er_modeling_config.items() if v is not None})
         self.er_modeling_config = loaded_config
         loaded_diagram_config, _ = _load_diagram_generation_config(config_path, input_path=input_path)
+        if not diagram_generation_config and not config_path and not input_path:
+            loaded_diagram_config["flowchart_direction"] = "AUTO"
         if diagram_generation_config:
             loaded_diagram_config.update({k: v for k, v in diagram_generation_config.items() if v is not None})
         self.diagram_generation_config = loaded_diagram_config
@@ -250,6 +252,15 @@ class ChartGenerator:
             if relation_match:
                 related_tables = [item.strip() for item in re.split(r'[、,，]', relation_match.group(1)) if item.strip()]
 
+            business_description = ""
+            for pattern in [r'业务说明[：:]\s*(.+)', r'用途[：:]\s*(.+)', r'说明[：:]\s*(.+)']:
+                business_match = re.search(pattern, block)
+                if business_match:
+                    candidate = business_match.group(1).strip()
+                    if candidate and '|' not in candidate:
+                        business_description = candidate
+                        break
+
             table_lines = []
             for line in block.splitlines():
                 if line.strip().startswith('|'):
@@ -288,7 +299,13 @@ class ChartGenerator:
                     description=row[desc_idx].strip() if desc_idx is not None and len(row) > desc_idx else "",
                 ))
 
-            schema = TableSchema(name=table_name, display_name=table_name, fields=fields, related_tables=related_tables)
+            schema = TableSchema(
+                name=table_name,
+                display_name=table_name,
+                fields=fields,
+                related_tables=related_tables,
+                business_description=business_description,
+            )
             schemas[self._normalize_table_key(table_name)] = schema
         return schemas
 
@@ -434,9 +451,16 @@ class ChartGenerator:
         return []
 
     def _build_single_flowchart(self, steps: List[Dict[str, str]], chart_id: str, chart_name: str) -> str:
-        direction = str(self.diagram_generation_config.get("flowchart_direction", "LR")).upper().strip()
+        configured_direction = str(self.diagram_generation_config.get("flowchart_direction", "AUTO")).upper().strip()
+        if configured_direction == "AUTO":
+            chart_numbers = [int(value) for value in re.findall(r'\d+', chart_id)]
+            seed = sum(chart_numbers) if chart_numbers else sum(ord(char) for char in chart_name)
+            direction_cycle = ["LR", "RL", "TB", "BT"]
+            direction = direction_cycle[seed % len(direction_cycle)]
+        else:
+            direction = configured_direction
         if direction not in {"LR", "RL", "TB", "BT"}:
-            direction = "LR"
+            direction = "TB"
         lines = [
             "```mermaid",
             f"%% {chart_id} {chart_name}",
@@ -589,20 +613,52 @@ class ChartGenerator:
     def _schema_to_attribute_names(self, schema: TableSchema) -> List[str]:
         names = []
         for field in schema.fields:
-            if field.is_primary:
+            if field.description:
+                names.append(field.description)
+            elif field.is_primary:
                 names.append("编号")
             elif field.name.upper().startswith("FK_"):
-                names.append(field.description or field.name)
+                names.append(field.name)
             else:
-                names.append(field.description or field.name)
+                names.append(field.name)
         return names or self._default_er_attributes(schema.display_name)
 
+    def _build_er_warnings(self, schema: TableSchema, matched_from_background: bool) -> List[str]:
+        warnings: List[str] = []
+        if not matched_from_background:
+            warnings.append("未能从 background.md 精确命中主实体，已使用描述信息兜底生成。")
+            return warnings
+
+        if not schema.business_description:
+            warnings.append(f"{schema.display_name}缺少表级业务说明，图注将使用通用描述。")
+
+        missing_field_descriptions = [field.name for field in schema.fields if not field.description]
+        if missing_field_descriptions:
+            preview = "、".join(missing_field_descriptions[:3])
+            warnings.append(f"{schema.display_name}存在缺少字段说明的字段：{preview}。")
+
+        english_like_fields = [field.name for field in schema.fields if not field.description and re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*', field.name)]
+        if english_like_fields:
+            preview = "、".join(english_like_fields[:3])
+            warnings.append(f"{schema.display_name}存在仍需中文语义补充的英文字段：{preview}。")
+
+        return warnings
+
     def _build_er_caption(self, schema: TableSchema, related_schemas: List[TableSchema], graph_type: str) -> str:
-        primary_fields = [field.description or field.name for field in schema.fields[:3]]
-        field_summary = "、".join(primary_fields) if primary_fields else "编号、名称、状态"
-        related_summary = "、".join(item.display_name for item in related_schemas[:2]) if related_schemas else "其他业务实体"
-        mode_text = "教科书式 DOT 概念图" if graph_type == "dot" else "概念结构图"
-        return f"{schema.display_name}表的{mode_text}，以该表为核心展示主键及关键字段（如{field_summary}），并说明其与{related_summary}的直接关联关系，用于支撑第4章数据库设计中的实体结构说明。"
+        role_text = schema.business_description.strip() if schema.business_description else f"用于说明{schema.display_name}表在业务流程中的核心职责。"
+
+        primary_fields = [field.description or field.name for field in schema.fields[:3] if field.description or field.name]
+        if primary_fields:
+            field_text = f"图中重点展示了{schema.display_name}表的关键字段，包括{'、'.join(primary_fields)}，用于支撑该实体的主键标识、基础信息维护与状态管理。"
+        else:
+            field_text = f"图中重点展示了{schema.display_name}表的关键字段，用于支撑该实体的主键标识、基础信息维护与状态管理。"
+
+        if related_schemas:
+            related_text = f"同时该实体还与{'、'.join(item.display_name for item in related_schemas[:2])}等实体存在直接业务关联，用于支撑第4章数据库设计中的关系说明。"
+        else:
+            related_text = "同时该实体与其他业务实体的关联关系可在后续数据库设计章节中继续展开说明。"
+
+        return f"{schema.display_name}表{role_text}{field_text}{related_text}"
 
     def _extract_er_entities(self, description: str, core_entity: str) -> List[str]:
         entities = [core_entity]
@@ -754,22 +810,29 @@ flowchart LR
             return self._generate_module_diagram(placeholder)
         return self._generate_flowchart(placeholder)
 
+    def _generate_with_hybrid(self, placeholder: ChartPlaceholder, warning_message: str) -> Optional[str]:
+        if HybridChartGenerator is None:
+            return None
+        try:
+            hybrid = HybridChartGenerator()
+            generated = hybrid.generate(
+                placeholder.chart_type,
+                placeholder.description,
+                self.context_text,
+                placeholder.chart_id,
+                placeholder.chart_name,
+            )
+            return generated or None
+        except Exception as exc:
+            self.logger.warning(f"{warning_message}: {exc}")
+            return None
+
     def _generate_architecture_diagram(self, placeholder: ChartPlaceholder) -> str:
         architecture_mode = str(self.diagram_generation_config.get("architecture_mode", "llm")).lower().strip()
-        if architecture_mode == "llm" and HybridChartGenerator is not None:
-            try:
-                hybrid = HybridChartGenerator()
-                generated = hybrid.generate(
-                    placeholder.chart_type,
-                    placeholder.description,
-                    self.context_text,
-                    placeholder.chart_id,
-                    placeholder.chart_name,
-                )
-                if generated:
-                    return generated
-            except Exception as exc:
-                self.logger.warning(f"架构图模型生成失败，回退默认模板: {exc}")
+        if architecture_mode == "llm":
+            generated = self._generate_with_hybrid(placeholder, "架构图模型生成失败，回退默认模板")
+            if generated:
+                return generated
 
         return f'''```mermaid
 %% {placeholder.chart_id} {placeholder.chart_name}
@@ -855,6 +918,7 @@ graph LR
                 "schema": schema,
                 "related_schemas": related_schemas,
                 "graph_type": graph_type,
+                "warnings": self._build_er_warnings(schema, matched_from_background=True),
             }
         else:
             entities = self._extract_er_entities(placeholder.description, core_entity)
@@ -862,7 +926,12 @@ graph LR
             relationship = self._extract_er_relationship(placeholder.description, entities)
             single_entity = entities[0] if entities else core_entity
             single_attributes = attributes.get(single_entity, self._default_er_attributes(single_entity))
-            self.last_er_context[placeholder.chart_id] = {}
+            self.last_er_context[placeholder.chart_id] = {
+                "warnings": self._build_er_warnings(
+                    TableSchema(name=single_entity, display_name=single_entity, fields=[]),
+                    matched_from_background=False,
+                )
+            }
             if graph_type in {"erd", "mermaid_erd", "mermaid-erd"}:
                 if diagram_scope == "multi" and len(entities) > 1:
                     return self._build_mermaid_erd_multi(
@@ -1085,8 +1154,9 @@ graph TB
             "```dot",
             f"// {chart_id} {chart_name}",
             "digraph ER {",
-            "  rankdir=LR;",
+            "  rankdir=TB;",
             "  splines=line;",
+            "  edge [dir=none];",
             '  node [fontname="Microsoft YaHei"];',
         ]
 
@@ -1133,9 +1203,13 @@ graph TB
         return "\n".join(dot_lines)
 
     def _generate_usecase_diagram(self, placeholder: ChartPlaceholder) -> str:
+        generated = self._generate_with_hybrid(placeholder, "用例图混合生成失败，回退默认模板")
+        if generated:
+            return generated
+
         return f'''```mermaid
 %% {placeholder.chart_id} {placeholder.chart_name}
-graph LR
+graph TB
     subgraph 系统
         UC1((登录))
         UC2((查看数据))

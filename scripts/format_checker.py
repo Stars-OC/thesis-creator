@@ -16,7 +16,7 @@
 import re
 import json
 from pathlib import Path
-from typing import Dict, List, Tuple, Optional, Set
+from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass, field
 from datetime import datetime
 
@@ -117,15 +117,14 @@ class FormatChecker:
         if '摘要' not in self.content:
             issues.append("缺少中文摘要")
         else:
-            # 检查摘要长度
             abstract_match = re.search(r'摘[要要]\s*\n(.+?)(?=\n#|\n关键词|\Z)', self.content, re.DOTALL)
             if abstract_match:
                 abstract = abstract_match.group(1).strip()
                 char_count = len(abstract.replace('\n', '').replace(' ', ''))
-                if char_count < 200:
-                    issues.append(f"中文摘要过短（{char_count} 字），建议 200-300 字")
-                elif char_count > 500:
-                    issues.append(f"中文摘要过长（{char_count} 字），建议 200-300 字")
+                if char_count < 350:
+                    issues.append(f"中文摘要过短（{char_count} 字），建议控制在 550 字左右")
+                elif char_count > 650:
+                    issues.append(f"中文摘要过长（{char_count} 字），建议控制在 550 字左右")
 
         # 检查英文摘要
         if 'Abstract' not in self.content and 'abstract' not in self.content:
@@ -190,9 +189,6 @@ class FormatChecker:
                 issues.append("参考文献为空")
             elif len(refs) < 10:
                 issues.append(f"参考文献数量偏少（{len(refs)} 篇），建议 10-20 篇")
-
-            # 检查引用标记是否在正文中有对应
-            cited_numbers = set(re.findall(r'\[(\d+)\]', self.content))
 
             # 检查格式（GB/T 7714）
             # 简化检查：是否有 [J]、[D]、[M] 等文献类型标识

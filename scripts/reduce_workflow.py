@@ -227,8 +227,12 @@ def run_workflow(input_path: str, output_dir: str, ratio: float = 0.5, whitelist
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # 时间戳
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    input_stem = Path(input_path).stem
+    safe_input_stem = re.sub(r'[^\w\-一-鿿]+', '_', input_stem).strip('_') or 'input'
+
+    # 时间戳（精确到微秒，避免批量调用时同秒覆盖）
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+    output_token = f"{safe_input_stem}_{timestamp}"
 
     # 加载白名单
     whitelist = set(DEFAULT_WHITELIST)
@@ -254,18 +258,18 @@ def run_workflow(input_path: str, output_dir: str, ratio: float = 0.5, whitelist
     print(f"替换数量: {len(replacements)} 处")
 
     # 保存替换后论文
-    output_paper = output_dir / f"论文降重版_{timestamp}.md"
+    output_paper = output_dir / f"论文降重版_{output_token}.md"
     with open(output_paper, 'w', encoding='utf-8') as f:
         f.write(replaced_text)
     print(f"替换后论文: {output_paper}")
 
     # 生成审核 Prompt
-    prompt_path = output_dir / f"审核Prompt_{timestamp}.md"
+    prompt_path = output_dir / f"审核Prompt_{output_token}.md"
     reducer.generate_review_prompt(original_text, replaced_text, str(prompt_path))
     print(f"审核 Prompt: {prompt_path}")
 
     # 保存替换记录
-    record_path = output_dir / f"替换记录_{timestamp}.json"
+    record_path = output_dir / f"替换记录_{output_token}.json"
     record_data = {
         "timestamp": timestamp,
         "input_file": input_path,
@@ -279,7 +283,7 @@ def run_workflow(input_path: str, output_dir: str, ratio: float = 0.5, whitelist
     print(f"替换记录: {record_path}")
 
     # 生成报告
-    report_path = output_dir / f"降重报告_{timestamp}.md"
+    report_path = output_dir / f"降重报告_{output_token}.md"
     report = f'''# 论文降重报告
 
 **生成时间**: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
