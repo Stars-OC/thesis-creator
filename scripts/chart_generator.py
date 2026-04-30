@@ -353,8 +353,8 @@ class ChartGenerator:
         seen = set()
         for root in search_roots:
             for candidate in [
-                root / "references" / "images.yaml",
-                root / "thesis-workspace" / "references" / "images.yaml",
+                root / "workspace" / "references" / "images.yaml",
+                root / "thesis-workspace" / "workspace" / "references" / "images.yaml",
             ]:
                 normalized = str(candidate)
                 if normalized in seen:
@@ -1153,7 +1153,7 @@ graph LR
 
     def _generate_er_diagram(self, placeholder: ChartPlaceholder) -> str:
         core_entity = self._extract_er_core_entity(placeholder.chart_name, placeholder.description)
-        graph_type = str(self.er_modeling_config.get("graph_type", "chen")).lower().strip()
+        graph_type = str(self.er_modeling_config.get("graph_type", "dot")).lower().strip()
         diagram_scope = str(self.er_modeling_config.get("diagram_scope", "single")).lower().strip()
 
         schema = self._match_schema(core_entity)
@@ -1367,35 +1367,37 @@ graph TB
             "  splines=line;",
             "  edge [dir=none];",
             '  node [fontname="Microsoft YaHei"];',
-            f'  entity [label="{entity}", shape=box];',
-            "  { rank=same; entity; }",
+            f'  "{entity}" [shape=box];',
+            f'  {{ rank=same; "{entity}"; }}',
         ]
 
         top_nodes = []
         for idx, field in enumerate(top, start=1):
             name = self._sanitize_er_field_name(field)
-            node_name = f"top_attr_{idx}"
+            node_name = f"{name}{'​' * idx}"
             top_nodes.append(node_name)
-            dot_lines.append(f'  {node_name} [label="{name}", shape=ellipse];')
-            dot_lines.append(f"  {node_name} -> entity;")
+            dot_lines.append(f'  "{node_name}" [shape=ellipse];')
+            dot_lines.append(f'  "{node_name}" -> "{entity}";')
 
         if top_nodes:
-            dot_lines.append(f"  {{ rank=same; {'; '.join(top_nodes)}; }}")
+            top_rank = "; ".join(f'"{node}"' for node in top_nodes)
+            dot_lines.append(f"  {{ rank=same; {top_rank}; }}")
             for left, right in zip(top_nodes, top_nodes[1:]):
-                dot_lines.append(f"  {left} -> {right} [style=invis, weight=10];")
+                dot_lines.append(f'  "{left}" -> "{right}" [style=invis, weight=10];')
 
         bottom_nodes = []
         for idx, field in enumerate(bottom, start=1):
             name = self._sanitize_er_field_name(field)
-            node_name = f"bottom_attr_{idx}"
+            node_name = f"{name}{'​' * idx}"
             bottom_nodes.append(node_name)
-            dot_lines.append(f'  {node_name} [label="{name}", shape=ellipse];')
-            dot_lines.append(f"  entity -> {node_name};")
+            dot_lines.append(f'  "{node_name}" [shape=ellipse];')
+            dot_lines.append(f'  "{entity}" -> "{node_name}";')
 
         if bottom_nodes:
-            dot_lines.append(f"  {{ rank=same; {'; '.join(bottom_nodes)}; }}")
+            bottom_rank = "; ".join(f'"{node}"' for node in bottom_nodes)
+            dot_lines.append(f"  {{ rank=same; {bottom_rank}; }}")
             for left, right in zip(bottom_nodes, bottom_nodes[1:]):
-                dot_lines.append(f"  {left} -> {right} [style=invis, weight=10];")
+                dot_lines.append(f'  "{left}" -> "{right}" [style=invis, weight=10];')
 
         dot_lines.append("}")
         dot_lines.append("```")
@@ -1421,9 +1423,9 @@ graph TB
 
         entity_nodes: List[str] = []
         for entity_index, entity in enumerate(entities, start=1):
-            entity_node = f"entity_{entity_index}"
+            entity_node = f"{entity}{'​' * entity_index}"
             entity_nodes.append(entity_node)
-            dot_lines.append(f'  {entity_node} [label="{entity}", shape=box];')
+            dot_lines.append(f'  "{entity_node}" [shape=box];')
             fields = attributes.get(entity, self._default_er_attributes(entity))
             split_index = max(1, len(fields) // 2)
             top = fields[:split_index]
@@ -1431,31 +1433,37 @@ graph TB
 
             top_nodes: List[str] = []
             for idx, field in enumerate(top, start=1):
-                node_name = f"{entity_node}_top_attr_{idx}"
+                node_name = f"{self._sanitize_er_field_name(field)}{'​' * (entity_index + idx)}"
                 top_nodes.append(node_name)
-                dot_lines.append(f'  {node_name} [label="{self._sanitize_er_field_name(field)}", shape=ellipse];')
-                dot_lines.append(f"  {node_name} -> {entity_node} [dir=none];")
+                dot_lines.append(f'  "{node_name}" [shape=ellipse];')
+                dot_lines.append(f'  "{node_name}" -> "{entity_node}" [dir=none];')
             if top_nodes:
-                dot_lines.append(f"  {{ rank=same; {'; '.join(top_nodes)}; }}")
+                top_rank = "; ".join(f'"{node}"' for node in top_nodes)
+                dot_lines.append(f"  {{ rank=same; {top_rank}; }}")
 
             bottom_nodes: List[str] = []
             for idx, field in enumerate(bottom, start=1):
-                node_name = f"{entity_node}_bottom_attr_{idx}"
+                node_name = f"{self._sanitize_er_field_name(field)}{'​' * (entity_index + idx)}"
                 bottom_nodes.append(node_name)
-                dot_lines.append(f'  {node_name} [label="{self._sanitize_er_field_name(field)}", shape=ellipse];')
-                dot_lines.append(f"  {entity_node} -> {node_name} [dir=none];")
+                dot_lines.append(f'  "{node_name}" [shape=ellipse];')
+                dot_lines.append(f'  "{entity_node}" -> "{node_name}" [dir=none];')
             if bottom_nodes:
-                dot_lines.append(f"  {{ rank=same; {'; '.join(bottom_nodes)}; }}")
+                bottom_rank = "; ".join(f'"{node}"' for node in bottom_nodes)
+                dot_lines.append(f"  {{ rank=same; {bottom_rank}; }}")
 
         if entity_nodes:
-            dot_lines.append(f"  {{ rank=same; {'; '.join(entity_nodes)}; }}")
+            entity_rank = "; ".join(f'"{node}"' for node in entity_nodes)
+            dot_lines.append(f"  {{ rank=same; {entity_rank}; }}")
 
         left = relationship.get("left", entities[0]) if entities else ""
         right = relationship.get("right", entities[-1]) if entities else ""
         relation_name = self._sanitize_er_field_name(relationship.get("name", "关联"))
         entity_map = {entity: node for entity, node in zip(entities, entity_nodes)}
         if left in entity_map and right in entity_map and left != right:
-            dot_lines.append(f'  {entity_map[left]} -> {entity_map[right]} [label="{relation_name}"];')
+            relation_node = f"{relation_name}​"
+            dot_lines.append(f'  "{relation_node}" [shape=diamond];')
+            dot_lines.append(f'  "{entity_map[left]}" -> "{relation_node}" [dir=none];')
+            dot_lines.append(f'  "{relation_node}" -> "{entity_map[right]}" [dir=none];')
 
         dot_lines.append("}")
         dot_lines.append("```")
@@ -1552,7 +1560,7 @@ classDiagram
                 context = self.last_er_context.get(chart_id, {})
                 schema = context.get("schema")
                 related_schemas = context.get("related_schemas", [])
-                graph_type = context.get("graph_type", str(self.er_modeling_config.get("graph_type", "chen")))
+                graph_type = context.get("graph_type", str(self.er_modeling_config.get("graph_type", "dot")))
                 if schema:
                     replacement = f"{mermaid_code}\n\n图{chart_id[1:]}说明：{self._build_er_caption(schema, related_schemas, graph_type)}"
 
@@ -1579,7 +1587,7 @@ classDiagram
             f"> 分析时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
             "",
             f"> 生效配置: {self.resolved_config_path or '默认配置'}",
-            f"> E-R 模式: {self.er_modeling_config.get('graph_type', 'chen')}",
+            f"> E-R 模式: {self.er_modeling_config.get('graph_type', 'dot')}",
             "",
             "---",
             "",
@@ -1659,7 +1667,7 @@ def main():
     if image_placeholders:
         manifest_path = generator.resolve_image_manifest_path()
         if manifest_path is None:
-            print("[FAIL] 未找到 references/images.yaml")
+            print("[FAIL] 未找到 workspace/references/images.yaml")
             return
         manifest_items = generator.validate_image_manifest(
             image_placeholders,
@@ -1674,7 +1682,7 @@ def main():
     print(f"   共生成 {len(mermaid_codes)} 个图表")
     print(f"   输出目录: {args.output}")
     print(f"   生效配置: {generator.resolved_config_path or '默认配置'}")
-    print(f"   E-R 模式: {generator.er_modeling_config.get('graph_type', 'chen')}")
+    print(f"   E-R 模式: {generator.er_modeling_config.get('graph_type', 'dot')}")
     if generator.user_provided:
         print(f"   用户手填图片: {len(generator.user_provided)} 个")
 

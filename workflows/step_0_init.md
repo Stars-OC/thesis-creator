@@ -17,21 +17,22 @@
 
 ```mermaid
 flowchart TD
-    A[检查工作区是否存在] -->|不存在| B[直接初始化工作区]
+    A[检查工作区是否存在] -->|不存在| B[通过脚本初始化工作区]
     A -->|已存在| C[读取 .thesis-status.json]
     B --> D[创建目录结构]
-    D --> E[生成 README.md]
-    E --> F[创建日志目录]
-    F --> G[创建 references/prompt/background.md]
-    G --> H[创建 .thesis-status.json]
-    H --> I[记录初始化日志]
-    I --> J[输出初始化报告]
-    J --> K[提示填写 references/prompt/background.md]
-    C --> L{工作区状态?}
-    L -->|已初始化| M[检查 background.md]
-    L -->|未完成| N[恢复到中断点]
-    N --> M
-    K --> M
+    D --> E[创建 scripts/ 与运行环境]
+    E --> F[创建 references/prompt/background.md]
+    F --> G[复制 templates/.thesis-config.yaml]
+    G --> H[初始化 workspace/references/images.yaml]
+    H --> I[创建 .thesis-status.json]
+    I --> J[记录初始化日志]
+    J --> K[输出初始化报告]
+    K --> L[提示填写 references/prompt/background.md]
+    C --> M{工作区状态?}
+    M -->|已初始化| N[检查 background.md 与配置文件]
+    M -->|未完成| O[恢复到中断点]
+    O --> N
+    L --> N
 ```
 
 ---
@@ -45,12 +46,16 @@ flowchart TD
 
 ### 2. 创建工作区(如不存在)
 
-- 工作区不存在时直接初始化工作区
+- 工作区不存在时，必须通过脚本初始化工作区，禁止大模型手工拼接目录
+- 推荐命令：`python scripts/lifecycle.py --workspace thesis-workspace/ --prepare-runtime`
 - 自动创建完整目录结构
+- 自动创建 `scripts/` 目录与运行环境
 - 自动生成 `README.md` 使用说明
 - 自动创建 `logs/` 目录
 - 复制模板文件：
   - `references/prompt/background_template.md` → `references/prompt/background.md`
+  - `references/templates/.thesis-config.yaml` → `.thesis-config.yaml`
+- 初始化 `workspace/references/images.yaml`（结构化图片需求清单）
 - 初始化 `.thesis-status.json`
 
 ### 3. 记录日志
@@ -75,7 +80,8 @@ flowchart TD
 4. 将写作规范放入 references/guidelines/
 5. 填写 references/prompt/background.md（必填）
 6. 将参考文献放入 references/reference/doc/
-7. 将参考代码放入 references/reference/code/
+7. 确认 `thesis-workspace/.thesis-config.yaml` 已生成，并按学校要求修改
+8. 确认 `thesis-workspace/workspace/references/images.yaml` 已生成
 
 ⏸️ 请先填写 references/prompt/background.md，再回复「继续」开始论文创作。
 ```

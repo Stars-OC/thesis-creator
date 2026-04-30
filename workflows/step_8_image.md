@@ -16,14 +16,15 @@
 
 ```mermaid
 flowchart TD
-    A[扫描正文中的 image 占位符] --> B[读取 references/images.yaml]
+    A[扫描正文中的 image 占位符] --> B[读取 workspace/references/images.yaml]
     B --> C[校验占位符与清单一致性]
-    C --> D[按 source 类型生成或校验图片]
-    D --> E[渲染 PNG 或检查用户图片]
-    E --> F[将 [image_N] 替换为 Markdown 图片引用]
-    F --> G[输出更新后的终稿]
-    G --> H[✅ 图片生成完成]
-    H --> I[进入 Step 9 导出]
+    C --> D[按 source 与 diagram_type 生成或校验图片]
+    D --> E[ER 图读取 .thesis-config.yaml.er_modeling]
+    E --> F[渲染 PNG 或检查用户图片]
+    F --> G[将 [image_N] 替换为 Markdown 图片引用]
+    G --> H[输出更新后的终稿]
+    H --> I[✅ 图片生成完成]
+    I --> J[进入 Step 9 导出]
 ```
 
 ---
@@ -34,8 +35,11 @@ flowchart TD
 
 - 默认模式：`graph_type=dot`
 - 唯一事实源：`thesis-workspace/references/prompt/background.md`
+- 唯一配置源：`thesis-workspace/.thesis-config.yaml -> er_modeling`
 - 教科书 DOT 要求：实体居中、字段环绕、字段中文
+- DOT 输出约束：不要显式生成 `label=` 属性，直接使用节点文本
 - 信息不足时：尽量生成并 warning，不因字段说明缺失直接阻断
+- **只有 ER 图受 `er_modeling` 配置影响**；架构图、流程图、模块图、时序图不跟随该配置
 
 | 图表 | 来源 | 占位符标记 |
 |------|------|------------|
@@ -79,7 +83,7 @@ python scripts/chart_generator.py workspace/final/论文终稿.md --output works
 | 系统架构图 | `graph LR` | 第4章 系统设计 | 横向分层架构、模块关系 |
 | 功能模块图 | `graph TB` | 第4章 系统设计 | 系统→模块→功能树状结构 |
 | 流程图 | `flowchart LR` | 第4-5章 功能设计/实现 | 登录流程、业务流程 |
-| **概念 ER 图** | **`.thesis-config.yaml -> er_modeling.graph_type=dot` → ` ```dot `** | **第4章 数据库设计** | **实体居中、字段上下分布、Graphviz 渲染，且脚本自动补图下 80-120 字说明** |
+| **概念 ER 图** | **`.thesis-config.yaml -> er_modeling.graph_type=dot` → ` ```dot `** | **第4章 数据库设计** | **实体居中、字段上下分布、Graphviz 渲染，DOT 输出禁止显式 `label=`，且脚本自动补图下 80-120 字说明** |
 | **工程 ERD** | **`.thesis-config.yaml -> er_modeling.graph_type=erd` → `erDiagram`** | **第4章 数据库设计** | **按 `diagram_scope` 输出单表或多表 ERD** |
 | 用例图 | `graph LR` | 第4章 需求分析 | 用户用例 |
 | 时序图 | `sequenceDiagram` | 第5章 接口调用 | API交互时序 |

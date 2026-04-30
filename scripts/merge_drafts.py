@@ -374,6 +374,21 @@ class DraftMerger:
 
         return ordered
 
+    def check_duplicate_reference_usage(self, content: str):
+        """检查同一 ref_id 是否被重复引用"""
+        counts: Dict[str, int] = {}
+        for match in RE_TEMP_REF.finditer(content):
+            ref_id = f"ref_{match.group(1)}"
+            counts[ref_id] = counts.get(ref_id, 0) + 1
+
+        duplicates = {ref_id: count for ref_id, count in counts.items() if count > 1}
+        for ref_id, count in duplicates.items():
+            self.merge_report['warnings'].append(
+                f"检测到重复引用文献 {ref_id}，正文共出现 {count} 次；规则要求单篇文献整篇仅引用一次"
+            )
+
+        return duplicates
+
     def renumber_references(self, content: str) -> Tuple[str, Dict[str, int]]:
         """renumber_references"""
         cited_refs = self.collect_cited_references(content)
@@ -542,6 +557,10 @@ class DraftMerger:
 
         final_content = '\n'.join(merged_content)
 
+        duplicate_refs = self.check_duplicate_reference_usage(final_content)
+        if duplicate_refs:
+            print(f"[警告] 检测到 {len(duplicate_refs)} 篇文献存在重复引用")
+
         ref_mapping: Dict[str, int] = {}
         if self.ref_pool:
             print("[信息] 开始引用编号重排...")
@@ -615,6 +634,12 @@ class DraftMerger:
         print(f"  总字符数: {self.merge_report['total_chars']}")
         print(f"  总字数: {self.merge_report['total_words']}")
         print("-" * 60)
+
+        if self.merge_report['warnings']:
+            print("警告信息:")
+            for warning in self.merge_report['warnings']:
+                print(self._console_safe(f"  - {warning}"))
+            print("-" * 60)
 
         if self.merge_report['errors']:
             print("错误信息:")

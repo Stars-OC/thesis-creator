@@ -60,9 +60,10 @@ python scripts/merge_drafts.py -i workspace/drafts/ -o workspace/final/论文终
 1. **自动匹配章节文件名并按顺序拼接**（支持 `chapter_1.md` / `chapter-1.md` / `chapter_1_xxx.md` / `第1章xxx.md`）
 2. **清理章节冗余分隔符和空白**，统一版式
 3. **自动补充分页标记**（章节间分页）
-4. **按正文出现顺序重排临时引用编号**（`[ref_001] → [1]`）
-5. **从 `verified_references.yaml` 生成独立参考文献文件**（`workspace/drafts/参考文献.md`）
-6. **生成最终 Markdown 文件**（`workspace/final/论文终稿.md`）
+4. **按正文首次出现顺序重排临时引用编号**（`[ref_001] → [1]`）
+5. **校验单篇文献是否被重复占用**：若同一 `ref_id` 在终稿中出现多次，必须输出告警并回退修正
+6. **从 `verified_references.yaml` 生成独立参考文献文件**（`workspace/drafts/参考文献.md`）
+7. **生成最终 Markdown 文件**（`workspace/final/论文终稿.md`）
 
 ---
 

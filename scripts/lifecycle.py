@@ -55,6 +55,33 @@ def _copy_runtime_scripts(source_dir: Path, target_dir: Path):
                 shutil.copyfile(item, target)
 
 
+def _ensure_workspace_config(workspace: Path):
+    target_config = workspace / ".thesis-config.yaml"
+    if target_config.exists():
+        return
+
+    template_candidates = [
+        workspace.parent / ".claude" / "skills" / "thesis-creator" / "references" / "templates" / ".thesis-config.yaml",
+        Path(__file__).resolve().parent.parent / "references" / "templates" / ".thesis-config.yaml",
+    ]
+    for template in template_candidates:
+        if template.exists():
+            shutil.copyfile(template, target_config)
+            return
+
+
+def _ensure_image_manifest(workspace: Path):
+    manifest_path = workspace / "workspace" / "references" / "images.yaml"
+    if manifest_path.exists():
+        return
+
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    manifest_path.write_text(
+        "images: []\n",
+        encoding="utf-8",
+    )
+
+
 
 def ensure_workspace_structure(workspace_path: str, sync_scripts: bool = True) -> Path:
     workspace = Path(workspace_path)
@@ -81,6 +108,9 @@ def ensure_workspace_structure(workspace_path: str, sync_scripts: bool = True) -
 
     if sync_scripts:
         _copy_runtime_scripts(Path(__file__).resolve().parent, scripts_dir)
+
+    _ensure_workspace_config(workspace)
+    _ensure_image_manifest(workspace)
 
     return workspace
 

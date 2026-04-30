@@ -8,9 +8,12 @@
 
 ### 更新功能 (Changed)
 
-- **ER 图默认策略调整**：`er_modeling.graph_type` 默认改为 `dot`，输出教科书风格 Graphviz DOT 概念 ER 图。
-- **background.md 驱动增强**：E-R 图优先读取 `thesis-workspace/references/prompt/background.md` 中的表级业务说明、关联表与字段说明。
-- **字段中文语义增强**：主键与普通字段优先采用字段说明中的中文业务名，而非通用“编号/名称”兜底。
+- **规则一致性修复**：主流程明确为 Step 3 大纲确认后进入文献搜索与建池，再进入 Step 4 写作；当写作阶段出现文献不足、验证异常或语种比例不达标时，可回流到文献搜索阶段补池。
+- **Step 0 初始化补齐**：`scripts/lifecycle.py` 现会在工作区初始化时自动生成 `thesis-workspace/.thesis-config.yaml` 与 `thesis-workspace/workspace/references/images.yaml`。
+- **图片清单路径统一**：图表生成脚本统一读取 `workspace/references/images.yaml`，并同步修正 CLI 提示文案。
+- **DOT ER 图输出约束收敛**：`scripts/chart_generator.py` 生成的 Graphviz DOT 概念 ER 图不再显式输出 `label=`，仅 E-R 图受 `er_modeling` 配置控制。
+- **引用规则对齐**：`scripts/verified_reference_pool.py` 默认推荐未占用文献；`scripts/merge_drafts.py` 在保持“按正文首次出现顺序编号”的同时，新增同一 `ref_id` 重复引用告警。
+- **ER 图测试更新**：同步调整 DOT ER 图与渲染测试，使断言与“无显式 `label=`”规则一致。
 
 ---
 

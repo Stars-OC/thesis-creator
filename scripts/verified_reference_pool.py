@@ -295,7 +295,7 @@ class VerifiedReferencePool:
         keywords: List[str],
         chapter: Optional[str] = None,
         limit: int = 5,
-        exclude_used: bool = False
+        exclude_used: bool = True
     ) -> List[PoolReference]:
         """
         根据关键词推荐最相关的文献
@@ -548,6 +548,7 @@ def main():
     parser.add_argument("--export", action="store_true", help="导出参考文献")
     parser.add_argument("--keywords", "-k", nargs="+", help="关键词列表")
     parser.add_argument("--limit", "-l", type=int, default=5, help="数量限制")
+    parser.add_argument("--exclude-used", action="store_true", help="推荐时排除已达到引用上限的文献")
     parser.add_argument("--format", choices=["gbt7714", "yaml", "json"], default="gbt7714", help="导出格式")
     parser.add_argument("--output", "-o", help="输出文件路径")
 
@@ -595,7 +596,8 @@ def main():
         recommendations = pool.recommend(
             keywords=args.keywords,
             chapter=args.chapter,
-            limit=args.limit
+            limit=args.limit,
+            exclude_used=args.exclude_used or True
         )
 
         print("\n=== 推荐文献 ===")

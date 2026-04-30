@@ -11,12 +11,13 @@ class WorkflowP0RepairsTest(unittest.TestCase):
         content = SKILL_FILE.read_text(encoding="utf-8")
         self.assertIn("工作区不存在直接初始化", content)
         self.assertIn("[image_1]", content)
-        self.assertIn("references/images.yaml", content)
+        self.assertIn("workspace/references/images.yaml", content)
         self.assertIn("verified_metadata_only", content)
 
     def test_step_0_init_uses_direct_workspace_initialization(self):
         content = (WORKFLOWS_DIR / "step_0_init.md").read_text(encoding="utf-8")
-        self.assertIn("工作区不存在时直接初始化", content)
+        self.assertIn("通过脚本初始化工作区", content)
+        self.assertIn("python scripts/lifecycle.py --workspace thesis-workspace/ --prepare-runtime", content)
         self.assertIn("填写 references/prompt/background.md", content)
         self.assertNotIn("是否初始化工作区", content)
 
@@ -32,14 +33,14 @@ class WorkflowP0RepairsTest(unittest.TestCase):
     def test_step_4_writing_uses_image_manifest_flow(self):
         content = (WORKFLOWS_DIR / "step_4_writing.md").read_text(encoding="utf-8")
         self.assertIn("[image_1]", content)
-        self.assertIn("references/images.yaml", content)
+        self.assertIn("workspace/references/images.yaml", content)
         self.assertIn("Step 4 只负责记录图片需求", content)
         self.assertNotIn("<!-- 图表占位符", content)
 
     def test_step_8_and_step_9_use_manifest_driven_image_flow(self):
         step8 = (WORKFLOWS_DIR / "step_8_image.md").read_text(encoding="utf-8")
         step9 = (WORKFLOWS_DIR / "step_9_export.md").read_text(encoding="utf-8")
-        self.assertIn("读取 references/images.yaml", step8)
+        self.assertIn("读取 workspace/references/images.yaml", step8)
         self.assertIn("将 [image_N] 替换为 Markdown 图片引用", step8)
         self.assertIn("正文不得残留 [image_N]", step9)
 

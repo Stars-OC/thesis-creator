@@ -22,12 +22,14 @@
 ```yaml
 er_modeling:
   enabled: true
-  graph_type: chen          # chen | erd | dot
+  graph_type: dot           # dot | chen | erd
   strict_single_table: true
   line_style: straight
   interactive_confirmation: false
   allow_optional_extensions: true
 ```
+
+> **约束**：只有 E-R 图读取 `er_modeling` 配置；架构图、流程图、模块图、时序图不受该配置影响。
 
 ### `graph_type` 映射
 
@@ -84,13 +86,14 @@ er_modeling:
 
 **适用场景**：第4章「数据库设计」
 
-**生成方式**：由 `.thesis-config.yaml` 的 `er_modeling.graph_type` 决定
+**生成方式**：由 `.thesis-config.yaml` 的 `er_modeling.graph_type` 决定；仅 E-R 图读取此配置。
 
 **通用规范**：
 - 一张图聚焦一个核心实体，可带 1-2 个关联实体
 - 主键属性命名统一为 `PK_xxx`，外键属性命名统一为 `FK_xxx`
 - 图下方必须有 80-120 字说明，说明实体业务含义、关键属性、与联系语义
 - E-R 图在 4.4.1 节，数据表结构在 4.4.2 节，禁止混排
+- DOT 输出时不要显式使用 `label=`，直接使用节点文本
 
 **可直接复制生图的描述模板**：
 ```
