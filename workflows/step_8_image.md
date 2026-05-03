@@ -8,7 +8,7 @@
 >
 > **统一入口(推荐)**：`python scripts/lifecycle.py --workspace thesis-workspace/ --step 8 --event start|complete`
 
-> **整合流程：图片生成 → 渲染 → 插入到 Word**
+> **整合流程：读取 images.yaml → 原位写回 Markdown 代码块 → 渲染 PNG → 回填引用 → 进入 Step 9 导出**
 
 ---
 
@@ -37,6 +37,8 @@ flowchart TD
 - 唯一事实源：`thesis-workspace/references/prompt/background.md`
 - 唯一配置源：`thesis-workspace/.thesis-config.yaml -> er_modeling`
 - 教科书 DOT 要求：实体居中、字段环绕、字段中文
+- **当 background.md 的表标题同时包含中文逻辑名与英文物理表名（如 `用户表（sys_user）` / `用户表(sys_user)`）时，ER 图实体节点优先使用英文物理表名；字段说明仍保持中文语义。**
+- **关联表无论写成 `角色表`、`角色表（sys_role）` 还是 `角色表(sys_role)`，都应优先归一到英文物理表名后再参与 ER 图生成。**
 - DOT 输出约束：不要显式生成 `label=` 属性，直接使用节点文本
 - 信息不足时：尽量生成并 warning，不因字段说明缺失直接阻断
 - **只有 ER 图受 `er_modeling` 配置影响**；架构图、流程图、模块图、时序图不跟随该配置
@@ -107,25 +109,28 @@ python scripts/chart_generator.py workspace/final/论文终稿.md --output works
 ## 执行命令
 
 ```bash
-# 方式1: 分步执行
+# 方式1: 分步执行（推荐，便于核对）
 # 生成前请先检查并修改 thesis-workspace/.thesis-config.yaml
 # - ER 图按 er_modeling.graph_type + er_modeling.diagram_scope 控制
 # - 架构图优先按 diagram_generation.architecture_mode 走模型生成
 # - 流程图方向按 diagram_generation.flowchart_direction 控制
 # - 三线表字体按 format.table_font 控制
 
-# Step 1: 从占位符生成图代码(原位替代，不产生副本)
-python scripts/chart_generator.py workspace/final/论文终稿.md --output workspace/final/images/ --replace
+# Step 1: 先将图表代码块原位写回 Markdown（默认 replace 开启）
+python scripts/chart_generator.py workspace/final/论文终稿.md --output workspace/final/images/
 
 # 若有章节上下文，可传入 --context 提升流程图步骤匹配准确度
-python scripts/chart_generator.py workspace/final/论文终稿.md --output workspace/final/images/ --replace --context workspace/drafts/chapter_4.md
+python scripts/chart_generator.py workspace/final/论文终稿.md --output workspace/final/images/ --context workspace/drafts/chapter_4.md
 
-# Step 2: 渲染代码块为 PNG，并更新 Markdown
+# Step 2: 基于 Markdown 中已有 Mermaid / DOT 代码块渲染 PNG 并更新图片引用
 # - Mermaid / ERD: 走 mmdc / playwright / kroki
 # - DOT: 走 Python graphviz + 本地 dot
 python scripts/chart_renderer.py --input workspace/final/论文终稿.md --output workspace/final/images/ --method auto --update
 
-# 方式2: 一键完成(推荐)
+# Step 3: 若正文里仍有 [image_N]，再执行一次图片引用回填
+python scripts/chart_generator.py workspace/final/论文终稿.md --output workspace/final/images/ --replace
+
+# 方式2: 一键完成(兼容路径)
 # AI 自动执行完整流程
 ```
 

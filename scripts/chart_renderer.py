@@ -425,7 +425,12 @@ class ChartRenderer:
 
         try:
             self._ensure_graphviz_on_path()
-            source = Source(chart['code'], format='png')
+            # Auto-detect layout engine from DOT code: layout=neato/circo/osage/twopi
+            engine = 'dot'
+            layout_match = re.search(r'layout\s*=\s*(\w+)', chart['code'])
+            if layout_match:
+                engine = layout_match.group(1)
+            source = Source(chart['code'], format='png', engine=engine)
             rendered_path = Path(source.render(filename=safe_id, directory=str(self.output_dir), cleanup=True))
             if rendered_path.exists():
                 self.logger.info(f"渲染成功: {chart['id']} -> {rendered_path.name}")

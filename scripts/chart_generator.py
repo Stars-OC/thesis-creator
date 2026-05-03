@@ -175,6 +175,7 @@ class ChartGenerator:
     USER_PROVIDED_PATTERN = re.compile(r'<!--\s*用户提供图片[：:]\s*(图\d+-\d+)\s+(.+?)\s*-->')
     TABLE_SECTION_PATTERN = re.compile(r'^##\s+(?:数据库表设计|数据表清单)\s*$', re.MULTILINE)
     TABLE_HEADING_PATTERN = re.compile(r'^###\s+(.+?)(?:表结构|数据表)?\s*$', re.MULTILINE)
+    PHYSICAL_TABLE_PATTERN = re.compile(r'^(.*?)[（(]([A-Za-z][A-Za-z0-9_]*)[）)]$')
 
     def __init__(self, output_dir: str = "workspace/final/images", er_modeling_config: Optional[Dict[str, Any]] = None, diagram_generation_config: Optional[Dict[str, Any]] = None, config_path: Optional[str] = None, input_path: Optional[str] = None):
         self.logger = get_logger()
@@ -240,6 +241,19 @@ class ChartGenerator:
             rows.append(parts)
         return rows
 
+    def _parse_table_heading_name(self, heading_text: str) -> Tuple[str, str]:
+        normalized = heading_text.strip()
+        physical_match = self.PHYSICAL_TABLE_PATTERN.match(normalized)
+        if physical_match:
+            logical_name = physical_match.group(1).strip()
+            physical_name = physical_match.group(2).strip()
+            return logical_name, physical_name
+        return normalized, normalized
+
+    def _normalize_related_table_name(self, table_name: str) -> str:
+        logical_name, physical_name = self._parse_table_heading_name(table_name)
+        return physical_name if physical_name != logical_name else logical_name
+
     def _parse_table_schemas_from_background(self, text: str) -> Dict[str, TableSchema]:
         schemas: Dict[str, TableSchema] = {}
         section_match = self.TABLE_SECTION_PATTERN.search(text)
@@ -252,11 +266,29 @@ class ChartGenerator:
             start = heading.end()
             end = headings[idx + 1].start() if idx + 1 < len(headings) else len(section_text)
             block = section_text[start:end]
+            heading_name_map: Dict[str, str] = {}
+            for heading_item in headings:
+                heading_text = heading_item.group(1).strip()
+                heading_logical_name, heading_physical_name = self._parse_table_heading_name(heading_text)
+                heading_name_map[self._normalize_table_key(heading_text)] = heading_physical_name
+                heading_name_map[self._normalize_table_key(heading_logical_name)] = heading_physical_name
+                heading_name_map[self._normalize_table_key(heading_physical_name)] = heading_physical_name
+
             table_name = heading.group(1).strip()
+            logical_name, physical_name = self._parse_table_heading_name(table_name)
             related_tables = []
             relation_match = re.search(r'关联表[：:]\s*(.+)', block)
             if relation_match:
-                related_tables = [item.strip() for item in re.split(r'[、,，]', relation_match.group(1)) if item.strip()]
+                related_tables = []
+                for item in re.split(r'[、,，]', relation_match.group(1)):
+                    normalized_item = item.strip()
+                    if not normalized_item:
+                        continue
+                    normalized_key = self._normalize_table_key(normalized_item)
+                    if normalized_key in heading_name_map:
+                        related_tables.append(heading_name_map[normalized_key])
+                    else:
+                        related_tables.append(self._normalize_related_table_name(normalized_item))
 
             business_description = ""
             for pattern in [r'业务说明[：:]\s*(.+)', r'用途[：:]\s*(.+)', r'说明[：:]\s*(.+)']:
@@ -306,8 +338,8 @@ class ChartGenerator:
                 ))
 
             schema = TableSchema(
-                name=table_name,
-                display_name=table_name,
+                name=logical_name,
+                display_name=physical_name,
                 fields=fields,
                 related_tables=related_tables,
                 business_description=business_description,
@@ -376,17 +408,65 @@ class ChartGenerator:
         if missing_ids:
             raise ValueError(f"images.yaml 缺少占位符记录: {', '.join(missing_ids)}")
 
+        ai_required_fields = [
+            "title",
+            "chapter",
+            "section",
+            "diagram_type",
+            "purpose",
+            "fact_source",
+            "placement",
+            "status",
+            "description",
+        ]
+        user_required_fields = ["title", "description"]
+
         validated: List[Dict[str, Any]] = []
         for placeholder in placeholders:
             item = dict(manifest_by_id[placeholder])
             source = str(item.get("source", "")).strip()
             if source not in {"ai", "user"}:
                 raise ValueError(f"{placeholder} 的 source 必须是 ai 或 user")
-            if source == "ai" and not str(item.get("description", "")).strip():
-                raise ValueError(f"{placeholder} 的 description 不能为空")
+            if source == "ai":
+                missing_fields = [
+                    field for field in ai_required_fields
+                    if not str(item.get(field, "")).strip()
+                ]
+                if missing_fields:
+                    raise ValueError(f"{placeholder} 缺少必填字段: {', '.join(missing_fields)}")
+            if source == "user":
+                missing_fields = [
+                    field for field in user_required_fields
+                    if not str(item.get(field, "")).strip()
+                ]
+                if missing_fields:
+                    raise ValueError(f"{placeholder} 缺少必填字段: {', '.join(missing_fields)}")
+                if not str(item.get("output_path", "")).strip() and str(item.get("status", "")).strip() != "pending":
+                    raise ValueError(f"{placeholder} 的 user 图片必须提供 output_path 或 status=pending")
             validated.append(item)
 
         return validated
+
+    def generate_manifest_templates(self, manifest_items: List[Dict[str, Any]], context: str = "") -> Dict[str, Path]:
+        self.context_text = context
+        template_dir = self.output_dir / "templates"
+        template_dir.mkdir(parents=True, exist_ok=True)
+
+        generated: Dict[str, Path] = {}
+        for item in manifest_items:
+            if str(item.get("source", "")).strip() != "ai":
+                continue
+            placeholder = self._build_manifest_placeholder(item)
+            code = self.generate_mermaid(placeholder)
+            suffix = ".dot" if code.lstrip().startswith("```dot") else ".mmd"
+            template_path = template_dir / f"{placeholder.raw_text}{suffix}"
+            template_path.write_text(code, encoding="utf-8")
+            item["template_path"] = str(template_path)
+            item["status"] = "template_generated"
+            generated[placeholder.raw_text] = template_path
+            self.logger.info(f"[OK] 生成图片模板: {placeholder.raw_text} -> {template_path}")
+
+        return generated
 
     def _resolve_manifest_output_file(self, output_path: str) -> Path:
         normalized = output_path.strip().replace('\\', '/')
@@ -396,6 +476,7 @@ class ChartGenerator:
         if str(relative_path) in {'', '.'}:
             relative_path = Path(Path(normalized).name)
         return (self.output_dir / relative_path).resolve()
+
 
     def _build_manifest_placeholder(self, item: Dict[str, Any]) -> ChartPlaceholder:
         image_id = str(item.get("id", "")).strip() or "image_unknown"
@@ -872,14 +953,7 @@ class ChartGenerator:
     def _schema_to_attribute_names(self, schema: TableSchema) -> List[str]:
         names = []
         for field in schema.fields:
-            if field.description:
-                names.append(field.description)
-            elif field.is_primary:
-                names.append("编号")
-            elif field.name.upper().startswith("FK_"):
-                names.append(field.name)
-            else:
-                names.append(field.name)
+            names.append(field.description or field.name)
         return names or self._default_er_attributes(schema.display_name)
 
     def _build_er_warnings(self, schema: TableSchema, matched_from_background: bool) -> List[str]:
@@ -965,20 +1039,9 @@ class ChartGenerator:
         return ["编号", "名称", "状态", "创建时间"]
 
     def _sanitize_er_field_name(self, field: str) -> str:
-        cleaned = field.strip().strip('。；;,.')
-        cleaned = re.sub(r'^(PK_|FK_)[A-Za-z0-9_]+$', '编号', cleaned)
-        if re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*', cleaned):
-            english_map = {
-                'id': '编号',
-                'name': '名称',
-                'title': '标题',
-                'type': '类型',
-                'status': '状态',
-                'created_at': '创建时间',
-                'updated_at': '更新时间',
-            }
-            return english_map.get(cleaned.lower(), '字段')
-        return cleaned or '字段'
+        name = field.strip()
+        name = re.sub(r'^(PK|FK)[_\s-]+', '', name, flags=re.IGNORECASE)
+        return name.strip() or "字段"
 
     def _build_conceptual_er_default(self, chart_id: str, chart_name: str, core_entity: str) -> str:
         return f'''```mermaid
@@ -1131,11 +1194,11 @@ graph LR
 ```'''
 
     def _generate_flowchart(self, placeholder: ChartPlaceholder) -> str:
-        steps = self._template_steps(placeholder)
-        if not steps:
-            steps = self._extract_steps_from_description(placeholder.description)
+        steps = self._extract_steps_from_description(placeholder.description)
         if not steps and self.context_text:
             steps = self._extract_steps_from_description(f"{placeholder.description}\n{self.context_text}")
+        if not steps:
+            steps = self._template_steps(placeholder)
         if not steps:
             steps = [
                 {"name": "用户请求", "type": "process"},
@@ -1423,7 +1486,7 @@ graph TB
 
         entity_nodes: List[str] = []
         for entity_index, entity in enumerate(entities, start=1):
-            entity_node = f"{entity}{'​' * entity_index}"
+            entity_node = entity
             entity_nodes.append(entity_node)
             dot_lines.append(f'  "{entity_node}" [shape=box];')
             fields = attributes.get(entity, self._default_er_attributes(entity))
@@ -1632,6 +1695,7 @@ def main():
     parser.add_argument("--context", help="上下文文件路径（可选，用于辅助提取流程步骤）")
     parser.add_argument("--config", help="配置文件路径（默认自动查找 thesis-workspace/.thesis-config.yaml）")
     parser.add_argument("--report", action="store_true", help="生成分析报告")
+    parser.add_argument("--no-render", action="store_true", help="仅生成 manifest 图表模板，不渲染 PNG、不回填 Markdown")
 
     args = parser.parse_args()
     do_replace = not args.no_replace
@@ -1673,6 +1737,13 @@ def main():
             image_placeholders,
             generator.load_image_manifest(manifest_path),
         )
+        if args.no_render:
+            templates = generator.generate_manifest_templates(manifest_items, context=context_text)
+            print("\n[OK] 图表模板生成完成！")
+            print(f"   共生成 {len(templates)} 个模板")
+            print(f"   模板目录: {Path(args.output) / 'templates'}")
+            return
+
         if do_replace:
             updated_content = generator.replace_image_placeholders(updated_content, manifest_items)
 

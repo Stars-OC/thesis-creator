@@ -559,7 +559,12 @@ class DraftMerger:
 
         duplicate_refs = self.check_duplicate_reference_usage(final_content)
         if duplicate_refs:
-            print(f"[警告] 检测到 {len(duplicate_refs)} 篇文献存在重复引用")
+            print(f"[失败] 检测到 {len(duplicate_refs)} 篇文献存在重复引用")
+            for ref_id, count in duplicate_refs.items():
+                self.merge_report['errors'].append(
+                    f"检测到重复引用文献 {ref_id}，正文共出现 {count} 次；规则要求单篇文献整篇仅引用一次"
+                )
+            return False
 
         ref_mapping: Dict[str, int] = {}
         if self.ref_pool:

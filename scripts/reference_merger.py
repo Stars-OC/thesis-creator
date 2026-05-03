@@ -131,6 +131,9 @@ def deduplicate(refs: List[Dict]) -> List[Dict]:
     return deduped
 
 
+ZH_RATIO_MIN = 0.65
+
+
 def check_language_balance(refs: List[Dict]) -> Dict[str, int]:
     """检查中英文文献分布"""
     zh_count = 0
@@ -143,6 +146,27 @@ def check_language_balance(refs: List[Dict]) -> Dict[str, int]:
         else:
             en_count += 1
     return {"zh": zh_count, "en": en_count}
+
+
+def assess_reference_quality(refs: List[Dict]) -> Dict:
+    stats = check_language_balance(refs)
+    total = len(refs)
+    zh_ratio = stats["zh"] / total if total else 0.0
+    warnings: List[str] = []
+    suggestions: List[str] = []
+
+    if total and zh_ratio <= ZH_RATIO_MIN:
+        warnings.append(f"中文文献占比 {zh_ratio:.2%} 未严格大于 {ZH_RATIO_MIN:.0%}")
+        suggestions.append("请从 CNKI、万方、学校图书馆等高质量中文来源人工补充真实中文文献")
+
+    return {
+        "ok": not warnings,
+        "total": total,
+        "zh_ratio": zh_ratio,
+        "language_balance": stats,
+        "warnings": warnings,
+        "suggestions": suggestions,
+    }
 
 
 def _is_language(ref: Dict, target_lang: str) -> bool:
@@ -191,6 +215,13 @@ def select_top(refs: List[Dict], top_n: int) -> List[Dict]:
         else:
             print(f"[警告] 未找到可补充的{('中文' if missing_lang == 'zh' else '英文')}文献")
 
+    quality = assess_reference_quality(selected)
+    if not quality["ok"]:
+        for warning in quality["warnings"]:
+            print(f"[警告] {warning}")
+        for suggestion in quality["suggestions"]:
+            print(f"[建议] {suggestion}")
+
     return sorted(selected, key=compute_score, reverse=True)[:top_n]
 
 
@@ -222,7 +253,7 @@ def save_yaml(
     }
 
     with open(output_path, "w", encoding="utf-8") as f:
-        yaml.dump(data, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+        yaml.safe_dump(data, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
 
     print(f"[完成] 已保存 {len(refs)} 篇文献到: {output_path}")
 

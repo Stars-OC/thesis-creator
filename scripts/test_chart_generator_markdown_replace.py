@@ -137,14 +137,64 @@ class ChartGeneratorMarkdownReplaceTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "系统架构图"):
             self.generator.replace_image_placeholders(content, manifest_items)
 
-    def test_main_generates_missing_ai_image_from_manifest_workflow(self):
+    def test_main_no_render_generates_manifest_templates_without_replacing_markdown(self):
         markdown_path = self.workspace / "generated.md"
         markdown_path.write_text("登录流程如 [image_1] 所示。", encoding="utf-8")
-        manifest_dir = self.workspace / "references"
+        manifest_dir = self.workspace / "workspace" / "references"
         manifest_dir.mkdir(parents=True, exist_ok=True)
         manifest_path = manifest_dir / "images.yaml"
         manifest_path.write_text(
-            "images:\n  - id: image_1\n    title: 图4-2 用户登录流程图\n    source: ai\n    description: 1. 输入账号密码 2. 校验格式 3. 查询用户 4. 返回结果\n    output_path: images/图4-2_用户登录流程图.png\n",
+            "images:\n"
+            "  - id: image_1\n"
+            "    title: 图4-2 用户登录流程图\n"
+            "    chapter: 第4章\n"
+            "    section: '4.2'\n"
+            "    source: ai\n"
+            "    diagram_type: flowchart\n"
+            "    purpose: 展示用户登录业务流程\n"
+            "    fact_source: 正文4.2节\n"
+            "    placement: 登录流程说明之后\n"
+            "    status: pending\n"
+            "    description: 1. 输入账号密码 2. 校验格式 3. 查询用户 4. 返回结果\n"
+            "    output_path: images/图4-2_用户登录流程图.png\n",
+            encoding="utf-8",
+        )
+
+        with patch.object(sys, "argv", [
+            "chart_generator.py",
+            str(markdown_path),
+            "--output",
+            str(self.output_dir),
+            "--no-render",
+        ]):
+            main()
+
+        template_path = self.output_dir / "templates" / "image_1.mmd"
+        self.assertTrue(template_path.exists())
+        self.assertIn("flowchart", template_path.read_text(encoding="utf-8"))
+        self.assertFalse((self.output_dir / "图4-2_用户登录流程图.png").exists())
+        self.assertEqual("登录流程如 [image_1] 所示。", markdown_path.read_text(encoding="utf-8"))
+
+    def test_main_generates_missing_ai_image_from_manifest_workflow(self):
+        markdown_path = self.workspace / "generated.md"
+        markdown_path.write_text("登录流程如 [image_1] 所示。", encoding="utf-8")
+        manifest_dir = self.workspace / "workspace" / "references"
+        manifest_dir.mkdir(parents=True, exist_ok=True)
+        manifest_path = manifest_dir / "images.yaml"
+        manifest_path.write_text(
+            "images:\n"
+            "  - id: image_1\n"
+            "    title: 图4-2 用户登录流程图\n"
+            "    chapter: 第4章\n"
+            "    section: '4.2'\n"
+            "    source: ai\n"
+            "    diagram_type: flowchart\n"
+            "    purpose: 展示用户登录业务流程\n"
+            "    fact_source: 正文4.2节\n"
+            "    placement: 登录流程说明之后\n"
+            "    status: pending\n"
+            "    description: 1. 输入账号密码 2. 校验格式 3. 查询用户 4. 返回结果\n"
+            "    output_path: images/图4-2_用户登录流程图.png\n",
             encoding="utf-8",
         )
 
@@ -162,4 +212,8 @@ class ChartGeneratorMarkdownReplaceTest(unittest.TestCase):
         self.assertGreater(generated_image.stat().st_size, 1024)
         self.assertIn("![图4-2 用户登录流程图](images/图4-2_用户登录流程图.png)", updated)
         self.assertNotIn("[image_1]", updated)
+
+
+if __name__ == "__main__":
+    unittest.main()
 

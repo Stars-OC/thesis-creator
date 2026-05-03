@@ -70,15 +70,69 @@ class ChartGeneratorManifestFlowTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "description"):
             self.generator.validate_image_manifest(placeholders, manifest)
 
-    def test_validate_image_manifest_accepts_user_source_without_generation_fields(self):
+    def test_validate_image_manifest_requires_required_fields_for_ai_source(self):
+        placeholders = ["image_1"]
+        required_fields = [
+            "title",
+            "chapter",
+            "section",
+            "diagram_type",
+            "purpose",
+            "fact_source",
+            "placement",
+            "status",
+            "description",
+        ]
+        base_item = {
+            "id": "image_1",
+            "title": "图4-1 用户业务流程图",
+            "chapter": "第4章",
+            "section": "4.2",
+            "source": "ai",
+            "diagram_type": "flowchart",
+            "purpose": "展示用户业务处理流程",
+            "fact_source": "正文4.2节",
+            "placement": "流程说明之后",
+            "status": "pending",
+            "description": "用户提交请求、系统校验、保存数据并返回结果",
+        }
+
+        for field in required_fields:
+            with self.subTest(field=field):
+                item = dict(base_item)
+                item[field] = ""
+                with self.assertRaisesRegex(ValueError, field):
+                    self.generator.validate_image_manifest(placeholders, [item])
+
+    def test_validate_image_manifest_requires_user_source_to_reference_existing_output_or_pending_status(self):
         placeholders = ["image_1"]
         manifest = [
-            {"id": "image_1", "title": "图4-1", "source": "user", "description": "用户提供截图"}
+            {
+                "id": "image_1",
+                "title": "图4-1 系统整体架构图",
+                "source": "user",
+                "description": "用户提供系统架构截图",
+            }
+        ]
+
+        with self.assertRaisesRegex(ValueError, "output_path|status"):
+            self.generator.validate_image_manifest(placeholders, manifest)
+
+    def test_validate_image_manifest_accepts_user_source_with_pending_status(self):
+        placeholders = ["image_1"]
+        manifest = [
+            {
+                "id": "image_1",
+                "title": "图4-1 系统整体架构图",
+                "source": "user",
+                "description": "用户提供系统架构截图",
+                "status": "pending",
+            }
         ]
 
         validated = self.generator.validate_image_manifest(placeholders, manifest)
 
-        self.assertEqual(validated[0]["source"], "user")
+        self.assertEqual(validated[0]["status"], "pending")
 
 
 if __name__ == "__main__":

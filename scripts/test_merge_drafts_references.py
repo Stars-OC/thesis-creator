@@ -83,6 +83,26 @@ class DraftMergerReferencesTestCase(unittest.TestCase):
         self.assertTrue(any("超过文献池上限" in warning for warning in merger.merge_report["warnings"]))
         self.assertIn("[3] Carol. Paper Three", content)
 
+    def test_merge_blocks_duplicate_ref_id_usage(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            drafts_dir = tmpdir_path / "drafts"
+            drafts_dir.mkdir()
+            refs_yaml = tmpdir_path / "verified_references.yaml"
+            output_path = tmpdir_path / "论文终稿.md"
+            self._create_references_yaml(refs_yaml)
+            (drafts_dir / "chapter_1.md").write_text(
+                "# 第1章 绪论\n\n首次引用[ref_001]，重复引用[ref_001]。",
+                encoding="utf-8",
+            )
+
+            merger = DraftMerger(str(drafts_dir), str(output_path), references_yaml=str(refs_yaml))
+            merged = merger.merge()
+
+            self.assertFalse(merged)
+            self.assertFalse(output_path.exists())
+            self.assertTrue(any("重复引用文献 ref_001" in error for error in merger.merge_report["errors"]))
+
 
 if __name__ == "__main__":
     unittest.main()

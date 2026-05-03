@@ -48,6 +48,8 @@ flowchart TD
 
 - 工作区不存在时，必须通过脚本初始化工作区，禁止大模型手工拼接目录
 - 推荐命令：`python scripts/lifecycle.py --workspace thesis-workspace/ --prepare-runtime`
+- 初始化完成后必须执行预检：`python scripts/lifecycle.py --workspace thesis-workspace/ --check-workspace`
+- 预检必须覆盖 `scripts/`、`logs/`、`.thesis-status.json`、`.thesis-config.yaml`、`references/prompt/background.md`、`workspace/references/images.yaml`
 - 自动创建完整目录结构
 - 自动创建 `scripts/` 目录与运行环境
 - 自动生成 `README.md` 使用说明

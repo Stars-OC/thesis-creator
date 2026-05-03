@@ -121,6 +121,8 @@ Paragraph 3: Key functional modules, results and significance.
 ### 图片需求清单
 
 - 图片需求统一记录到 `workspace/references/images.yaml`
+- 正文只保留 `[image_N]`，说明写入 `workspace/references/images.yaml`
+- 禁止把图片描述、绘图要点、补充说明混在正文中；正文中只写必要的图前引导、`[image_N]` 占位符和图后分析
 - `source=ai`：表示后续由 Step 8 生成或校验图片
 - `source=user`：表示后续由用户补充真实图片文件
 - `diagram_type`：必须标明 `architecture / module / flowchart / er / erd / sequence / screenshot` 等类型

@@ -89,6 +89,7 @@ def ensure_workspace_structure(workspace_path: str, sync_scripts: bool = True) -
 
     scripts_dir = workspace / "scripts"
     scripts_dir.mkdir(parents=True, exist_ok=True)
+    (workspace / "logs").mkdir(parents=True, exist_ok=True)
 
     venv_dir = scripts_dir / ".venv"
     if not venv_dir.exists():
@@ -111,8 +112,57 @@ def ensure_workspace_structure(workspace_path: str, sync_scripts: bool = True) -
 
     _ensure_workspace_config(workspace)
     _ensure_image_manifest(workspace)
+    ThesisStatusManager(str(workspace)).ensure()
 
     return workspace
+
+
+def _background_is_incomplete(path: Path) -> bool:
+    if not path.exists() or path.stat().st_size <= 100:
+        return True
+    content = path.read_text(encoding="utf-8")
+    template_markers = [
+        "请填写以下信息",
+        "(描述研究领域的现状和问题)",
+    ]
+    return any(marker in content for marker in template_markers)
+
+
+def check_workspace_preflight(workspace: Path) -> Dict[str, Any]:
+    required_files = [
+        ".thesis-config.yaml",
+        "references/prompt/background.md",
+        "workspace/references/images.yaml",
+        ".thesis-status.json",
+    ]
+    required_dirs = ["scripts", "logs"]
+    missing = []
+    incomplete = []
+
+    for relative in required_files:
+        if not (workspace / relative).exists():
+            missing.append(relative)
+
+    for relative in required_dirs:
+        if not (workspace / relative).is_dir():
+            missing.append(relative)
+
+    background_path = workspace / "references" / "prompt" / "background.md"
+    if background_path.exists() and _background_is_incomplete(background_path):
+        incomplete.append("references/prompt/background.md")
+
+    suggestions = []
+    if missing:
+        suggestions.append("python scripts/lifecycle.py --workspace thesis-workspace/ --prepare-runtime")
+    if "references/prompt/background.md" in incomplete:
+        suggestions.append("填写 references/prompt/background.md")
+
+    return {
+        "ok": not missing and not incomplete,
+        "missing": missing,
+        "incomplete": incomplete,
+        "suggestions": suggestions,
+    }
 
 
 class LifecycleEvent:
@@ -181,8 +231,23 @@ def main():
     parser.add_argument("--status", action="store_true", help="查看状态")
     parser.add_argument("--resume", action="store_true", help="查看断点续写位置")
     parser.add_argument("--prepare-runtime", action="store_true", help="仅准备工作区脚本目录与虚拟环境")
+    parser.add_argument("--check-workspace", action="store_true", help="检查工作区初始化产物是否完整")
 
     args = parser.parse_args()
+
+    if args.check_workspace:
+        report = check_workspace_preflight(Path(args.workspace))
+        if report["ok"]:
+            print(f"[成功] 工作区检查通过: {args.workspace}")
+            return
+        print(f"[错误] 工作区检查未通过: {args.workspace}")
+        if report["missing"]:
+            print("[缺失] " + ", ".join(report["missing"]))
+        if report["incomplete"]:
+            print("[未完成] " + ", ".join(report["incomplete"]))
+        for suggestion in report["suggestions"]:
+            print(f"[建议] {suggestion}")
+        return
 
     if args.prepare_runtime:
         prepared = ensure_workspace_structure(args.workspace, sync_scripts=True)

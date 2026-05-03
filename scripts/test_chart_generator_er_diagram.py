@@ -74,7 +74,7 @@ class ChartGeneratorERDiagramTestCase(unittest.TestCase):
 
         self.assertIn("flowchart LR", mermaid)
         self.assertIn("[用户]", mermaid)
-        self.assertIn("((编号))", mermaid)
+        self.assertIn("((user_id))", mermaid)
         self.assertIn("((用户名))", mermaid)
         self.assertIn("A1 --- E1", mermaid)
         self.assertIn("E1 --- A", mermaid)
@@ -169,7 +169,7 @@ class ChartGeneratorERDiagramTestCase(unittest.TestCase):
         self.assertIn('"订单" [shape=box];', graph_code)
         self.assertIn('rankdir=TB;', graph_code)
         self.assertIn('edge [dir=none];', graph_code)
-        self.assertIn('"编号', graph_code)
+        self.assertIn('"order_id', graph_code)
         self.assertIn('"订单状态', graph_code)
         self.assertIn('{ rank=same;', graph_code)
         self.assertIn('-> "订单";', graph_code)
@@ -297,6 +297,127 @@ class ChartGeneratorERDiagramTestCase(unittest.TestCase):
         self.assertEqual(3, len(schemas[generator._normalize_table_key("用户")].fields))
         self.assertTrue(schemas[generator._normalize_table_key("用户")].fields[0].is_primary)
         self.assertEqual(["角色表"], schemas[generator._normalize_table_key("用户")].related_tables)
+
+    def test_parse_table_schemas_prefers_english_physical_table_name(self):
+        generator = self._build_generator()
+        text = """
+## 数据库表设计
+
+### 用户表（sys_user）表结构
+关联表：角色表（sys_role）
+| 字段名 | 类型 | 长度 | 允许空 | 主键 | 说明 |
+|--------|------|------|--------|------|------|
+| user_id | bigint | 20 | 否 | 是 | 用户编号 |
+| username | varchar | 50 | 否 | 否 | 用户名 |
+
+### 角色表（sys_role）表结构
+| 字段名 | 类型 | 长度 | 允许空 | 主键 | 说明 |
+|--------|------|------|--------|------|------|
+| role_id | bigint | 20 | 否 | 是 | 角色编号 |
+"""
+
+        schemas = generator._parse_table_schemas_from_background(text)
+        self.assertIn(generator._normalize_table_key("用户表（sys_user）"), schemas)
+        user_schema = schemas[generator._normalize_table_key("用户表（sys_user）")]
+
+        self.assertEqual("用户表", user_schema.name)
+        self.assertEqual("sys_user", user_schema.display_name)
+        self.assertEqual(["sys_role"], user_schema.related_tables)
+
+    def test_parse_table_schemas_should_support_ascii_parentheses_for_physical_table_name(self):
+        generator = self._build_generator()
+        text = """
+## 数据库表设计
+
+### 用户表(sys_user)表结构
+关联表：角色表(sys_role)
+| 字段名 | 类型 | 长度 | 允许空 | 主键 | 说明 |
+|--------|------|------|--------|------|------|
+| user_id | bigint | 20 | 否 | 是 | 用户编号 |
+
+### 角色表(sys_role)表结构
+| 字段名 | 类型 | 长度 | 允许空 | 主键 | 说明 |
+|--------|------|------|--------|------|------|
+| role_id | bigint | 20 | 否 | 是 | 角色编号 |
+"""
+
+        schemas = generator._parse_table_schemas_from_background(text)
+        user_schema = schemas[generator._normalize_table_key("用户表(sys_user)")]
+
+        self.assertEqual("用户表", user_schema.name)
+        self.assertEqual("sys_user", user_schema.display_name)
+        self.assertEqual(["sys_role"], user_schema.related_tables)
+
+    def test_parse_table_schemas_should_normalize_related_tables_to_physical_name_from_heading(self):
+        generator = self._build_generator()
+        text = """
+## 数据库表设计
+
+### 用户表（sys_user）表结构
+关联表：角色表
+| 字段名 | 类型 | 长度 | 允许空 | 主键 | 说明 |
+|--------|------|------|--------|------|------|
+| user_id | bigint | 20 | 否 | 是 | 用户编号 |
+
+### 角色表（sys_role）表结构
+| 字段名 | 类型 | 长度 | 允许空 | 主键 | 说明 |
+|--------|------|------|--------|------|------|
+| role_id | bigint | 20 | 否 | 是 | 角色编号 |
+"""
+
+        schemas = generator._parse_table_schemas_from_background(text)
+        user_schema = schemas[generator._normalize_table_key("用户表（sys_user）")]
+
+        self.assertEqual(["sys_role"], user_schema.related_tables)
+
+    def test_generate_er_diagram_should_use_physical_table_names_from_background(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            workspace = root / "thesis-workspace"
+            prompt_dir = workspace / "references" / "prompt"
+            prompt_dir.mkdir(parents=True)
+            (workspace / ".thesis-config.yaml").write_text(
+                "er_modeling:\n  graph_type: dot\n  diagram_scope: multi\n",
+                encoding="utf-8",
+            )
+            (prompt_dir / "background.md").write_text(
+                """
+## 数据库表设计
+
+### 用户表（sys_user）表结构
+关联表：角色表
+| 字段名 | 类型 | 长度 | 允许空 | 主键 | 说明 |
+|--------|------|------|--------|------|------|
+| user_id | bigint | 20 | 否 | 是 | 用户编号 |
+| username | varchar | 50 | 否 | 否 | 用户名 |
+
+### 角色表（sys_role）表结构
+| 字段名 | 类型 | 长度 | 允许空 | 主键 | 说明 |
+|--------|------|------|--------|------|------|
+| role_id | bigint | 20 | 否 | 是 | 角色编号 |
+| role_name | varchar | 50 | 否 | 否 | 角色名称 |
+""",
+                encoding="utf-8",
+            )
+            input_file = workspace / "workspace" / "final" / "论文终稿.md"
+            input_file.parent.mkdir(parents=True)
+            input_file.write_text("占位", encoding="utf-8")
+
+            generator = self._build_generator(input_path=str(input_file))
+            placeholder = ChartPlaceholder(
+                raw_text="",
+                chart_type="E-R图",
+                chart_id="图4-30",
+                chart_name="用户概念ER图",
+                description="展示用户表结构",
+            )
+
+            graph_code = generator.generate_mermaid(placeholder)
+
+        self.assertIn('"sys_user" [shape=box];', graph_code)
+        self.assertIn('"sys_role" [shape=box];', graph_code)
+        self.assertNotIn('"用户表" [shape=box];', graph_code)
+        self.assertNotIn('"角色表" [shape=box];', graph_code)
 
     def test_parse_table_schemas_should_capture_business_description(self):
         generator = self._build_generator()
@@ -431,7 +552,7 @@ class ChartGeneratorERDiagramTestCase(unittest.TestCase):
         self.assertIn("用于记录平台用户的注册、认证与状态信息", replaced)
         self.assertIn("用户唯一标识", replaced)
         self.assertIn("用户登录名", replaced)
-        self.assertTrue("角色表" in replaced or "角色" in replaced)
+        self.assertTrue("角色表" in replaced or "sys_role" in replaced or "角色" in replaced)
 
     def test_chart_name_should_prefer_schema_match_from_background(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -484,7 +605,7 @@ class ChartGeneratorERDiagramTestCase(unittest.TestCase):
         self.assertIn('"角色" [shape=box];', graph_code)
         self.assertNotIn('"用户" [shape=box];', graph_code)
 
-    def test_dot_fields_should_prefer_business_descriptions_over_generic_labels(self):
+    def test_dot_fields_should_prefer_chinese_field_descriptions(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             workspace = root / "thesis-workspace"
@@ -498,12 +619,12 @@ class ChartGeneratorERDiagramTestCase(unittest.TestCase):
                 """
 ## 数据库表设计
 
-### 用户表结构
+### 用户表（sys_user）表结构
 | 字段名 | 类型 | 长度 | 允许空 | 主键 | 说明 |
 |--------|------|------|--------|------|------|
 | user_id | bigint | 20 | 否 | 是 | 用户唯一标识 |
 | username | varchar | 50 | 否 | 否 | 用户登录名 |
-| created_at | datetime | 0 | 否 | 否 | 账号创建时间 |
+| created_at | datetime | 0 | 否 | 否 | |
 """,
                 encoding="utf-8",
             )
@@ -522,12 +643,30 @@ class ChartGeneratorERDiagramTestCase(unittest.TestCase):
 
             graph_code = generator.generate_mermaid(placeholder)
 
-        self.assertIn('用户唯一标识', graph_code)
-        self.assertIn('用户登录名', graph_code)
-        self.assertIn('账号创建时间', graph_code)
-        self.assertNotIn('label="编号"', graph_code)
-        self.assertNotIn('label="用户名"', graph_code)
-        self.assertNotIn('label="创建时间"', graph_code)
+        self.assertIn('"用户唯一标识', graph_code)
+        self.assertIn('"用户登录名', graph_code)
+        self.assertIn('"created_at', graph_code)
+        self.assertNotIn('"user_id', graph_code)
+        self.assertNotIn('"username', graph_code)
+        self.assertNotIn('label=', graph_code)
+
+    def test_flowchart_should_prefer_description_steps_over_keyword_template(self):
+        generator = self._build_generator()
+        placeholder = ChartPlaceholder(
+            raw_text="image_1",
+            chart_type="流程图",
+            chart_id="图4-30",
+            chart_name="用户登录流程图",
+            description="1. 扫描二维码 2. 读取票据 3. 验证票据是否有效 4. 写入登录态 5. 跳转首页",
+        )
+
+        graph_code = generator.generate_mermaid(placeholder)
+
+        self.assertIn("扫描二维码", graph_code)
+        self.assertIn("读取票据", graph_code)
+        self.assertIn("验证票据是否有效", graph_code)
+        self.assertIn("写入登录态", graph_code)
+        self.assertNotIn("输入账号密码", graph_code)
 
     def test_dot_multi_should_keep_textbook_tb_layout(self):
         generator = self._build_generator(er_modeling_config={"graph_type": "dot", "diagram_scope": "multi"})

@@ -63,10 +63,11 @@ flowchart LR
 
 ### 不可跳过的暂停点
 
-1. **Step 0 初始化后**：必须先检查 `thesis-workspace/references/prompt/background.md` 是否已补全，且工作区必须通过脚本初始化并生成 `thesis-workspace/.thesis-config.yaml` 与 `thesis-workspace/workspace/references/images.yaml`；未完成时只能提示用户编辑，禁止直接推进到 Step 1/3。
+1. **Step 0 初始化后**：必须先运行 `python scripts/lifecycle.py --workspace thesis-workspace/ --check-workspace`，并检查 `thesis-workspace/references/prompt/background.md` 是否已补全；工作区必须通过脚本初始化并生成 `thesis-workspace/.thesis-config.yaml`、`thesis-workspace/.thesis-status.json`、`thesis-workspace/logs/` 与 `thesis-workspace/workspace/references/images.yaml`；未完成时只能提示用户编辑，禁止直接推进到 Step 1/3。
 2. **Step 3 大纲确认后**：必须先询问用户文献数量（20-30 / 30-50 / 15-20），并展示搜索耗时预估后，进入 Step 3→4 之间的“文献搜索与建池”阶段；该阶段不是独立 Step，但后续在 Step 4/6/7 中如发现文献不足、语种比例失衡或文献失效，必须允许回流补池后再继续写作或检测。
 3. **Step 4 每章写作时**：必须先完成 Stage 1 要点规划，待用户确认后才能进入 Stage 2 扩写；如果当前仍停留在 Stage 1，用户回复「继续」只能视为确认本章要点，不能跳过更早的未完成门禁。
-4. **Step 7 合并检测后**：若 AIGC 检测未通过，必须回退到 Step 5/6 继续改写与审校，禁止进入 Step 8 图片生成或 Step 9 导出。
+4. **Step 7 合并检测后**：若同一 `ref_id` 在终稿中重复出现，必须硬阻断并回退修正，禁止带重复引用进入 AIGC 检测；若 AIGC 检测未通过，必须回退到 Step 5/6 继续改写与审校，禁止进入 Step 8 图片生成或 Step 9 导出。
+5. **Step 8 图片生成前**：必须读取 `workspace/references/images.yaml`，按“原位写回 Markdown → 渲染 PNG → 回填 `[image_N]` 为 Markdown 图片引用”三段执行；先由 `chart_generator.py` 将图表代码块原位写回正文，再由 `chart_renderer.py --update` 渲染 PNG 并更新图片引用，最终正文不得残留 `[image_N]`。
 
 ---
 
@@ -96,7 +97,8 @@ flowchart LR
 - 正文图片占位符统一使用 `[image_1]`、`[image_2]` 等格式
 - 图片需求清单统一记录到 `workspace/references/images.yaml`
 - `workspace/references/images.yaml` 必须采用结构化字段，至少包含 `id`、`title`、`chapter`、`section`、`source`、`diagram_type`、`purpose`、`fact_source`、`placement`、`status`、`description`
-- Step 4 只负责记录图片需求，Step 8 再根据清单生成、校验并回填图片引用
+- Step 4 只负责记录图片需求，Step 8 再根据清单读取 `workspace/references/images.yaml`、原位写回 Markdown 代码块、渲染 PNG 并回填 Markdown 图片引用
+- 架构图、模块图、流程图、ER 图等 AI 图片必须先有 manifest 记录；用户提供图片必须在清单中标明 `source=user` 和待补状态
 
 ### 流程
 
@@ -106,7 +108,9 @@ flowchart LR
 4. **合并去重**：多源结果合并，按相关度选出最相关 x 篇（`scripts/reference_merger.py`）
 5. **写作时从文献池选取未占用引用**
 6. **文献搜索与建池阶段可回流复用**：在 Step 4/6/7 任一阶段，如果当前章节缺少可用未占用文献、文献验证失败、语种比例不达标或引用密度不足，必须回到该阶段补充搜索，并增量更新 `workspace/references/verified_references.yaml`
-7. **单篇文献整篇仅允许引用一次**：一旦某个 `ref_id` 被正文使用一次，就必须标记为已占用，后续章节不得重复使用
+7. **单篇文献整篇仅允许引用一次**：一旦某个 `ref_id` 被正文使用一次，就必须标记为已占用，后续章节不得重复使用；Step 7 发现重复 `ref_id` 必须硬阻断
+8. **中文文献质量不足时提示人工补充**：若自动源无法满足中文文献占比 >65%，必须提示用户从 CNKI、万方、学校图书馆等外部高质量来源人工补充真实中文文献，禁止伪造
+9. **文献 YAML 输出必须安全可解析**：标题含英文冒号、中文冒号、括号等特殊字符时，仍必须能被 `yaml.safe_load()` 读取
 
 详见 `workflows/reference_workflow.md`
 
@@ -160,7 +164,9 @@ thesis-workspace/
 | 参考文献虚构 | 严重 | DOI验证+重生成 |
 | 参考文献数量超标 | 严重 | 按相关度截取 |
 | **参考文献缺少中英文** | **严重** | **中文和英文文献都必须包含，缺少则触发补充搜索** |
-| **引用复用同一 ref_id** | **严重** | **同一篇文献整篇仅允许引用一次，发现重复占用必须回流补池并改写引用** |
+| **参考文献 YAML 解析失败** | **严重** | **reference_merger.py 必须使用安全 YAML 输出，特殊字符标题保存后仍可 `yaml.safe_load()`** |
+| **中文文献比例不足** | **严重** | **自动源不足时提示从 CNKI、万方、学校图书馆人工补充真实中文文献，禁止伪造** |
+| **引用复用同一 ref_id** | **严重** | **同一篇文献整篇仅允许引用一次，发现重复占用必须硬阻断并回流补池改写引用** |
 | AI模板词超标 | 中等 | 自动替换 |
 | **章节内自建参考文献列表** | 中等 | 删除，合并阶段统一生成 |
 | **background.md 为空或未完善** | **致命** | **提示用户编辑 `thesis-workspace/references/prompt/background.md`，禁止控制台交互式输入** |

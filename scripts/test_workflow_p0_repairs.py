@@ -18,8 +18,18 @@ class WorkflowP0RepairsTest(unittest.TestCase):
         content = (WORKFLOWS_DIR / "step_0_init.md").read_text(encoding="utf-8")
         self.assertIn("通过脚本初始化工作区", content)
         self.assertIn("python scripts/lifecycle.py --workspace thesis-workspace/ --prepare-runtime", content)
+        self.assertIn("python scripts/lifecycle.py --workspace thesis-workspace/ --check-workspace", content)
+        self.assertIn(".thesis-status.json", content)
+        self.assertIn("logs/", content)
         self.assertIn("填写 references/prompt/background.md", content)
         self.assertNotIn("是否初始化工作区", content)
+
+    def test_skill_entry_requires_workspace_preflight_after_init(self):
+        content = SKILL_FILE.read_text(encoding="utf-8")
+        self.assertIn("python scripts/lifecycle.py --workspace thesis-workspace/ --check-workspace", content)
+        self.assertIn("thesis-workspace/.thesis-status.json", content)
+        self.assertIn("thesis-workspace/logs/", content)
+        self.assertIn("thesis-workspace/workspace/references/images.yaml", content)
 
     def test_reference_workflow_and_step_7_use_layered_verification_states(self):
         reference_workflow = (WORKFLOWS_DIR / "reference_workflow.md").read_text(encoding="utf-8")
@@ -34,6 +44,9 @@ class WorkflowP0RepairsTest(unittest.TestCase):
         content = (WORKFLOWS_DIR / "step_4_writing.md").read_text(encoding="utf-8")
         self.assertIn("[image_1]", content)
         self.assertIn("workspace/references/images.yaml", content)
+        self.assertIn("正文只保留 `[image_N]`", content)
+        self.assertIn("说明写入 `workspace/references/images.yaml`", content)
+        self.assertIn("禁止把图片描述", content)
         self.assertIn("Step 4 只负责记录图片需求", content)
         self.assertNotIn("<!-- 图表占位符", content)
 
@@ -41,8 +54,33 @@ class WorkflowP0RepairsTest(unittest.TestCase):
         step8 = (WORKFLOWS_DIR / "step_8_image.md").read_text(encoding="utf-8")
         step9 = (WORKFLOWS_DIR / "step_9_export.md").read_text(encoding="utf-8")
         self.assertIn("读取 workspace/references/images.yaml", step8)
+        self.assertIn("原位写回 Markdown", step8)
+        self.assertIn("chart_renderer.py --input workspace/final/论文终稿.md --output workspace/final/images/ --method auto --update", step8)
+        self.assertIn("渲染 PNG", step8)
+        self.assertIn("回填", step8)
         self.assertIn("将 [image_N] 替换为 Markdown 图片引用", step8)
+        self.assertNotIn("--no-render", step8)
+        self.assertNotIn("生成模板", step8)
         self.assertIn("正文不得残留 [image_N]", step9)
+
+    def test_reference_workflow_documents_manual_chinese_supplement_and_duplicate_blocking(self):
+        reference_workflow = (WORKFLOWS_DIR / "reference_workflow.md").read_text(encoding="utf-8")
+        step7 = (WORKFLOWS_DIR / "step_7_merge_detect.md").read_text(encoding="utf-8")
+        self.assertIn("CNKI", reference_workflow)
+        self.assertIn("万方", reference_workflow)
+        self.assertIn("学校图书馆", reference_workflow)
+        self.assertIn("禁止伪造", reference_workflow)
+        self.assertIn("必须硬阻断", step7)
+        self.assertIn("禁止带重复引用进入 AIGC 检测", step7)
+    def test_skill_entry_documents_final_gate_and_reference_quality_rules(self):
+        content = SKILL_FILE.read_text(encoding="utf-8")
+        self.assertIn("原位写回 Markdown", content)
+        self.assertIn("yaml.safe_load", content)
+        self.assertIn("CNKI", content)
+        self.assertIn("万方", content)
+        self.assertIn("学校图书馆", content)
+        self.assertIn("必须硬阻断", content)
+        self.assertIn("禁止带重复引用进入 AIGC 检测", content)
 
 
 if __name__ == "__main__":
