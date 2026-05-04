@@ -742,3 +742,87 @@ class ChartGeneratorERDiagramTestCase(unittest.TestCase):
         self.assertIn("尽量生成并 warning", content)
         self.assertIn("实体居中", content)
         self.assertIn("字段中文", content)
+
+    def test_er_should_prefer_current_description_ddl_over_background_schema(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            workspace = root / "thesis-workspace"
+            prompt_dir = workspace / "references" / "prompt"
+            prompt_dir.mkdir(parents=True)
+            (workspace / ".thesis-config.yaml").write_text(
+                "er_modeling:\n  graph_type: dot\n  diagram_scope: single\n",
+                encoding="utf-8",
+            )
+            (prompt_dir / "background.md").write_text(
+                """
+## 数据库表设计
+
+### 用户表结构
+| 字段名 | 类型 | 长度 | 允许空 | 主键 | 说明 |
+|--------|------|------|--------|------|------|
+| user_id | bigint | 20 | 否 | 是 | 用户编号 |
+| username | varchar | 50 | 否 | 否 | 用户名 |
+""",
+                encoding="utf-8",
+            )
+            input_file = workspace / "workspace" / "final" / "论文终稿.md"
+            input_file.parent.mkdir(parents=True)
+            input_file.write_text("占位符", encoding="utf-8")
+
+            generator = self._build_generator(input_path=str(input_file))
+            placeholder = ChartPlaceholder(
+                raw_text="image_1",
+                chart_type="E-R图",
+                chart_id="图4-40",
+                chart_name="订单概念ER图",
+                description="""
+基于以下 DDL 生成订单概念 E-R 图：
+CREATE TABLE sys_order (
+  order_id BIGINT PRIMARY KEY COMMENT '订单编号',
+  order_no VARCHAR(64) NOT NULL COMMENT '订单号',
+  pay_status TINYINT COMMENT '支付状态'
+);
+""",
+            )
+
+            graph_code = generator.generate_mermaid(placeholder)
+
+        self.assertIn('\"sys_order\" [shape=box];', graph_code)
+        self.assertIn("订单编号", graph_code)
+        self.assertIn("订单号", graph_code)
+        self.assertIn("支付状态", graph_code)
+        self.assertNotIn('\"用户\" [shape=box];', graph_code)
+
+    def test_dot_attribute_style_should_use_uniform_size_and_wrap_long_text(self):
+        generator = self._build_generator(er_modeling_config={"graph_type": "dot"})
+
+        style = generator._build_er_attribute_node_style("这是一个非常长的字段中文说明需要换行")
+
+        self.assertIn("shape=ellipse", style)
+        self.assertIn("fixedsize=true", style)
+        self.assertIn("width=", style)
+        self.assertIn("height=", style)
+        self.assertIn("\\n", style)
+
+    def test_dot_overall_er_should_limit_to_core_tables(self):
+        generator = self._build_generator(er_modeling_config={"graph_type": "dot", "diagram_scope": "multi"})
+        generator.table_schemas = {
+            generator._normalize_table_key(f"表{i}"): generator._parse_table_schemas_from_background(
+                f"""## 数据库表设计\n\n### 表{i}结构\n| 字段名 | 类型 | 主键 | 说明 |\n|---|---|---|---|\n| id | bigint | 是 | 编号 |\n"""
+            )[generator._normalize_table_key(f"表{i}")]
+            for i in range(1, 9)
+        }
+        placeholder = ChartPlaceholder(
+            raw_text="image_1",
+            chart_type="E-R图",
+            chart_id="图4-50",
+            chart_name="系统总体E-R图",
+            description="展示系统总体 E-R 图，核心表：表1、表2、表3、表4、表5、表6、表7、表8",
+        )
+
+        graph_code = generator.generate_mermaid(placeholder)
+
+        self.assertIn('\"表1\" [shape=box];', graph_code)
+        self.assertIn('\"表6\" [shape=box];', graph_code)
+        self.assertNotIn('\"表7\" [shape=box];', graph_code)
+        self.assertNotIn('\"表8\" [shape=box];', graph_code)

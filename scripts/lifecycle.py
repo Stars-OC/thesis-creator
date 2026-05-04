@@ -55,6 +55,31 @@ def _copy_runtime_scripts(source_dir: Path, target_dir: Path):
                 shutil.copyfile(item, target)
 
 
+def _copy_tree_if_missing(source_dir: Path, target_dir: Path):
+    if not source_dir.exists():
+        return
+    target_dir.mkdir(parents=True, exist_ok=True)
+    for item in source_dir.iterdir():
+        target = target_dir / item.name
+        if item.is_dir():
+            _copy_tree_if_missing(item, target)
+            continue
+        if not target.exists():
+            shutil.copyfile(item, target)
+
+
+def _ensure_workspace_references(workspace: Path):
+    template_candidates = [
+        workspace.parent / ".claude" / "skills" / "thesis-creator" / "references",
+        Path(__file__).resolve().parent.parent / "references",
+    ]
+    for template_root in template_candidates:
+        if template_root.exists():
+            _copy_tree_if_missing(template_root, workspace / "references")
+            return
+
+
+
 def _ensure_workspace_config(workspace: Path):
     target_config = workspace / ".thesis-config.yaml"
     if target_config.exists():
@@ -68,6 +93,7 @@ def _ensure_workspace_config(workspace: Path):
         if template.exists():
             shutil.copyfile(template, target_config)
             return
+
 
 
 def _ensure_image_manifest(workspace: Path):
@@ -95,20 +121,23 @@ def ensure_workspace_structure(workspace_path: str, sync_scripts: bool = True) -
     if not venv_dir.exists():
         venv.create(venv_dir, with_pip=True)
 
+    if sync_scripts:
+        _copy_runtime_scripts(Path(__file__).resolve().parent, scripts_dir)
+
+    _ensure_workspace_references(workspace)
+
     target_background = workspace / "references" / "prompt" / "background.md"
     if not target_background.exists():
-        target_background.parent.mkdir(parents=True, exist_ok=True)
         template_candidates = [
+            workspace / "references" / "prompt" / "background_template.md",
             workspace.parent / ".claude" / "skills" / "thesis-creator" / "references" / "prompt" / "background_template.md",
             Path(__file__).resolve().parent.parent / "references" / "prompt" / "background_template.md",
         ]
+        target_background.parent.mkdir(parents=True, exist_ok=True)
         for template in template_candidates:
             if template.exists():
                 shutil.copyfile(template, target_background)
                 break
-
-    if sync_scripts:
-        _copy_runtime_scripts(Path(__file__).resolve().parent, scripts_dir)
 
     _ensure_workspace_config(workspace)
     _ensure_image_manifest(workspace)
@@ -117,52 +146,31 @@ def ensure_workspace_structure(workspace_path: str, sync_scripts: bool = True) -
     return workspace
 
 
-def _background_is_incomplete(path: Path) -> bool:
-    if not path.exists() or path.stat().st_size <= 100:
-        return True
-    content = path.read_text(encoding="utf-8")
-    template_markers = [
-        "请填写以下信息",
-        "(描述研究领域的现状和问题)",
-    ]
-    return any(marker in content for marker in template_markers)
-
 
 def check_workspace_preflight(workspace: Path) -> Dict[str, Any]:
-    required_files = [
-        ".thesis-config.yaml",
-        "references/prompt/background.md",
-        "workspace/references/images.yaml",
-        ".thesis-status.json",
-    ]
-    required_dirs = ["scripts", "logs"]
     missing = []
     incomplete = []
 
-    for relative in required_files:
-        if not (workspace / relative).exists():
-            missing.append(relative)
-
-    for relative in required_dirs:
-        if not (workspace / relative).is_dir():
-            missing.append(relative)
-
     background_path = workspace / "references" / "prompt" / "background.md"
-    if background_path.exists() and _background_is_incomplete(background_path):
-        incomplete.append("references/prompt/background.md")
+    if not background_path.exists():
+        missing.append("references/prompt/background.md")
 
     suggestions = []
     if missing:
         suggestions.append("python scripts/lifecycle.py --workspace thesis-workspace/ --prepare-runtime")
-    if "references/prompt/background.md" in incomplete:
-        suggestions.append("填写 references/prompt/background.md")
 
     return {
-        "ok": not missing and not incomplete,
+        "ok": not missing,
         "missing": missing,
         "incomplete": incomplete,
         "suggestions": suggestions,
     }
+
+
+
+def init_and_check_workspace(workspace_path: str, sync_scripts: bool = True) -> Dict[str, Any]:
+    workspace = ensure_workspace_structure(workspace_path, sync_scripts=sync_scripts)
+    return check_workspace_preflight(workspace)
 
 
 class LifecycleEvent:
@@ -232,8 +240,23 @@ def main():
     parser.add_argument("--resume", action="store_true", help="查看断点续写位置")
     parser.add_argument("--prepare-runtime", action="store_true", help="仅准备工作区脚本目录与虚拟环境")
     parser.add_argument("--check-workspace", action="store_true", help="检查工作区初始化产物是否完整")
+    parser.add_argument("--init-and-check", action="store_true", help="一键初始化工作区并执行预检")
 
     args = parser.parse_args()
+
+    if args.init_and_check:
+        report = init_and_check_workspace(args.workspace, sync_scripts=True)
+        if report["ok"]:
+            print(f"[成功] 工作区初始化与检查通过: {args.workspace}")
+            return
+        print(f"[错误] 工作区已初始化，但检查未通过: {args.workspace}")
+        if report["missing"]:
+            print("[缺失] " + ", ".join(report["missing"]))
+        if report["incomplete"]:
+            print("[未完成] " + ", ".join(report["incomplete"]))
+        for suggestion in report["suggestions"]:
+            print(f"[建议] {suggestion}")
+        return
 
     if args.check_workspace:
         report = check_workspace_preflight(Path(args.workspace))

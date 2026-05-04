@@ -564,6 +564,9 @@ def clean_markdown_content(content: str) -> str:
     content = re.sub(r'> - \*\*图表名称\*\*[^\n]*\n', '', content)
     content = re.sub(r'> - \*\*图表类型\*\*[^\n]*\n', '', content)
 
+    # 移除仍保留在正文中的用户待补图片占位符，避免原样进入导出文档
+    content = re.sub(r'\[(image_(?:\d+_)?\d+)\]', '', content)
+
     # 移除连续多个 ---（3个以上的水平线）
     content = re.sub(r'\n-{3,}\n', '\n\n', content)
     content = re.sub(r'\n-{3,}\s*\n', '\n\n', content)
@@ -606,12 +609,44 @@ def strip_doi_links(content: str) -> str:
     return content
 
 
+def _load_pending_user_image_ids(markdown_path: Path) -> set:
+    candidates = [
+        markdown_path.parent / "workspace" / "references" / "images.yaml",
+        markdown_path.parent.parent / "references" / "images.yaml",
+        markdown_path.parent.parent / "workspace" / "references" / "images.yaml",
+    ]
+    for candidate in candidates:
+        if not candidate.exists():
+            continue
+        try:
+            data = yaml.safe_load(candidate.read_text(encoding="utf-8")) or {}
+            images = data.get("images", []) if isinstance(data, dict) else []
+            pending = set()
+            for item in images:
+                if not isinstance(item, dict):
+                    continue
+                source = str(item.get("source", "")).strip()
+                status = str(item.get("status", "")).strip()
+                diagram_type = str(item.get("diagram_type", "")).strip()
+                image_id = str(item.get("id", "")).strip()
+                if image_id and source == "user" and (status in {"pending", "pending_user"} or diagram_type == "screenshot"):
+                    pending.add(image_id)
+            return pending
+        except Exception:
+            continue
+    return set()
+
+
 def preflight_validate_images(markdown_path: Path) -> Tuple[bool, str]:
     content = markdown_path.read_text(encoding='utf-8')
 
-    remaining = re.findall(r'\[image_\d+\]', content)
+    remaining = re.findall(r'\[(image_(?:\d+_)?\d+)\]', content)
     if remaining:
-        return False, f"检测到未替换图片占位符: {', '.join(remaining)}"
+        pending_user_ids = _load_pending_user_image_ids(markdown_path)
+        blocking = [image_id for image_id in remaining if image_id not in pending_user_ids]
+        if blocking:
+            return False, f"检测到未替换图片占位符: {', '.join(f'[{item}]' for item in blocking)}"
+        return True, f"图片预检查通过，保留用户待补图片: {', '.join(f'[{item}]' for item in remaining)}"
 
     image_refs = re.findall(r'!\[[^\]]*\]\(([^)]+)\)', content)
     missing = []
@@ -683,6 +718,13 @@ def parse_markdown(content: str) -> list:
             continue
 
         # 图片处理 - 格式: ![alt](path) 或 ![图X-X 说明](images/xxx.png)
+        block_img_match = re.match(r'^>\s*\*\*!\[([^\]]*)\]\(([^)]+)\)[：:]\s*(.+?)\*\*\s*$', line)
+        if block_img_match:
+            alt_text = block_img_match.group(1).strip() or block_img_match.group(3).strip()
+            img_path = block_img_match.group(2).strip()
+            elements.append(('image', img_path, alt_text))
+            continue
+
         img_match = re.match(r'^!\[([^\]]*)\]\(([^)]+)\)\s*$', line)
         if img_match:
             alt_text = img_match.group(1)  # 图片说明/alt文本

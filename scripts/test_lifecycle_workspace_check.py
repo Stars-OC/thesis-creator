@@ -29,26 +29,44 @@ class LifecycleWorkspaceCheckTest(unittest.TestCase):
         self.assertTrue((self.workspace / "logs").is_dir())
         self.assertTrue((self.workspace / ".thesis-config.yaml").exists())
         self.assertTrue((self.workspace / "references" / "prompt" / "background.md").exists())
-        self.assertTrue((self.workspace / "workspace" / "references" / "images.yaml").exists())
         self.assertTrue((self.workspace / ".thesis-status.json").exists())
+        self.assertTrue((self.workspace / "workspace" / "references" / "images.yaml").exists())
+        self.assertTrue((self.workspace / "references" / "templates" / "README.md").exists())
+        self.assertTrue((self.workspace / "references" / "examples" / "README.md").exists())
+        self.assertTrue((self.workspace / "references" / "guidelines" / "README.md").exists())
+        self.assertTrue((self.workspace / "references" / "reference" / "doc" / "README.md").exists())
 
         report = check_workspace_preflight(self.workspace)
+        self.assertTrue(report["ok"])
         self.assertFalse(report["missing"])
+        self.assertFalse(report["incomplete"])
 
-    def test_check_workspace_preflight_reports_missing_required_files(self):
+    def test_init_and_check_prepares_runtime_and_passes_when_background_exists(self):
+        from lifecycle import init_and_check_workspace
+
+        report = init_and_check_workspace(str(self.workspace), sync_scripts=True)
+
+        self.assertTrue((self.workspace / ".thesis-config.yaml").exists())
+        self.assertTrue((self.workspace / ".thesis-status.json").exists())
+        self.assertTrue((self.workspace / "references" / "templates" / "README.md").exists())
+        self.assertTrue(report["ok"])
+        self.assertFalse(report["missing"])
+        self.assertFalse(report["incomplete"])
+
+    def test_check_workspace_preflight_reports_missing_background_only(self):
         ensure_workspace_structure(str(self.workspace), sync_scripts=False)
         ThesisStatusManager(str(self.workspace)).ensure()
-        (self.workspace / ".thesis-config.yaml").unlink()
-        (self.workspace / "workspace" / "references" / "images.yaml").unlink()
+        (self.workspace / "references" / "prompt" / "background.md").unlink()
 
         report = check_workspace_preflight(self.workspace)
 
         self.assertFalse(report["ok"])
-        self.assertIn(".thesis-config.yaml", report["missing"])
-        self.assertIn("workspace/references/images.yaml", report["missing"])
+        self.assertIn("references/prompt/background.md", report["missing"])
+        self.assertNotIn(".thesis-config.yaml", report["missing"])
+        self.assertNotIn("workspace/references/images.yaml", report["missing"])
         self.assertIn("python scripts/lifecycle.py --workspace thesis-workspace/ --prepare-runtime", report["suggestions"])
 
-    def test_check_workspace_preflight_flags_unfilled_background_template(self):
+    def test_check_workspace_preflight_allows_unfilled_background_template(self):
         ensure_workspace_structure(str(self.workspace), sync_scripts=False)
         ThesisStatusManager(str(self.workspace)).ensure()
         background = self.workspace / "references" / "prompt" / "background.md"
@@ -56,9 +74,9 @@ class LifecycleWorkspaceCheckTest(unittest.TestCase):
 
         report = check_workspace_preflight(self.workspace)
 
-        self.assertFalse(report["ok"])
-        self.assertIn("references/prompt/background.md", report["incomplete"])
-        self.assertIn("填写 references/prompt/background.md", report["suggestions"])
+        self.assertTrue(report["ok"])
+        self.assertFalse(report["missing"])
+        self.assertFalse(report["incomplete"])
 
 
 if __name__ == "__main__":

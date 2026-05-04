@@ -28,6 +28,7 @@ except ImportError:
     OfflineChartRenderer = None
 
 MAX_FLOWCHART_NODES = 10
+MAX_ER_ENTITIES = 6
 
 FLOW_TEMPLATES: Dict[str, List[Dict[str, str]]] = {
     "登录": [
@@ -170,7 +171,7 @@ class ChartGenerator:
         r'<!--\s*图表占位符结束\s*-->',
         re.DOTALL
     )
-    IMAGE_PLACEHOLDER_PATTERN = re.compile(r'\[image_(\d+)\]')
+    IMAGE_PLACEHOLDER_PATTERN = re.compile(r'\[(image_(?:\d+_)?\d+)\]')
     SIMPLE_PATTERN = re.compile(r'\[图表占位符\][：:]?\s*(\w+图)?[，,]?\s*展示(.+?)(?:\n|$)')
     USER_PROVIDED_PATTERN = re.compile(r'<!--\s*用户提供图片[：:]\s*(图\d+-\d+)\s+(.+?)\s*-->')
     TABLE_SECTION_PATTERN = re.compile(r'^##\s+(?:数据库表设计|数据表清单)\s*$', re.MULTILINE)
@@ -229,7 +230,11 @@ class ChartGenerator:
             self.table_schemas = self._parse_table_schemas_from_background(text)
 
     def _normalize_table_key(self, text: str) -> str:
-        return re.sub(r'\s+', '', text).lower()
+        normalized = text.strip()
+        normalized = re.sub(r'表结构$', '', normalized)
+        normalized = re.sub(r'数据表$', '', normalized)
+        normalized = re.sub(r'结构$', '', normalized)
+        return re.sub(r'\s+', '', normalized).lower()
 
     def _parse_markdown_table(self, lines: List[str]) -> List[List[str]]:
         rows = []
@@ -254,13 +259,43 @@ class ChartGenerator:
         logical_name, physical_name = self._parse_table_heading_name(table_name)
         return physical_name if physical_name != logical_name else logical_name
 
+    def _parse_table_schemas_from_ddl(self, text: str) -> Dict[str, TableSchema]:
+        schemas: Dict[str, TableSchema] = {}
+        table_pattern = re.compile(r'CREATE\s+TABLE\s+`?([A-Za-z][A-Za-z0-9_]*)`?\s*\((.*?)\)\s*;', re.IGNORECASE | re.DOTALL)
+        field_pattern = re.compile(r"`?([A-Za-z][A-Za-z0-9_]*)`?\s+([A-Za-z]+)(?:\(([^)]*)\))?([^,]*?)(?:COMMENT\s+'([^']*)')?\s*(?:,|$)", re.IGNORECASE | re.DOTALL)
+        for table_match in table_pattern.finditer(text):
+            table_name = table_match.group(1).strip()
+            body = table_match.group(2)
+            fields: List[TableField] = []
+            for field_match in field_pattern.finditer(body):
+                field_name = field_match.group(1).strip()
+                if field_name.upper() in {"PRIMARY", "KEY", "CONSTRAINT", "INDEX", "UNIQUE"}:
+                    continue
+                tail = field_match.group(4) or ""
+                fields.append(TableField(
+                    name=field_name,
+                    data_type=field_match.group(2).strip(),
+                    length=(field_match.group(3) or "").strip(),
+                    is_primary="PRIMARY KEY" in tail.upper(),
+                    description=(field_match.group(5) or "").strip(),
+                ))
+            schemas[self._normalize_table_key(table_name)] = TableSchema(
+                name=table_name,
+                display_name=table_name,
+                fields=fields,
+            )
+        return schemas
+
+    def _schemas_from_current_description(self, description: str) -> Dict[str, TableSchema]:
+        ddl_schemas = self._parse_table_schemas_from_ddl(description)
+        if ddl_schemas:
+            return ddl_schemas
+        return self._parse_table_schemas_from_background(description)
+
     def _parse_table_schemas_from_background(self, text: str) -> Dict[str, TableSchema]:
         schemas: Dict[str, TableSchema] = {}
         section_match = self.TABLE_SECTION_PATTERN.search(text)
-        if not section_match:
-            return schemas
-
-        section_text = text[section_match.end():]
+        section_text = text[section_match.end():] if section_match else text
         headings = list(self.TABLE_HEADING_PATTERN.finditer(section_text))
         for idx, heading in enumerate(headings):
             start = heading.end()
@@ -361,7 +396,7 @@ class ChartGenerator:
         seen = set()
         placeholders: List[str] = []
         for match in self.IMAGE_PLACEHOLDER_PATTERN.finditer(content):
-            placeholder_id = f"image_{match.group(1)}"
+            placeholder_id = match.group(1)
             if placeholder_id in seen:
                 continue
             seen.add(placeholder_id)
@@ -571,10 +606,12 @@ class ChartGenerator:
         placeholder = self._build_manifest_placeholder(item)
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        if placeholder.chart_type not in {"流程图", "时序图", "E-R图"}:
+        supported_renderer_types = {"流程图", "时序图", "E-R图"}
+        fallback_only_types = {"架构图", "功能模块图", "用例图", "类图"}
+        if placeholder.chart_type not in supported_renderer_types | fallback_only_types:
             raise ValueError(f"{placeholder.chart_name} 的 AI 图片类型暂不支持自动生成: {placeholder.chart_type}")
 
-        if OfflineChartRenderer is not None:
+        if placeholder.chart_type in supported_renderer_types and OfflineChartRenderer is not None:
             try:
                 renderer = OfflineChartRenderer(output_dir=str(self.output_dir))
                 if placeholder.chart_type == "流程图":
@@ -623,10 +660,19 @@ class ChartGenerator:
 
         raise ValueError(f"{image_id} 对应图片文件不存在或为空: {output_path}")
 
+    def _should_keep_manifest_placeholder(self, item: Dict[str, Any]) -> bool:
+        source = str(item.get("source", "")).strip()
+        status = str(item.get("status", "")).strip()
+        diagram_type = str(item.get("diagram_type", "")).strip()
+        return source == "user" and (status == "pending_user" or diagram_type == "screenshot")
+
     def replace_image_placeholders(self, content: str, manifest_items: List[Dict[str, Any]]) -> str:
         for item in manifest_items:
             image_id = str(item.get("id", "")).strip()
             if not image_id:
+                continue
+
+            if self._should_keep_manifest_placeholder(item):
                 continue
 
             title = str(item.get("title", image_id)).strip() or image_id
@@ -1219,7 +1265,24 @@ graph LR
         graph_type = str(self.er_modeling_config.get("graph_type", "dot")).lower().strip()
         diagram_scope = str(self.er_modeling_config.get("diagram_scope", "single")).lower().strip()
 
-        schema = self._match_schema(core_entity)
+        current_description_schemas = self._schemas_from_current_description(placeholder.description)
+        previous_schemas = self.table_schemas
+        schema = None
+        used_current_description_schemas = False
+
+        if current_description_schemas:
+            self.table_schemas = current_description_schemas
+            schema = self._match_schema(core_entity)
+            if not schema and len(current_description_schemas) == 1:
+                schema = next(iter(current_description_schemas.values()))
+            used_current_description_schemas = schema is not None
+
+        if schema is None:
+            self.table_schemas = previous_schemas
+            schema = self._match_schema(core_entity)
+        else:
+            self.table_schemas = current_description_schemas
+
         if schema:
             entities = [schema.display_name]
             attributes = {schema.display_name: self._schema_to_attribute_names(schema)}
@@ -1240,10 +1303,10 @@ graph LR
                 "schema": schema,
                 "related_schemas": related_schemas,
                 "graph_type": graph_type,
-                "warnings": self._build_er_warnings(schema, matched_from_background=True),
+                "warnings": self._build_er_warnings(schema, matched_from_background=not used_current_description_schemas),
             }
         else:
-            entities = self._extract_er_entities(placeholder.description, core_entity)
+            entities = self._limit_er_entities(self._extract_er_entities(placeholder.description, core_entity), placeholder.description)
             attributes = self._extract_er_attributes(placeholder.description, entities)
             relationship = self._extract_er_relationship(placeholder.description, entities)
             single_entity = entities[0] if entities else core_entity
@@ -1325,7 +1388,7 @@ graph LR
                 return self._build_graphviz_dot_multi(
                     placeholder.chart_id,
                     placeholder.chart_name,
-                    entities,
+                    self._limit_er_entities(entities, placeholder.description),
                     attributes,
                     relationship,
                 )
@@ -1417,6 +1480,29 @@ graph TB
         lines.append("```")
         return "\n".join(lines)
 
+    def _build_er_attribute_node_style(self, field: str) -> str:
+        text = self._sanitize_er_field_name(field)
+        wrapped = "\\n".join(text[i:i + 8] for i in range(0, len(text), 8))
+        safe_text = wrapped.replace('"', '\\"')
+        return f'shape=ellipse, fixedsize=true, width=2.6, height=1.1, fontsize=10, tooltip="{safe_text}"'
+
+    def _extract_core_tables_from_description(self, description: str) -> List[str]:
+        match = re.search(r'核心表[：:]\s*([^；;\n]+)', description)
+        if not match:
+            return []
+        tables = [item.strip() for item in re.split(r'[、,，]', match.group(1)) if item.strip()]
+        result: List[str] = []
+        for table in tables:
+            if table not in result:
+                result.append(table)
+        return result[:MAX_ER_ENTITIES]
+
+    def _limit_er_entities(self, entities: List[str], description: str) -> List[str]:
+        core_tables = self._extract_core_tables_from_description(description)
+        if core_tables:
+            return core_tables[:MAX_ER_ENTITIES]
+        return entities[:MAX_ER_ENTITIES]
+
     def _build_graphviz_dot(self, chart_id: str, chart_name: str, entity: str, fields: List[str]) -> str:
         split_index = max(1, len(fields) // 2)
         top = fields[:split_index]
@@ -1439,7 +1525,7 @@ graph TB
             name = self._sanitize_er_field_name(field)
             node_name = f"{name}{'​' * idx}"
             top_nodes.append(node_name)
-            dot_lines.append(f'  "{node_name}" [shape=ellipse];')
+            dot_lines.append(f'  "{node_name}" [{self._build_er_attribute_node_style(field)}];')
             dot_lines.append(f'  "{node_name}" -> "{entity}";')
 
         if top_nodes:
@@ -1453,7 +1539,7 @@ graph TB
             name = self._sanitize_er_field_name(field)
             node_name = f"{name}{'​' * idx}"
             bottom_nodes.append(node_name)
-            dot_lines.append(f'  "{node_name}" [shape=ellipse];')
+            dot_lines.append(f'  "{node_name}" [{self._build_er_attribute_node_style(field)}];')
             dot_lines.append(f'  "{entity}" -> "{node_name}";')
 
         if bottom_nodes:
@@ -1498,7 +1584,7 @@ graph TB
             for idx, field in enumerate(top, start=1):
                 node_name = f"{self._sanitize_er_field_name(field)}{'​' * (entity_index + idx)}"
                 top_nodes.append(node_name)
-                dot_lines.append(f'  "{node_name}" [shape=ellipse];')
+                dot_lines.append(f'  "{node_name}" [{self._build_er_attribute_node_style(field)}];')
                 dot_lines.append(f'  "{node_name}" -> "{entity_node}" [dir=none];')
             if top_nodes:
                 top_rank = "; ".join(f'"{node}"' for node in top_nodes)
@@ -1508,7 +1594,7 @@ graph TB
             for idx, field in enumerate(bottom, start=1):
                 node_name = f"{self._sanitize_er_field_name(field)}{'​' * (entity_index + idx)}"
                 bottom_nodes.append(node_name)
-                dot_lines.append(f'  "{node_name}" [shape=ellipse];')
+                dot_lines.append(f'  "{node_name}" [{self._build_er_attribute_node_style(field)}];')
                 dot_lines.append(f'  "{entity_node}" -> "{node_name}" [dir=none];')
             if bottom_nodes:
                 bottom_rank = "; ".join(f'"{node}"' for node in bottom_nodes)
