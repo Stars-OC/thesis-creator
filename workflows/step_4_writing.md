@@ -109,52 +109,69 @@ Paragraph 3: Key functional modules, results and significance.
 
 ---
 
+### 摘要与致谢的章节特化规则(硬约束)
+
+- **摘要**：只允许轻量去模板化处理，重点是删套话、轻度句长波动、压缩冗余表达；禁止设问句、强主观表达和大幅结构重组。
+- **致谢**：重点是真诚自然，压缩客套空话即可；禁止技术化表达、机械排比和激进去 AI 手法。
+- **总结与展望**：若在写作阶段提前生成结论草稿，应保持结论克制，保留局限与后续工作，不要为了降 AIGC 强行加入花哨表达。
+
+### 正文章节的章节特化规则(建议执行)
+
+- **绪论/文献综述**：优先删模板词，保持综述体和引用规范，重点文献可详写，次要文献可略写。
+- **技术基础/关键技术**：优先写清机制和术语关系，不要把技术描述改成百科式空话或成语化表达。
+- **系统设计**：优先补模块名、分层关系、表名、字段或实体关系说明。
+- **系统实现**：优先补接口路径、调用链、关键实现步骤和代码关联。
+- **系统测试/实验分析**：优先写清测试环境、实验条件、数据指标和结果解释。
+
+> **回退意识**：写作阶段就应按章节差异控制语气和细节密度，避免后续 Step 6 为了降 AIGC 被迫整章返工。
+
+---
+
 ### 系统设计章节图片规则(硬约束)
 
-| 图片 | 来源 | 占位符标记 |
-|------|------|------------|
-| 系统整体架构图 | **用户手动提供** | `[image_1]` |
-| 功能模块图 | **用户手动提供** | `[image_2]` |
-| 各模块业务流程图 | **AI(大模型)生成** | `[image_N]` |
-| 实体 E-R 图(每表一张) | **AI(大模型)生成** | `[image_N]` |
+| 图片 | 来源 | 推荐 engine | 占位符标记 |
+|------|------|-------------|------------|
+| 系统整体架构图 | **AI(大模型)生成** | `mermaid` | `[image_N]` |
+| 功能模块图 | **用户手动提供** | `user` | `[image_N]` |
+| 各模块业务流程图 | **AI(大模型)生成** | `mermaid` | `[image_N]` |
+| 实体 E-R 图(每表一张) | **AI(大模型)生成** | `graphviz` | `[image_N]` |
+| 用例图/时序图/类图/活动图 | **AI(大模型)生成** | `plantuml` | `[image_N]` |
 
 ### 图片需求清单
 
-- 图片需求统一记录到 `workspace/references/images.yaml`
-- 正文只保留 `[image_N]`，说明写入 `workspace/references/images.yaml`
-- 禁止把图片描述、绘图要点、补充说明混在正文中；正文中只写必要的图前引导、`[image_N]` 占位符和图后分析
-- `source=ai`：表示后续由 Step 8 生成或校验图片
-- `source=user`：表示后续由用户补充真实图片文件
-- `diagram_type`：必须标明 `architecture / module / flowchart / er / erd / sequence / screenshot` 等类型
-- `fact_source`：必须标明图片事实来源；ER 图固定优先取 `references/prompt/background.md`
-- **Step 4 只负责记录图片需求**，不负责最终生成图片
+- 正文只保留 `[image_N]` 和配套 `image-requirement` 注释块。
+- 正文统一使用 `[image_N]` 占位符。
+- 每个占位符后必须紧跟 `image-requirement` 注释块，图片说明写入 `workspace/references/images.yaml`；Step 8 会用 `scripts/charts/manifest_builder.py` 抽取并生成清单。
+- 正文不得写 `.dot/.mmd/.puml` 图表源码；图表源码只能在 Step 8 写入 `workspace/final/images/sources/`。
+- 禁止把图片描述当作正文图片内容，图片要求必须写在 `image-requirement` 注释块中。
+- `source=ai`：表示后续由大模型生成图表源码，再由 Step 8 渲染图片。
+- `source=user`：表示后续由用户补充真实图片文件，AI 不得伪造截图。
+- `diagram_type`：必须标明 `architecture / module / flowchart / er / sequence / usecase / class / activity / screenshot` 等类型。
+- `engine` 可省略，由 Step 8 自动推断：ER 图默认 `graphviz`，UML 图默认 `plantuml`，普通图默认 `mermaid`，用户图片默认 `user`。
+- `fact_source`：必须标明图片事实来源；ER 图固定优先取 `thesis-workspace/references/prompt/background.md`。
+- `prompt_hint`：可选，用于告诉大模型如何生成源码，禁止使用默认模板。
+- **Step 4 只负责记录图片需求**，不负责最终生成图片。
 
-`workspace/references/images.yaml` 示例：
+正文中的图片需求示例：
 
-```yaml
-images:
-  - id: image_1
-    title: 图4-1 系统整体架构图
-    chapter: "第4章"
-    section: "4.1"
-    source: user
-    diagram_type: architecture
-    purpose: 展示系统整体分层与核心组件关系
-    fact_source: 用户提供的系统设计材料
-    placement: 图前先写架构设计目标，图后写分层说明
-    status: pending
-    description: 用户提供系统整体架构截图或制图结果
-  - id: image_2
-    title: 图4-2 用户表概念ER图
-    chapter: "第4章"
-    section: "4.4.1"
-    source: ai
-    diagram_type: er
-    purpose: 展示用户表的业务用途与关键字段关系
-    fact_source: thesis-workspace/references/prompt/background.md
-    placement: 先写表的业务用途，再插入ER图，图后分析关键字段
-    status: pending
-    description: 展示用户表实体、主键、状态字段与核心关联
+```markdown
+如图4-1所示，系统整体架构用于说明系统的分层关系与核心组件协作。
+
+[image_1]
+<!-- image-requirement
+id: image_1
+title: 图4-1 系统整体架构图
+chapter: 第4章
+section: "4.1"
+source: ai
+diagram_type: architecture
+purpose: 展示系统整体分层与核心组件关系
+fact_source: thesis-workspace/references/prompt/background.md
+placement: 图前先写架构设计目标，图后写分层说明
+status: pending
+description: 展示表现层、业务层、数据层和外部服务之间的调用关系
+prompt_hint: 根据论文背景生成具体架构，不要使用默认三层模板
+-->
 ```
 
 ---

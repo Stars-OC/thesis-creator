@@ -42,7 +42,7 @@ class ThesisContentRequirementTestCase(unittest.TestCase):
     def test_image_generation_prompt_should_require_llm_usecase_and_sparse_flowcharts(self):
         content = (SKILL_ROOT / "prompts" / "image_generation.md").read_text(encoding="utf-8")
 
-        self.assertIn("用例图由 LLM 生成", content)
+        self.assertIn("用例图由 LLM 根据 `images.yaml`", content)
         self.assertIn("不要固定为单一方向", content)
         self.assertIn("避免节点过于密集", content)
         self.assertIn("系统总体需求分析", content)

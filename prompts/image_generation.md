@@ -45,7 +45,7 @@ er_modeling:
 
 **适用场景**：第4章「系统设计」、第5章「系统实现」
 
-**生成方式**：使用 Mermaid 代码块(通过 `chart_generator.py` + `chart_renderer.py` 渲染)
+**生成方式**：使用 `scripts/charts/` 图表子系统，按图类型选择固定引擎：架构图/模块图 → Mermaid，流程图/用例图/时序图/类图/活动图 → PlantUML，ER 图 → Graphviz DOT
 
 **规范**：
 - 分层清晰(表现层、接口层、业务层、数据层)
@@ -67,7 +67,7 @@ er_modeling:
 
 **适用场景**：第4章「系统设计」、第5章「核心功能实现」
 
-**生成方式**：使用 Mermaid `flowchart` 代码块，由脚本优先生成，复杂场景交由 LLM 生成
+**生成方式**：流程图统一优先使用 PlantUML，由 LLM 根据 `images.yaml` 生成 `.puml` 源码；仅架构图、模块图等非流程型结构图继续优先使用 Mermaid
 
 **规范**：
 - 起始和结束用圆角矩形 `([开始])` `([结束])`
@@ -77,6 +77,28 @@ er_modeling:
 - 连接线标注条件(如 `|成功|` `|失败|`)
 - 流程图不要固定为单一方向，可在 `LR`、`RL`、`TB`、`BT` 之间选择
 - 避免节点过于密集，必要时拆成多张图或分段展示
+
+**当流程图使用 PlantUML 时，必须附加以下固定提示词模板**：
+
+```text
+请生成一个用于毕业论文的PlantUML流程图，主题为“{{图表主题}}”。要求：
+
+- 使用activity diagram
+- 所有节点使用中文
+- 起止节点使用“开始”“结束”
+- 逻辑严谨，体现完整业务流或上下文流转机制
+- 包含必要循环（如存在用户持续操作、重试或追问）
+- 避免语法歧义（防止被解析为class diagram）
+- 图结构简洁，不超过3层嵌套
+- 适合论文插图展示
+
+只输出PlantUML代码。
+```
+
+**补充要求**：
+- `{{图表主题}}` 优先替换为 `images.yaml` 的 `title`，必要时可简化为 `purpose`
+- 若主题涉及多轮对话、历史会话、审核回退、失败重试等场景，必须在图中体现循环与状态回流
+- 架构图、模块图等 Mermaid 非流程型结构图不附加上述 PlantUML 提示词
 
 ---
 
@@ -118,7 +140,7 @@ er_modeling:
 
 **适用场景**：第3章「系统总体需求分析」、第4章「系统设计」
 
-**生成方式**：用例图由 LLM 生成，优先通过混合图表生成器委托生成 Mermaid 代码
+**生成方式**：用例图由 LLM 根据 `images.yaml` 需求生成 PlantUML `.puml` 源码，并由 `scripts/charts/render.py` 渲染
 
 **规范**：
 - 角色用圆形 `((用户))`
@@ -133,7 +155,7 @@ er_modeling:
 
 **适用场景**：第5章「核心功能实现」、接口调用说明
 
-**生成方式**：使用 Mermaid `sequenceDiagram` 代码块
+**生成方式**：使用 PlantUML `sequence` 图，由 LLM 根据 `images.yaml` 需求生成 `.puml` 源码并渲染
 
 **规范**：
 - 标注参与者(用户、前端、API网关、服务、数据库)
@@ -179,17 +201,13 @@ er_modeling:
 
 ```mermaid
 flowchart TD
-    A[识别图片需求] --> B{图片类型?}
-    B -->|架构图/流程图/E-R图| C[生成图代码]
-    B -->|系统截图| D[等待用户提供真实运行截图]
-    B -->|数据可视化| E[生成 Python 可视化代码]
-    C --> F[渲染为 PNG]
-    D --> G[插入用户图片引用]
-    E --> F
-    F --> G
-    G --> H[保存到 images/ 目录]
-    H --> I[更新 Markdown 图片引用]
-    I --> J[✅ 完成]
+    A[Step 4 写入 image-requirement] --> B[manifest_builder 生成 images.yaml]
+    B --> C[source_writer 准备 dot/mmd/puml 源文件]
+    C --> D[LLM 根据 images.yaml 填写源码]
+    D --> E[render 按 Mermaid/Graphviz/PlantUML 渲染 PNG]
+    E --> F[markdown_updater 回填 Markdown 图片引用]
+    F --> G[validate 校验占位符、源码和图片状态]
+    G --> H[✅ 完成]
 ```
 
 ---
@@ -198,23 +216,33 @@ flowchart TD
 
 ```
 workspace/final/images/
-├── 图4-1 系统架构图.png
-├── 图4-2 用户注册流程图.png
-├── 图4-3 数据库E-R图.png
-├── 图5-1 用户登录界面.png
-├── 图5-2 数据管理界面.png
-└── image_manifest.md          # 图片清单文件
+├── sources/
+│   ├── image_1.mmd
+│   ├── image_2.dot
+│   └── image_3.puml
+├── image_1.png
+├── image_2.png
+└── image_3.png
 ```
 
-**image_manifest.md 格式**：
-```markdown
-# 论文图片清单
-
-| 图号 | 文件名 | 说明 | 生成方式 |
-|------|--------|------|----------|
-| 图4-1 | 图4-1 系统架构图.png | 系统整体架构 | Mermaid 渲染 |
-| 图4-2 | 图4-2 用户注册流程图.png | 用户注册业务流程 | Mermaid 渲染 |
-| 图5-1 | 图5-1 用户登录界面.png | 登录功能界面 | 用户提供系统截图 |
+**图片清单格式**：`workspace/references/images.yaml` 由 `scripts/charts/manifest_builder.py` 生成，至少包含 `id`、`title`、`chapter`、`section`、`source`、`diagram_type`、`engine`、`purpose`、`fact_source`、`placement`、`status`、`description`、`source_file`、`output_file`、`render_status`。
+```yaml
+images:
+  - id: image_1
+    title: 图4-1 系统整体架构图
+    chapter: 第4章
+    section: "4.1"
+    source: ai
+    diagram_type: architecture
+    engine: mermaid
+    purpose: 展示系统分层结构
+    fact_source: thesis-workspace/references/prompt/background.md
+    placement: 图前说明设计目标，图后解释模块关系
+    status: pending
+    description: 展示前端、后端、数据库和外部服务关系
+    source_file: workspace/final/images/sources/image_1.mmd
+    output_file: workspace/final/images/image_1.png
+    render_status: pending
 ```
 
 ---
@@ -238,20 +266,21 @@ workspace/final/images/
 
 | 用户指令 | 执行动作 |
 |----------|----------|
-| 「生成系统架构图」 | 根据系统描述生成 Mermaid 架构图代码并渲染 |
-| 「生成流程图」 | 根据业务流程生成 Mermaid 流程图代码并渲染 |
-| 「生成 E-R 图」 | 根据数据库设计和 `.thesis-config.yaml` 生成对应格式图 |
+| 「生成系统架构图」 | 根据系统描述生成 Mermaid 架构图源码文件并渲染 |
+| 「生成流程图」 | 根据业务流程生成 PlantUML 流程图源码文件并渲染 |
+| 「生成 E-R 图」 | 根据数据库设计和 `.thesis-config.yaml` 生成对应格式源码文件 |
 | 「生成系统截图」 | 提示用户提供真实系统运行截图，并生成对应占位符与图注说明 |
 | 「为第X章配图」 | 分析第X章内容，自动生成相关图表 |
 | 「生成所有图片」 | 扫描论文中的占位符，批量生成所有图表 |
-| 「替换占位符为图片」 | 将 `<!-- 图表占位符 -->` 替换为实际图片 |
+| 「替换占位符为图片」 | 使用 `scripts/charts/markdown_updater.py` 将 `[image_N]` 回填为 Markdown 图片引用 |
 
 **执行流程**：
 1. 解析用户指令，确定图片类型和内容
-2. 选择合适的生成方式(Mermaid / Graphviz DOT / 用户提供系统截图 / Python 可视化)
-3. 生成图片并保存到 `workspace/final/images/`
-4. 更新论文中的图片引用
-5. 输出图片生成报告
+2. 选择合适的生成方式(PlantUML / Mermaid / Graphviz DOT / 用户提供系统截图 / Python 可视化)
+3. 先将图表源码写入 `workspace/final/images/sources/` 下对应 `.puml/.mmd/.dot` 文件
+4. 再按需渲染并保存到 `workspace/final/images/`
+5. 更新论文中的图片引用
+6. 输出图片生成报告
 
 ---
 
@@ -259,7 +288,10 @@ workspace/final/images/
 
 | 工具 | 用途 | 调用时机 |
 |------|------|----------|
-| `chart_generator.py` | 从占位符生成图代码（受 `.thesis-config.yaml` 控制） | Step 4 写作后 |
-| `chart_renderer.py` | 将 Mermaid 渲染为 PNG | Step 9 图表渲染 |
-| 前端设计 Skill | 生成系统界面设计图 | Step 8 图片生成 |
+| `scripts/charts/manifest_builder.py` | 从 `[image_N]` 和 `image-requirement` 生成或更新 `images.yaml` | Step 8 开始 |
+| `scripts/charts/source_writer.py` | 创建并校验 `.mmd`、`.dot`、`.puml` 源文件 | LLM 填写源码前后 |
+| `scripts/charts/render.py` | 按 Mermaid、Graphviz、PlantUML 渲染 PNG | 源码校验通过后 |
+| `scripts/charts/markdown_updater.py` | 将占位符回填为 Markdown 图片引用 | 图片渲染后 |
+| `scripts/charts/validate.py` | 校验源码、图片、占位符和用户待补截图状态 | Step 8 完成前 |
+| 前端设计 Skill | 生成系统界面设计参考或截图说明 | Step 8 图片生成 |
 | Python matplotlib | 生成数据可视化图表 | Step 8 图片生成 |

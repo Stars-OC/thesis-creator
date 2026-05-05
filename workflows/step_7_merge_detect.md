@@ -84,10 +84,10 @@ python scripts/reference_validator.py workspace/drafts/参考文献.md --validat
 
 ## 7.3 AIGC 检测
 
-调用 `scripts/aigc_detect.py` 进行检测：
+调用 `scripts/aigc/detect.py` 进行检测：
 
 ```bash
-python scripts/aigc_detect.py workspace/final/论文终稿.md
+python scripts/aigc/detect.py --input workspace/final/论文终稿.md
 ```
 
 ---

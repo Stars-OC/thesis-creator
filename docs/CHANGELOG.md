@@ -105,7 +105,7 @@
 
 ### 更新文档
 
-- `README.md` - 新增图片生成/文献搜索功能展示、检测效果截图、触发语更新
+- `README.md` - 新增图片生成/文献搜索功能展示、检测效果截图、触发语更新，并同步为 `scripts/aigc/` 新结构说明
 - `docs/usage_guide.md` - 同步更新使用说明
 - `docs/images/` - 新增朱雀/PaperPass/paperYY 检测效果图
 
@@ -226,8 +226,10 @@
 
 | 脚本 | 功能 |
 |------|------|
-| `aigc_detect.py` | AIGC 检测（轻量版 + 完整版） |
-| `aigc_detect_technical.py` | 技术文档专用 AIGC 检测 |
+| `scripts/aigc/detect.py` | AIGC 检测（通用入口，轻量版 + 完整版） |
+| `scripts/aigc/technical_detect.py` | 技术论文专用 AIGC 检测 |
+| `scripts/aigc_detect.py` | 兼容入口包装器 |
+| `scripts/aigc_detect_technical.py` | 技术检测兼容入口包装器 |
 | `synonym_replace.py` | 同义词替换 |
 | `enhanced_replace.py` | 增强版同义词替换 |
 | `text_analysis.py` | 文本特征分析 |

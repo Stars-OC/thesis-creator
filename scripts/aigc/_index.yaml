@@ -1,0 +1,31 @@
+version: "1.0"
+module: "aigc"
+description: "AIGC 检测与降 AIGC 辅助脚本索引"
+
+entrypoints:
+  - id: "general-detect"
+    path: "detect.py"
+    cli: "python scripts/aigc/detect.py --input workspace/final/论文终稿.md --format json"
+    exports:
+      - "AIGCDetector"
+      - "detect_file"
+      - "detect_text"
+      - "detect_directory"
+  - id: "technical-detect"
+    path: "technical_detect.py"
+    cli: "python scripts/aigc/technical_detect.py --input workspace/final/论文终稿.md --format json"
+    exports:
+      - "TechnicalPaperAIGCDetector"
+      - "detect_file"
+
+resources:
+  - id: "technical-term-whitelist"
+    path: "term_whitelist.txt"
+    purpose: "技术论文检测与术语保护白名单"
+
+compatibility_wrappers:
+  - "../aigc_detect.py"
+  - "../aigc_detect_technical.py"
+
+excluded:
+  - "../__pycache__/aigc_detect*.pyc"

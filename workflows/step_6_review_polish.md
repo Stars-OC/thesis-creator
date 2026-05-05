@@ -45,8 +45,18 @@ flowchart TD
 | 引用密度检查 | 每千字至少 2 条引用，且引用来自文献池 | 人工核对 + `format_checker.py` 辅助 | 补充引用后重查 |
 | 文献池 DOI 完整性抽查 | 章节中拟引用文献应来自 `verified_references.yaml`，且 DOI 字段完整 | 人工抽查 `verified_references.yaml` + `verified_reference_pool.py` 推荐结果 | 替换文献或回退 Step 4/5 |
 | 图表编号与位置 | 图名/表名/图文顺序符合规范 | 人工核对章节内容 | 调整排版与说明文字 |
-| 模板词与句长波动 | 降低模板化表达，避免句式过于均匀 | `aigc_detect.py` + 人工改写 | 回退 Step 5 深改 |
-| AIGC 风险复查 | 为 Step 7 合并前做预检 | `aigc_detect.py` | 未通过不得进入 Step 7 完成态 |
+| 模板词与句长波动 | 降低模板化表达，避免句式过于均匀 | `scripts/aigc/detect.py` + 人工改写 | 回退 Step 5 深改 |
+| AIGC 风险复查 | 为 Step 7 合并前做预检 | `scripts/aigc/detect.py` | 未通过不得进入 Step 7 完成态 |
+
+---
+
+## 6.3.1 高风险段落优先原则(强制)
+
+1. 运行 `scripts/aigc/detect.py` 后，必须先查看 `high_risk_paragraphs` 结果。
+2. Step 6 的首选动作是**局部改写高风险段落**，而不是整章重写。
+3. 若高风险段落集中在摘要、总结与展望、致谢，仍应采用保守修正：优先删模板词和调整句式，禁止激进改写。
+4. 系统设计、系统实现、系统测试等正文技术章节，优先补模块名、接口路径、实验条件、数据指标等作者专属细节。
+5. 若一次局部修正后风险已降到可接受范围，应停止继续扩写，避免学术表达被过度稀释。
 
 ---
 
@@ -60,11 +70,11 @@ python scripts/format_checker.py --dir workspace/drafts/
 python scripts/verified_reference_pool.py --recommend --keywords "章节关键词1 章节关键词2" --limit 5
 
 # 3) 对高风险章节进行 AIGC 复查
-python scripts/aigc_detect.py workspace/drafts/chapter_4.md
-python scripts/aigc_detect.py workspace/drafts/chapter_5.md
+python scripts/aigc/detect.py --input workspace/drafts/chapter_4.md
+python scripts/aigc/detect.py --input workspace/drafts/chapter_5.md
 
 # 4) 必要时对摘要与终稿候选章节补做检测
-python scripts/aigc_detect.py workspace/drafts/摘要.md
+python scripts/aigc/detect.py --input workspace/drafts/摘要.md
 ```
 
 > **说明**：`workspace/drafts/参考文献.md` 由 Step 7 的 `merge_drafts.py` 生成，因此 `reference_validator.py --validate-online --check-404` 属于 Step 7 合并后的强制校验，不在 Step 6 直接执行。

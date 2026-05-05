@@ -67,7 +67,7 @@ flowchart LR
 2. **Step 3 大纲确认后**：必须先询问用户文献数量（20-30 / 30-50 / 15-20），并展示搜索耗时预估后，进入 Step 3→4 之间的“文献搜索与建池”阶段；该阶段不是独立 Step，但后续在 Step 4/6/7 中如发现文献不足、语种比例失衡或文献失效，必须允许回流补池后再继续写作或检测。
 3. **Step 4 每章写作时**：必须先完成 Stage 1 要点规划，待用户确认后才能进入 Stage 2 扩写；如果当前仍停留在 Stage 1，用户回复「继续」只能视为确认本章要点，不能跳过更早的未完成门禁。
 4. **Step 7 合并检测后**：若同一 `ref_id` 在终稿中重复出现，必须硬阻断并回退修正，禁止带重复引用进入 AIGC 检测；若 AIGC 检测未通过，必须回退到 Step 5/6 继续改写与审校，禁止进入 Step 8 图片生成或 Step 9 导出。
-5. **Step 8 图片生成前**：必须读取 `workspace/references/images.yaml`，按“原位写回 Markdown → 渲染 PNG → 回填 `[image_N]` 为 Markdown 图片引用”三段执行；先由 `chart_generator.py` 将图表代码块原位写回正文，再由 `chart_renderer.py --update` 渲染 PNG 并更新图片引用，最终正文不得残留 `[image_N]`。
+5. **Step 8 图片生成前**：必须按“抽取图片需求 → 准备源码文件 → 大模型填写 `.dot/.mmd/.puml` → 渲染 PNG → 回填 `[image_N]` → 完整性验证”执行；使用 `scripts/charts/manifest_builder.py`、`source_writer.py`、`render.py`、`markdown_updater.py`、`validate.py`，最终已渲染 AI 图片不得残留 `[image_N]`。
 
 ---
 
@@ -96,9 +96,28 @@ flowchart LR
 
 - 正文图片占位符统一使用 `[image_1]`、`[image_2]` 等格式
 - 图片需求清单统一记录到 `workspace/references/images.yaml`
-- `workspace/references/images.yaml` 必须采用结构化字段，至少包含 `id`、`title`、`chapter`、`section`、`source`、`diagram_type`、`purpose`、`fact_source`、`placement`、`status`、`description`
-- Step 4 只负责记录图片需求，Step 8 再根据清单读取 `workspace/references/images.yaml`、原位写回 Markdown 代码块、渲染 PNG 并回填 Markdown 图片引用
+- `workspace/references/images.yaml` 必须采用结构化字段，至少包含 `id`、`title`、`chapter`、`section`、`source`、`diagram_type`、`engine`、`purpose`、`fact_source`、`placement`、`status`、`description`、`source_file`、`output_file`、`render_status`；可选 `prompt_hint` 用于指导大模型生成源码
+- Step 4 只负责记录 `[image_N]` 与 `image-requirement` 图片需求块，Step 8 再生成 `images.yaml`、准备源码文件、由大模型填写 `.dot/.mmd/.puml`、渲染 PNG 并回填 Markdown 图片引用
 - 架构图、模块图、流程图、ER 图等 AI 图片必须先有 manifest 记录；用户提供图片必须在清单中标明 `source=user` 和待补状态
+- 图表引擎按图类型明确映射，不自由摇摆：**流程图/活动图/用例图/时序图/类图 → PlantUML (`.puml`)；ER 图 → Graphviz DOT (`.dot`)；架构图/模块图 → Mermaid (`.mmd`)；用户截图 → `user`**
+- **仅当流程图使用 PlantUML 生成时**，必须附加固定提示词模板，并将其中主题替换为当前图表标题或用途描述：
+
+```text
+请生成一个用于毕业论文的PlantUML流程图，主题为“{{图表主题}}”。要求：
+
+- 使用activity diagram
+- 所有节点使用中文
+- 起止节点使用“开始”“结束”
+- 逻辑严谨，体现完整业务流或上下文流转机制
+- 包含必要循环（如存在用户持续操作、重试或追问）
+- 避免语法歧义（防止被解析为class diagram）
+- 图结构简洁，不超过3层嵌套
+- 适合论文插图展示
+
+只输出PlantUML代码。
+```
+- 不再默认使用 Mermaid 流程图；普通流程图同样优先走 PlantUML。
+- **生成测试图或单独响应“生成流程图”类指令时，默认行为是将源码写入 `thesis-workspace/workspace/final/images/sources/` 对应 `.puml/.dot/.mmd` 文件，而不是在控制台直接输出完整图表源码；仅在用户明确要求“只输出代码”时，才直接返回源码文本。**
 
 ### 流程
 
@@ -193,8 +212,13 @@ thesis-workspace/
 | `scripts/reference_merger.py` | 文献合并去重 + 选出最相关 x 篇 |
 | `scripts/document_exporter.py` | Word导出 + 图片插入 |
 | `scripts/merge_drafts.py` | 章节合并 |
-| `scripts/aigc_detect.py` | AIGC检测 |
-| `scripts/lifecycle.py` | 生命周期管理（日志+状态统一入口） |
+| `scripts/aigc/detect.py` | AIGC检测 |
+| `scripts/aigc/technical_detect.py` | 技术论文 AIGC 检测 |
+| `scripts/charts/manifest_builder.py` | 从正文 `[image_N]` 与 `image-requirement` 生成或更新 `images.yaml` |
+| `scripts/charts/source_writer.py` | 根据 `images.yaml` 准备并校验 `.mmd/.dot/.puml` 源码文件 |
+| `scripts/charts/render.py` | 按 Mermaid、Graphviz、PlantUML 渲染 PNG |
+| `scripts/charts/markdown_updater.py` | 将已渲染图片回填为 Markdown 图片引用 |
+| `scripts/charts/validate.py` | 校验源码、PNG、占位符和用户待补截图状态 |
 
 ---
 

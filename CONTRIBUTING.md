@@ -72,7 +72,7 @@
 **示例**：
 ```
 feat: 添加多语言支持
-fix: 修复 AIGC 检测计算错误
+fix: 修复 scripts/aigc/detect.py 的检测计算错误
 docs: 更新安装文档
 ```
 
@@ -123,13 +123,13 @@ pip install -r scripts/requirements-dev.txt
 
 ```bash
 # 运行测试
-pytest tests/
+python scripts/test_aigc_modules.py
+python scripts/test_reduce_workflow_unique_output.py
 
-# 运行特定测试
-pytest tests/test_aigc_detect.py
+# 运行特定 AIGC 测试
+python scripts/test_aigc_modules.py
 
-# 生成覆盖率报告
-pytest --cov=scripts tests/
+# 如需覆盖率，可按脚本目录自行补充测试命令
 ```
 
 ---

@@ -250,7 +250,7 @@ class TaskDispatcher:
 
 ## 执行命令
 ```bash
-python scripts/aigc_detect.py --input "{file_path}" --mode {mode} --format json
+python scripts/aigc/detect.py --input "{file_path}" --mode {mode} --format json
 ```
 
 ## 输出要求

@@ -82,12 +82,12 @@ Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "  验证安装" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 
-Write-Host "测试 aigc_detect.py..." -ForegroundColor Yellow
-python scripts\aigc_detect.py --help | Out-Null
+Write-Host "测试 scripts\\aigc\\detect.py..." -ForegroundColor Yellow
+python scripts\aigc\detect.py --help | Out-Null
 if ($LASTEXITCODE -eq 0) {
-    Write-Host "✅ aigc_detect.py 正常" -ForegroundColor Green
+    Write-Host "✅ scripts\\aigc\\detect.py 正常" -ForegroundColor Green
 } else {
-    Write-Host "❌ aigc_detect.py 异常" -ForegroundColor Red
+    Write-Host "❌ scripts\\aigc\\detect.py 异常" -ForegroundColor Red
 }
 
 Write-Host "测试 synonym_replace.py..." -ForegroundColor Yellow
@@ -126,7 +126,7 @@ Write-Host "  1. 将参考资料放入 references/ 目录" -ForegroundColor Whit
 Write-Host "  2. 在 Claude Code 中说：「帮我写论文，主题是...」" -ForegroundColor White
 Write-Host ""
 Write-Host "单独使用 Python 工具：" -ForegroundColor Cyan
-Write-Host "  python scripts/aigc_detect.py --input paper.md" -ForegroundColor White
+Write-Host "  python scripts/aigc/detect.py --input paper.md" -ForegroundColor White
 Write-Host "  python scripts/synonym_replace.py --input paper.md" -ForegroundColor White
 Write-Host "  python scripts/text_analysis.py --input paper.md" -ForegroundColor White
 Write-Host "  python scripts/format_checker.py --input paper.md" -ForegroundColor White

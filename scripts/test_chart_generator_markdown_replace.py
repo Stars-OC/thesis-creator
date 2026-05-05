@@ -1,219 +1,102 @@
-import json
-import shutil
+# -*- coding: utf-8 -*-
+
 import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
 
-sys.path.insert(0, str(Path(__file__).parent))
+import yaml
 
-from chart_generator import ChartGenerator, main
-from logger import ThesisLogger, init_logger
+scripts_dir = Path(__file__).parent
+if str(scripts_dir) not in sys.path:
+    sys.path.insert(0, str(scripts_dir))
+
+from charts.markdown_updater import update_markdown  # noqa: E402
 
 
 class ChartGeneratorMarkdownReplaceTest(unittest.TestCase):
-    def setUp(self):
-        ThesisLogger._instance = None
-        ThesisLogger._initialized = False
-        self.tmp = Path(tempfile.mkdtemp())
-        self.workspace = self.tmp / "thesis-workspace"
-        self.workspace.mkdir()
-        self.output_dir = self.workspace / "final" / "images"
-        self.output_dir.mkdir(parents=True, exist_ok=True)
-        self.logger = init_logger(workspace_path=str(self.workspace))
-        self.generator = ChartGenerator(output_dir=str(self.output_dir))
-        self.generator.logger = self.logger
+    def test_update_markdown_replaces_rendered_placeholder_with_relative_image_ref(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            paper = root / "workspace" / "final" / "论文终稿.md"
+            output = root / "workspace" / "final" / "images" / "image_1.png"
+            manifest = root / "workspace" / "references" / "images.yaml"
+            paper.parent.mkdir(parents=True)
+            output.parent.mkdir(parents=True)
+            manifest.parent.mkdir(parents=True)
+            paper.write_text("系统架构如 [image_1] 所示。", encoding="utf-8")
+            output.write_bytes(b"x" * 2048)
+            manifest.write_text(
+                yaml.safe_dump(
+                    {
+                        "images": [
+                            {
+                                "id": "image_1",
+                                "title": "图4-1 系统架构图",
+                                "chapter": "第4章",
+                                "section": "4.1",
+                                "source": "ai",
+                                "diagram_type": "architecture",
+                                "purpose": "展示系统架构",
+                                "fact_source": "background.md",
+                                "placement": "架构说明之后",
+                                "status": "pending",
+                                "description": "展示系统结构",
+                                "engine": "mermaid",
+                                "source_file": "workspace/final/images/sources/image_1.mmd",
+                                "output_file": "workspace/final/images/image_1.png",
+                                "render_status": "rendered",
+                            }
+                        ]
+                    },
+                    allow_unicode=True,
+                    sort_keys=False,
+                ),
+                encoding="utf-8",
+            )
 
-    def tearDown(self):
-        logger = ThesisLogger._instance
-        if logger is not None and hasattr(logger, "logger"):
-            for handler in list(logger.logger.handlers):
-                handler.close()
-                logger.logger.removeHandler(handler)
-        ThesisLogger._instance = None
-        ThesisLogger._initialized = False
-        shutil.rmtree(self.tmp, ignore_errors=True)
+            updated = update_markdown(paper, manifest, in_place=True, root=root)
 
-    def test_replace_image_placeholders_updates_markdown_manifest_and_logs(self):
-        image_file = self.output_dir / "图4-1_系统总体架构图.png"
-        image_file.write_bytes(b"a" * 2048)
-        content = "系统总体设计如 [image_1] 所示。"
-        manifest_items = [
-            {
-                "id": "image_1",
-                "title": "图4-1 系统总体架构图",
-                "source": "ai",
-                "description": "展示系统整体架构",
-                "output_path": "images/图4-1_系统总体架构图.png",
-                "status": "pending",
-            }
-        ]
+            self.assertIn("![图4-1 系统架构图](images/image_1.png)", updated)
+            self.assertNotIn("[image_1]", paper.read_text(encoding="utf-8"))
 
-        replaced = self.generator.replace_image_placeholders(content, manifest_items)
+    def test_update_markdown_keeps_pending_user_placeholder(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            paper = root / "workspace" / "final" / "论文终稿.md"
+            manifest = root / "workspace" / "references" / "images.yaml"
+            paper.parent.mkdir(parents=True)
+            manifest.parent.mkdir(parents=True)
+            paper.write_text("用户截图待补 [image_5_1]。", encoding="utf-8")
+            manifest.write_text(
+                yaml.safe_dump(
+                    {
+                        "images": [
+                            {
+                                "id": "image_5_1",
+                                "title": "图5-1 系统截图",
+                                "chapter": "第5章",
+                                "section": "5.1",
+                                "source": "user",
+                                "diagram_type": "screenshot",
+                                "purpose": "展示界面",
+                                "fact_source": "用户提供截图",
+                                "placement": "界面说明之后",
+                                "status": "pending_user",
+                                "description": "用户补图",
+                            }
+                        ]
+                    },
+                    allow_unicode=True,
+                    sort_keys=False,
+                ),
+                encoding="utf-8",
+            )
 
-        self.assertIn("![图4-1 系统总体架构图](images/图4-1_系统总体架构图.png)", replaced)
-        self.assertEqual(manifest_items[0]["status"], "inserted")
-        self.assertEqual(manifest_items[0]["output_path"], "images/图4-1_系统总体架构图.png")
+            updated = update_markdown(paper, manifest, root=root)
 
-        replacement_log = self.workspace / "logs" / self.logger.session_name / "replacements.jsonl"
-        self.assertTrue(replacement_log.exists())
-        payloads = [json.loads(line) for line in replacement_log.read_text(encoding="utf-8").splitlines() if line.strip()]
-        self.assertEqual(payloads[0]["operation"], "placeholder_replace")
-        self.assertEqual(payloads[0]["step"], 8)
-        self.assertEqual(payloads[0]["before"], "[image_1]")
-        self.assertIn("images/图4-1_系统总体架构图.png", payloads[0]["after"])
-
-    def test_replace_image_placeholders_requires_existing_image_file(self):
-        content = "系统总体设计如 [image_1] 所示。"
-        manifest_items = [
-            {
-                "id": "image_1",
-                "title": "图4-1 系统总体架构图",
-                "source": "user",
-                "description": "展示系统整体架构",
-                "output_path": "images/图4-1_系统总体架构图.png",
-                "status": "pending",
-            }
-        ]
-
-        with self.assertRaisesRegex(ValueError, "image_1"):
-            self.generator.replace_image_placeholders(content, manifest_items)
-
-    def test_replace_image_placeholders_generates_missing_ai_image(self):
-        content = "系统总体设计如 [image_1] 所示。"
-        manifest_items = [
-            {
-                "id": "image_1",
-                "title": "图4-1 用户登录流程图",
-                "source": "ai",
-                "description": "1. 输入账号密码 2. 校验格式 3. 查询用户 4. 返回结果",
-                "output_path": "images/图4-1_用户登录流程图.png",
-                "status": "pending",
-            }
-        ]
-
-        replaced = self.generator.replace_image_placeholders(content, manifest_items)
-
-        image_path = self.output_dir / "图4-1_用户登录流程图.png"
-        self.assertTrue(image_path.exists())
-        self.assertGreater(image_path.stat().st_size, 1024)
-        self.assertIn("![图4-1 用户登录流程图](images/图4-1_用户登录流程图.png)", replaced)
-        self.assertEqual(manifest_items[0]["status"], "inserted")
-
-    def test_replace_image_placeholders_preserves_manifest_subdirectory_path(self):
-        content = "系统总体设计如 [image_1] 所示。"
-        manifest_items = [
-            {
-                "id": "image_1",
-                "title": "图4-3 用户登录流程图",
-                "source": "ai",
-                "description": "1. 输入账号密码 2. 校验格式 3. 查询用户 4. 返回结果",
-                "output_path": "images/subdir/图4-3_用户登录流程图.png",
-                "status": "pending",
-            }
-        ]
-
-        replaced = self.generator.replace_image_placeholders(content, manifest_items)
-
-        image_path = self.output_dir / "subdir" / "图4-3_用户登录流程图.png"
-        self.assertTrue(image_path.exists())
-        self.assertGreater(image_path.stat().st_size, 1024)
-        self.assertIn("![图4-3 用户登录流程图](images/subdir/图4-3_用户登录流程图.png)", replaced)
-
-    def test_replace_image_placeholders_rejects_unsupported_ai_chart_type(self):
-        content = "系统总体设计如 [image_1] 所示。"
-        manifest_items = [
-            {
-                "id": "image_1",
-                "title": "图4-4 系统架构图",
-                "source": "ai",
-                "description": "展示系统总体架构与模块关系",
-                "output_path": "images/图4-4_系统架构图.png",
-                "status": "pending",
-            }
-        ]
-
-        with self.assertRaisesRegex(ValueError, "系统架构图"):
-            self.generator.replace_image_placeholders(content, manifest_items)
-
-    def test_main_no_render_generates_manifest_templates_without_replacing_markdown(self):
-        markdown_path = self.workspace / "generated.md"
-        markdown_path.write_text("登录流程如 [image_1] 所示。", encoding="utf-8")
-        manifest_dir = self.workspace / "workspace" / "references"
-        manifest_dir.mkdir(parents=True, exist_ok=True)
-        manifest_path = manifest_dir / "images.yaml"
-        manifest_path.write_text(
-            "images:\n"
-            "  - id: image_1\n"
-            "    title: 图4-2 用户登录流程图\n"
-            "    chapter: 第4章\n"
-            "    section: '4.2'\n"
-            "    source: ai\n"
-            "    diagram_type: flowchart\n"
-            "    purpose: 展示用户登录业务流程\n"
-            "    fact_source: 正文4.2节\n"
-            "    placement: 登录流程说明之后\n"
-            "    status: pending\n"
-            "    description: 1. 输入账号密码 2. 校验格式 3. 查询用户 4. 返回结果\n"
-            "    output_path: images/图4-2_用户登录流程图.png\n",
-            encoding="utf-8",
-        )
-
-        with patch.object(sys, "argv", [
-            "chart_generator.py",
-            str(markdown_path),
-            "--output",
-            str(self.output_dir),
-            "--no-render",
-        ]):
-            main()
-
-        template_path = self.output_dir / "templates" / "image_1.mmd"
-        self.assertTrue(template_path.exists())
-        self.assertIn("flowchart", template_path.read_text(encoding="utf-8"))
-        self.assertFalse((self.output_dir / "图4-2_用户登录流程图.png").exists())
-        self.assertEqual("登录流程如 [image_1] 所示。", markdown_path.read_text(encoding="utf-8"))
-
-    def test_main_generates_missing_ai_image_from_manifest_workflow(self):
-        markdown_path = self.workspace / "generated.md"
-        markdown_path.write_text("登录流程如 [image_1] 所示。", encoding="utf-8")
-        manifest_dir = self.workspace / "workspace" / "references"
-        manifest_dir.mkdir(parents=True, exist_ok=True)
-        manifest_path = manifest_dir / "images.yaml"
-        manifest_path.write_text(
-            "images:\n"
-            "  - id: image_1\n"
-            "    title: 图4-2 用户登录流程图\n"
-            "    chapter: 第4章\n"
-            "    section: '4.2'\n"
-            "    source: ai\n"
-            "    diagram_type: flowchart\n"
-            "    purpose: 展示用户登录业务流程\n"
-            "    fact_source: 正文4.2节\n"
-            "    placement: 登录流程说明之后\n"
-            "    status: pending\n"
-            "    description: 1. 输入账号密码 2. 校验格式 3. 查询用户 4. 返回结果\n"
-            "    output_path: images/图4-2_用户登录流程图.png\n",
-            encoding="utf-8",
-        )
-
-        with patch.object(sys, "argv", [
-            "chart_generator.py",
-            str(markdown_path),
-            "--output",
-            str(self.output_dir),
-        ]):
-            main()
-
-        generated_image = self.output_dir / "图4-2_用户登录流程图.png"
-        updated = markdown_path.read_text(encoding="utf-8")
-        self.assertTrue(generated_image.exists())
-        self.assertGreater(generated_image.stat().st_size, 1024)
-        self.assertIn("![图4-2 用户登录流程图](images/图4-2_用户登录流程图.png)", updated)
-        self.assertNotIn("[image_1]", updated)
+            self.assertEqual("用户截图待补 [image_5_1]。", updated)
 
 
 if __name__ == "__main__":
     unittest.main()
-

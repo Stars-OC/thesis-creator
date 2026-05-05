@@ -17,7 +17,7 @@
 | 本地检测 | 轻量级 AIGC 检测工具，快速预估 |
 | 格式检查 | 自动检查论文结构规范性 |
 | 智能讨论 | 三轮深入讨论充分理解论文需求 |
-| **图片生成** ⭐ NEW | 自动生成架构图、流程图、E-R图等 |
+| **图片生成** ⭐ NEW | 从 `[image_N]` 需求清单生成 Mermaid、Graphviz、PlantUML 图表，支持用户截图占位 |
 | **图片插入** ⭐ NEW | Word 文档自动插入图片和图注 |
 | 文档导出 | 支持 Word/PDF 格式一键导出（含图片）|
 
@@ -56,7 +56,7 @@ python -m venv .venv
 pip install -r scripts\requirements.txt
 
 # 4. 验证安装
-python scripts\aigc_detect.py --help
+python scripts\aigc\detect.py --help
 ```
 
 ### 2.3 可选：安装完整版 AIGC 检测
@@ -276,7 +276,7 @@ Step 8: 文档导出（Word/PDF）
 | 规定动作检查 | 确保章节完整 | 检查报告 |
 | 格式检查 | 调用 format_checker.py | 格式报告 |
 | 图表完整性 | 检查占位符数量和状态 | 图表清单 |
-| AIGC 检测 | 调用 aigc_detect.py | 检测报告 |
+| AIGC 检测 | 调用 `scripts/aigc/detect.py` | 检测报告 |
 | 写作质量 | 调用 text_analysis.py | 质量报告 |
 
 **输出文件**：
@@ -297,27 +297,35 @@ Step 8: 文档导出（Word/PDF）
 
 **支持的图片类型**：
 
-| 图片类型 | Mermaid 语法 | 适用章节 |
-|----------|-------------|----------|
-| 系统架构图 | `graph TB` | 第4章 系统设计 |
-| 流程图 | `flowchart TD` | 第4-5章 功能设计/实现 |
-| 概念 ER 图 | `flowchart LR` | 第4章 数据库设计 |
-| 用例图 | `graph LR` | 第4章 需求分析 |
-| 时序图 | `sequenceDiagram` | 第5章 接口调用 |
-| 类图 | `classDiagram` | 第5章 类设计 |
+| 图片类型 | 默认引擎 | 源文件 | 适用章节 |
+|----------|----------|--------|----------|
+| 系统架构图 | Mermaid | `.mmd` | 第4章 系统设计 |
+| 流程图 | Mermaid | `.mmd` | 第4-5章 功能设计/实现 |
+| 概念 ER 图 | Graphviz DOT | `.dot` | 第4章 数据库设计 |
+| 用例图 | PlantUML | `.puml` | 第4章 需求分析 |
+| 时序图 | PlantUML | `.puml` | 第5章 接口调用 |
+| 类图 | PlantUML | `.puml` | 第5章 类设计 |
 
 **使用方法**：
 
 ```powershell
-# 方式1: 分步执行（可调试）
-# Step 1: 从占位符生成 Mermaid 代码（原位替换，不生成副本）
-python scripts/chart_generator.py workspace/final/论文终稿.md -o workspace/final/images/ --replace
+# Step 1: 从终稿占位符和 image-requirement 块生成图片清单
+python scripts/charts/manifest_builder.py --input workspace/final/论文终稿.md --output workspace/references/images.yaml
 
-# Step 2: 渲染 Mermaid 为 PNG 并更新 Markdown（原位覆盖）
-python scripts/chart_renderer.py --input workspace/final/论文终稿.md --output workspace/final/images/ --method auto --update
+# Step 2: 根据 images.yaml 准备 .mmd/.dot/.puml 源文件
+python scripts/charts/source_writer.py --manifest workspace/references/images.yaml --sources-dir workspace/final/images/sources
 
-# 方式2: 一键生成（推荐）
-# AI 自动执行：扫描 → 生成 → 渲染 → 更新引用
+# Step 3: 由 LLM 根据 images.yaml 填写源码后，校验源码不再是占位内容
+python scripts/charts/source_writer.py --manifest workspace/references/images.yaml --validate
+
+# Step 4: 按 engine 渲染 PNG，并写出渲染报告
+python scripts/charts/render.py --manifest workspace/references/images.yaml --method auto --report
+
+# Step 5: 将 [image_N] 回填为 Markdown 图片引用
+python scripts/charts/markdown_updater.py --input workspace/final/论文终稿.md --manifest workspace/references/images.yaml --in-place
+
+# Step 6: 校验源码、图片、占位符和用户待补截图状态
+python scripts/charts/validate.py --input workspace/final/论文终稿.md --manifest workspace/references/images.yaml --images-dir workspace/final/images
 ```
 
 **渲染方法选项**：
@@ -330,8 +338,9 @@ python scripts/chart_renderer.py --input workspace/final/论文终稿.md --outpu
 | `auto` | 自动选择 | 按优先级尝试 |
 
 **输出文件**：
-- `workspace/final/images/图X-X.png` - 渲染后的图片
-- `workspace/final/images/image_manifest.md` - 图片清单
+- `workspace/references/images.yaml` - 图片需求清单
+- `workspace/final/images/sources/*.mmd|*.dot|*.puml` - 图表源码文件
+- `workspace/final/images/*.png` - 渲染后的图片
 - `workspace/final/images/chart_report.md` - 图表生成报告
 
 ---
@@ -402,23 +411,23 @@ DOCX: [成功]
 
 ## 五、Python 工具使用
 
-### 5.1 AIGC 检测（`aigc_detect.py`）
+### 5.1 AIGC 检测（`scripts/aigc/detect.py`）
 
 ```powershell
 # 检测单个文件
-python scripts/aigc_detect.py --input workspace/drafts/chapter_01.md
+python scripts/aigc/detect.py --input workspace/drafts/chapter_01.md
 
 # 检测一段文本
-python scripts/aigc_detect.py --text "待检测的文本内容..."
+python scripts/aigc/detect.py --text "待检测的文本内容..."
 
 # 检测整个目录
-python scripts/aigc_detect.py --dir workspace/reduced/
+python scripts/aigc/detect.py --dir workspace/reduced/
 
 # 指定输出格式
-python scripts/aigc_detect.py --input paper.md --format json
+python scripts/aigc/detect.py --input paper.md --format json
 
 # 使用完整版（需已安装 transformers + torch）
-python scripts/aigc_detect.py --input paper.md --mode full
+python scripts/aigc/detect.py --input paper.md --mode full
 ```
 
 **输出示例**：
@@ -479,44 +488,44 @@ python scripts/format_checker.py --input workspace/final/论文终稿.md
 python scripts/format_checker.py --dir workspace/drafts/
 ```
 
-### 5.6 图表生成（`chart_generator.py`）⭐ NEW
+### 5.6 图表清单与源码准备（`scripts/charts/manifest_builder.py` / `source_writer.py`）⭐ NEW
 
 ```powershell
-# 从 Markdown 文件中的占位符生成 Mermaid 代码（原位替换）
-python scripts/chart_generator.py workspace/final/论文终稿.md -o workspace/final/images/ --replace
+# 从 Markdown 图片占位符生成 images.yaml
+python scripts/charts/manifest_builder.py --input workspace/final/论文终稿.md --output workspace/references/images.yaml
 
-# 指定输出目录
-python scripts/chart_generator.py workspace/final/论文终稿.md --output workspace/final/images/ --replace
+# 根据 engine 准备 mmd/dot/puml 源文件
+python scripts/charts/source_writer.py --manifest workspace/references/images.yaml --sources-dir workspace/final/images/sources
 
-# 详细模式
-python scripts/chart_generator.py workspace/final/论文终稿.md --output workspace/final/images/ --replace --report
+# LLM 填写源码后校验源码文件已存在且不再是占位内容
+python scripts/charts/source_writer.py --manifest workspace/references/images.yaml --validate
 ```
 
 **支持的图表类型**：
 
-| 图表类型 | Mermaid 语法 | 适用场景 |
-|----------|-------------|----------|
-| 系统架构图 | `graph TB` | 系统整体架构 |
-| 流程图 | `flowchart TD` | 业务流程、操作流程 |
-| 概念 ER 图 | `flowchart LR` | 数据库设计（实体/属性/联系） |
-| 用例图 | `graph LR` | 功能需求分析 |
-| 时序图 | `sequenceDiagram` | 接口调用流程 |
-| 类图 | `classDiagram` | 类结构设计 |
+| 图表类型 | 默认引擎 | 源文件 | 适用场景 |
+|----------|----------|--------|----------|
+| 系统架构图 | Mermaid | `.mmd` | 系统整体架构 |
+| 流程图 | Mermaid | `.mmd` | 业务流程、操作流程 |
+| 概念 ER 图 | Graphviz DOT | `.dot` | 数据库设计（实体/属性/联系） |
+| 用例图 | PlantUML | `.puml` | 功能需求分析 |
+| 时序图 | PlantUML | `.puml` | 接口调用流程 |
+| 类图 | PlantUML | `.puml` | 类结构设计 |
 
-### 5.7 图表渲染（`chart_renderer.py`）⭐ NEW
+### 5.7 图表渲染与回填（`scripts/charts/render.py` / `markdown_updater.py` / `validate.py`）⭐ NEW
 
 ```powershell
-# 渲染 Markdown 中引用的 Mermaid 图片（并更新 Markdown 原文）
-python scripts/chart_renderer.py --input workspace/final/论文终稿.md --output workspace/final/images/ --method auto --update
+# 按 manifest 中的 engine 渲染 PNG
+python scripts/charts/render.py --manifest workspace/references/images.yaml --method auto --report
 
-# 指定渲染方法
-python scripts/chart_renderer.py --input paper.md --output workspace/final/images/ --method mmdc --update
+# 将 [image_N] 回填为 Markdown 图片引用
+python scripts/charts/markdown_updater.py --input workspace/final/论文终稿.md --manifest workspace/references/images.yaml --in-place
 
-# 渲染方法选项
-# mmdc: Mermaid CLI（需安装 @mermaid-js/mermaid-cli）
-# playwright: 浏览器渲染（需安装 playwright）
-# kroki: 在线 API（需网络）
-# auto: 自动选择（推荐）
+# 校验源码、图片、占位符和用户待补截图状态
+python scripts/charts/validate.py --input workspace/final/论文终稿.md --manifest workspace/references/images.yaml --images-dir workspace/final/images
+
+# 指定 Mermaid / PlantUML 渲染方法
+python scripts/charts/render.py --manifest workspace/references/images.yaml --method mmdc --report
 ```
 
 **渲染依赖安装**：

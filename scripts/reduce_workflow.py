@@ -22,7 +22,183 @@ from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Tuple, Set, Optional
 
-# 增强版同义词词典
+CHAPTER_STRATEGIES = {
+    "abstract": {
+        "label": "摘要",
+        "goal": "保持摘要三段逻辑和学术规范，做轻量去模板化处理。",
+        "preferred": [
+            "压缩模板化过渡词",
+            "轻度句长波动",
+            "精简冗余“的”字",
+            "保持术语、目标、方法和结果表达稳定",
+        ],
+        "avoid": [
+            "设问句",
+            "过强主观表达",
+            "明显微瑕疵模拟",
+            "大幅重组摘要结构",
+        ],
+        "risk_note": "摘要篇幅短且结构固定，过度改写会先伤害学术性。",
+    },
+    "intro_review": {
+        "label": "绪论/文献综述",
+        "goal": "降低综述段落的模板味，同时保留综述体与引用规范。",
+        "preferred": [
+            "减少套话和排比",
+            "有限的语气波动",
+            "重点文献详述、次要文献略写",
+            "适度变化引用句式",
+        ],
+        "avoid": [
+            "强口语化",
+            "过多成语",
+            "脱离引用依据的主观判断",
+            "整章大改",
+        ],
+        "risk_note": "绪论天然模板感较强，应优先修模板词，不要破坏综述体。",
+    },
+    "technical_foundation": {
+        "label": "技术基础/关键技术",
+        "goal": "保留术语准确性，用具体机制解释取代百科式空话。",
+        "preferred": [
+            "补入术语对应机制",
+            "穿插长短句",
+            "减少万能解释句",
+            "保留技术名词一致性",
+        ],
+        "avoid": [
+            "术语漂移过大",
+            "成语化表达",
+            "夸张结论",
+            "无依据扩写",
+        ],
+        "risk_note": "该类章节依赖术语密度，错误替换术语会直接伤害可信度。",
+    },
+    "system_design": {
+        "label": "系统设计",
+        "goal": "让设计描述更像作者亲写，突出模块、表结构和架构细节。",
+        "preferred": [
+            "注入模块名和分层信息",
+            "补入表名、字段或关系说明",
+            "弱化空泛设计意义句",
+            "适度句长波动",
+        ],
+        "avoid": [
+            "泛泛而谈的优势总结",
+            "过多成语",
+            "口语式设问",
+            "脱离设计事实的发挥",
+        ],
+        "risk_note": "系统设计章最适合补作者专属细节，优先写清结构而非堆修辞。",
+    },
+    "system_implementation": {
+        "label": "系统实现",
+        "goal": "突出实现路径、接口、流程与代码关联，减少教科书腔。",
+        "preferred": [
+            "注入接口路径或调用链",
+            "补入关键实现步骤",
+            "保留必要技术术语",
+            "对高风险段落做局部重写",
+        ],
+        "avoid": [
+            "整章同一节奏排比",
+            "夸大“完整闭环”类表达",
+            "无事实依据的性能评价",
+            "口语化点评",
+        ],
+        "risk_note": "实现章更适合用细节破 AI 味，不适合靠花哨表达降分。",
+    },
+    "testing_analysis": {
+        "label": "系统测试/实验分析",
+        "goal": "优先保留实验条件、测试数据和结果解释，降低均匀叙述。",
+        "preferred": [
+            "写清测试条件或实验环境",
+            "先给结果再解释原因",
+            "保留数据与指标",
+            "加入边界条件或局限说明",
+        ],
+        "avoid": [
+            "删除数字证据",
+            "把结果段改成空泛评价",
+            "过强成语化",
+            "统一句长",
+        ],
+        "risk_note": "测试分析章天然更像真人写作，关键是不要把数据改丢。",
+    },
+    "conclusion_outlook": {
+        "label": "总结与展望",
+        "goal": "弱化模板化总结口吻，保持结论克制，不追求激进降 AI。",
+        "preferred": [
+            "删除套话和重复结论",
+            "适度段落合并",
+            "保留局限与后续工作",
+            "减少工整排比",
+        ],
+        "avoid": [
+            "过强去 AI 操作",
+            "大幅加入主观感叹",
+            "设问句",
+            "强行制造微瑕疵",
+        ],
+        "risk_note": "总结与展望本身就接近模板文体，过度改写通常得不偿失。",
+    },
+    "acknowledgement": {
+        "label": "致谢",
+        "goal": "保持真诚朴实，避免模板化感谢套话。",
+        "preferred": [
+            "压缩客套空话",
+            "保留感谢对象顺序",
+            "句式自然即可",
+        ],
+        "avoid": [
+            "技术化表达",
+            "设问句",
+            "过度主观抒情",
+            "机械排比",
+        ],
+        "risk_note": "致谢不是技术章节，重点是真诚与自然，不是激进降 AI。",
+    },
+    "generic": {
+        "label": "通用章节",
+        "goal": "在不破坏学术表达的前提下做通用去模板化处理。",
+        "preferred": [
+            "删除模板词",
+            "适度句长波动",
+            "保护术语",
+            "优先局部修正高风险表达",
+        ],
+        "avoid": [
+            "整章重写",
+            "无依据扩写",
+            "口语化",
+            "过度成语化",
+        ],
+        "risk_note": "无法明确识别章节时，使用最保守的通用策略。",
+    },
+}
+
+CHAPTER_TYPE_HINTS = [
+    ("abstract", ["# 摘要", "摘要", "abstract"]),
+    ("acknowledgement", ["致谢"]),
+    ("conclusion_outlook", ["总结与展望", "结论与展望", "总结", "展望"]),
+    ("system_design", ["系统设计", "概要设计", "详细设计", "架构设计", "数据库设计"]),
+    ("system_implementation", ["系统实现", "功能实现", "模块实现", "实现过程"]),
+    ("testing_analysis", ["系统测试", "测试分析", "实验分析", "性能测试", "测试结果"]),
+    ("technical_foundation", ["关键技术", "技术基础", "理论基础", "相关技术"]),
+    ("intro_review", ["绪论", "研究现状", "文献综述", "国内外研究现状"]),
+]
+
+CHAPTER_NUMBER_FALLBACKS = {
+    "chapter_4": "system_design",
+    "chapter-4": "system_design",
+    "chapter_5": "system_implementation",
+    "chapter-5": "system_implementation",
+    "chapter_6": "testing_analysis",
+    "chapter-6": "testing_analysis",
+    "chapter_7": "conclusion_outlook",
+    "chapter-7": "conclusion_outlook",
+}
+
 ENHANCED_SYNONYM_DICT = {
     # 高频名词
     "系统": ["平台", "体系", "架构", "框架", "整体", "应用平台"],
@@ -105,6 +281,34 @@ DEFAULT_WHITELIST = {
 }
 
 
+def detect_chapter_type(input_path: str, text: str) -> str:
+    """根据文件名、标题和关键词识别章节类型"""
+    path_name = Path(input_path).name.lower()
+    input_name = Path(input_path).name
+    text_head = text[:1200]
+
+    if "摘要" in input_name or path_name == "abstract.md":
+        return "abstract"
+    if "致谢" in input_name:
+        return "acknowledgement"
+
+    for chapter_type, hints in CHAPTER_TYPE_HINTS:
+        for hint in hints:
+            if hint.lower() in text_head.lower() or hint in input_name:
+                return chapter_type
+
+    for key, chapter_type in CHAPTER_NUMBER_FALLBACKS.items():
+        if key in path_name:
+            return chapter_type
+
+    return "generic"
+
+
+def get_chapter_strategy(chapter_type: str) -> Dict[str, object]:
+    """返回章节策略定义"""
+    return CHAPTER_STRATEGIES.get(chapter_type, CHAPTER_STRATEGIES["generic"])
+
+
 class PaperReducer:
     """论文降重处理器"""
 
@@ -119,6 +323,8 @@ class PaperReducer:
         """执行同义词替换"""
         result = text
         self.replacements = []
+        self.replacement_stats = {}
+        placeholder_replacements = {}
 
         # 按长度排序，优先替换长短语
         sorted_synonyms = sorted(ENHANCED_SYNONYM_DICT.items(), key=lambda x: len(x[0]), reverse=True)
@@ -136,9 +342,11 @@ class PaperReducer:
             num_to_replace = max(1, int(len(matches) * self.ratio))
             selected_matches = random.sample(matches, min(num_to_replace, len(matches)))
 
-            for match in reversed(selected_matches):
+            for match_index, match in enumerate(reversed(selected_matches)):
                 replacement = random.choice(synonyms_list)
-                result = result[:match.start()] + replacement + result[match.end():]
+                placeholder = f"__REPLACE_{len(self.replacements) + match_index}__"
+                result = result[:match.start()] + placeholder + result[match.end():]
+                placeholder_replacements[placeholder] = replacement
                 self.replacements.append((original, replacement))
 
                 # 统计
@@ -147,16 +355,48 @@ class PaperReducer:
                 self.replacement_stats[original]["count"] += 1
                 self.replacement_stats[original]["replacements"].append(replacement)
 
+        for placeholder, replacement in placeholder_replacements.items():
+            result = result.replace(placeholder, replacement)
+
         return result, self.replacements
 
-    def generate_review_prompt(self, original_text: str, replaced_text: str, output_path: str) -> str:
+    def generate_review_prompt(
+        self,
+        original_text: str,
+        replaced_text: str,
+        output_path: str,
+        chapter_type: str,
+        strategy: Dict[str, object],
+    ) -> str:
         """生成大模型审核 Prompt"""
+
+        chapter_label = strategy["label"]
+        preferred = strategy["preferred"]
+        avoid = strategy["avoid"]
 
         prompt = f'''你是一位资深的学术论文编辑，请对以下同义词替换后的论文进行审核和优化。
 
 ## 任务背景
 
 我使用自动化工具对论文进行了同义词替换，目的是降低 AIGC 检测率。请帮我审核替换结果是否合理。
+
+## 章节识别
+
+- 识别章节类型：{chapter_type}
+- 章节标签：{chapter_label}
+- 本章目标：{strategy["goal"]}
+- 风险提示：{strategy["risk_note"]}
+
+### 本章优先策略
+'''
+        for item in preferred:
+            prompt += f'- {item}\n'
+
+        prompt += '\n### 本章禁用策略\n'
+        for item in avoid:
+            prompt += f'- {item}\n'
+
+        prompt += f'''
 
 ## 替换统计
 
@@ -187,10 +427,17 @@ class PaperReducer:
 ### 2. 表达自然性检查
 - 替换后的表达是否符合学术规范？
 - 是否存在生硬或不自然的表达？
+- 是否违反本章禁用策略？
 
 ### 3. 语义一致性检查
 - 核心观点是否保持不变？
 - 论述逻辑是否通顺？
+- 是否因为降 AIGC 处理削弱了本章应保留的学术表达？
+
+### 4. 改写范围控制
+- 优先标记高风险表达、模板化过渡词和明显不自然句子
+- 优先局部修正，不要整章重写
+- 摘要、总结与展望、致谢等高保守章节，必须避免激进改写
 
 ## 输出格式
 
@@ -210,7 +457,7 @@ class PaperReducer:
 
 ---
 
-**注意**：由于论文篇幅较长，请重点关注替换频率最高的词汇是否合理。
+**注意**：由于论文篇幅较长，请重点关注替换频率最高的词汇，并优先处理本章高风险表达而非整章重写。
 '''
 
         # 保存 Prompt
@@ -247,9 +494,13 @@ def run_workflow(input_path: str, output_dir: str, ratio: float = 0.5, whitelist
     with open(input_path, 'r', encoding='utf-8') as f:
         original_text = f.read()
 
+    chapter_type = detect_chapter_type(input_path, original_text)
+    strategy = get_chapter_strategy(chapter_type)
+
     print(f"原始论文长度: {len(original_text)} 字符")
     print(f"替换比例: {ratio * 100}%")
     print(f"术语白名单: {len(whitelist)} 个")
+    print(f"章节类型: {strategy['label']} ({chapter_type})")
 
     # 执行替换
     reducer = PaperReducer(whitelist=whitelist, ratio=ratio)
@@ -265,7 +516,13 @@ def run_workflow(input_path: str, output_dir: str, ratio: float = 0.5, whitelist
 
     # 生成审核 Prompt
     prompt_path = output_dir / f"审核Prompt_{output_token}.md"
-    reducer.generate_review_prompt(original_text, replaced_text, str(prompt_path))
+    reducer.generate_review_prompt(
+        original_text,
+        replaced_text,
+        str(prompt_path),
+        chapter_type,
+        strategy,
+    )
     print(f"审核 Prompt: {prompt_path}")
 
     # 保存替换记录
@@ -274,6 +531,9 @@ def run_workflow(input_path: str, output_dir: str, ratio: float = 0.5, whitelist
         "timestamp": timestamp,
         "input_file": input_path,
         "output_file": str(output_paper),
+        "chapter_type": chapter_type,
+        "chapter_label": strategy["label"],
+        "chapter_goal": strategy["goal"],
         "total_replacements": len(replacements),
         "replacement_stats": {k: v["count"] for k, v in reducer.replacement_stats.items()},
         "replacements": [{"original": o, "replacement": r} for o, r in replacements[:100]]
@@ -298,6 +558,24 @@ def run_workflow(input_path: str, output_dir: str, ratio: float = 0.5, whitelist
 | 替换比例 | {ratio * 100}% |
 | 替换数量 | {len(replacements)} 处 |
 | 涉及词汇 | {len(reducer.replacement_stats)} 个 |
+| 章节类型 | {chapter_type} |
+| 章节标签 | {strategy['label']} |
+
+## 本章策略
+
+- **目标**：{strategy['goal']}
+- **风险提示**：{strategy['risk_note']}
+
+### 优先策略
+'''
+    for item in strategy["preferred"]:
+        report += f'- {item}\n'
+
+    report += '\n### 禁用策略\n'
+    for item in strategy["avoid"]:
+        report += f'- {item}\n'
+
+    report += '''
 
 ## 替换分布
 
@@ -314,15 +592,18 @@ def run_workflow(input_path: str, output_dir: str, ratio: float = 0.5, whitelist
 
 1. **大模型审核**: 使用生成的 Prompt 让大模型审核替换结果
    - Prompt 文件: `{prompt_path}`
+   - 审核时应优先处理高风险表达，不建议整章重写
 
 2. **人工检查**: 重点检查以下内容
    - 专业术语是否被误替换
    - 表达是否通顺自然
    - 核心观点是否保持不变
+   - 是否违反本章禁用策略
 
-3. **AIGC 检测**: 使用检测脚本验证效果
+3. **AIGC 检测**: 先用通用检测脚本定位高风险段落，再按需补做技术论文检测
    ```bash
-   python scripts/aigc_detect_technical.py --input {output_paper}
+   python scripts/aigc/detect.py --input {output_paper}
+   python scripts/aigc/technical_detect.py --input {output_paper}
    ```
 
 ## 文件清单
@@ -344,7 +625,9 @@ def run_workflow(input_path: str, output_dir: str, ratio: float = 0.5, whitelist
         "prompt_path": str(prompt_path),
         "record_path": str(record_path),
         "report_path": str(report_path),
-        "total_replacements": len(replacements)
+        "total_replacements": len(replacements),
+        "chapter_type": chapter_type,
+        "chapter_label": strategy["label"],
     }
 
 
@@ -353,7 +636,7 @@ if __name__ == '__main__':
     parser.add_argument('--input', '-i', required=True, help='输入文件路径')
     parser.add_argument('--output', '-o', default='workspace/reduced/', help='输出目录')
     parser.add_argument('--ratio', '-r', type=float, default=0.5, help='替换比例（0-1）')
-    parser.add_argument('--whitelist', '-w', default='scripts/term_whitelist.txt', help='术语白名单文件')
+    parser.add_argument('--whitelist', '-w', default='scripts/aigc/term_whitelist.txt', help='术语白名单文件')
 
     args = parser.parse_args()
 

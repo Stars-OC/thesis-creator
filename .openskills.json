@@ -48,7 +48,8 @@
     }
   },
   "scripts": {
-    "aigc_detect": "scripts/aigc_detect.py",
+    "aigc_detect": "scripts/aigc/detect.py",
+    "aigc_detect_technical": "scripts/aigc/technical_detect.py",
     "synonym_replace": "scripts/synonym_replace.py",
     "text_analysis": "scripts/text_analysis.py",
     "format_checker": "scripts/format_checker.py",

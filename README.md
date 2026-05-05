@@ -37,7 +37,7 @@
 | 🔍 **本地检测**   | 轻量级 AIGC 检测工具，快速预估检测率 |
 | 📝 **格式检查**   | 自动检查论文结构规范性               |
 | 💬 **智能讨论**   | 三轮深入讨论充分理解论文需求         |
-| 🖼️ **图片生成** | 自动生成架构图、流程图、E-R图等（Mermaid + 多渲染模式） |
+| 🖼️ **图片生成** | 从图片需求清单生成 Mermaid、Graphviz、PlantUML 图表，并支持用户截图占位 |
 | 📄 **图片插入** | Word 文档自动插入图片和图注 |
 | 📚 **文献验证** | 三源学术搜索 + DOI 验证 + 虚构文献自动替换 ⭐ NEW |
 | ⚙️ **配置化** | YAML 配置文件，API Key / 日志 / 导出格式可配置 ⭐ NEW |
@@ -183,7 +183,7 @@
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## 各平台查重及aigc检测结果
+## 各平台查重及 AIGC 检测结果
 
 ### 朱雀全文检测
 ![朱雀全文检测展示](docs/images/全文朱雀检测.png)
@@ -299,10 +299,10 @@ references/
 | `帮我降重这段文字：…`    | 降重优化   | 同义替换、句式重构 |
 | `降低这段的 AIGC 率：…`  | 人性化改写 | 消除 AI 模板特征 |
 | `用成语降重这段文字：…`  | 成语替换改写 | 侧重成语替换策略 |
-| `检测这段文字的 AIGC 率` | AIGC 检测  | 本地快速预估 |
+| `检测这段文字的 AIGC 率` | AIGC 检测  | 调用 `scripts/aigc/detect.py` 本地快速预估 |
 | `帮我生成论文大纲`       | 大纲生成   | 根据背景信息生成 |
 | `生成摘要` | 摘要生成 ⭐ | 中英文摘要 + 关键词 |
-| `生成图片` / `生成图表` / `生成架构图` | 图片生成 | 自动生成 Mermaid 图表 |
+| `生成图片` / `生成图表` / `生成架构图` | 图片生成 | 自动生成 Mermaid、Graphviz、PlantUML 图表 |
 | `为第X章配图` | 图片生成 | 为指定章节生成图表 |
 | `导出 Word` / `导出文档` | 文档导出 | Word + 图片插入 |
 | `导出 PDF` | 文档导出 | PDF 格式 |
@@ -340,15 +340,22 @@ thesis-creator/
 │   ├── reference_citation_prompt.md  #   文献引用提示词 ⭐
 │   └── image_generation.md          #   图片生成提示词 ⭐
 ├── scripts/                 # Python 工具
-│   ├── aigc_detect.py       #   AIGC 检测
+│   ├── aigc/                #   AIGC 检测与降 AIGC 子模块
+│   │   ├── _index.yaml      #   AIGC 脚本索引
+│   │   ├── detect.py        #   通用 AIGC 检测入口
+│   │   ├── technical_detect.py # 技术论文 AIGC 检测入口
+│   │   └── term_whitelist.txt  # 技术术语白名单
+│   ├── aigc_detect.py       #   兼容入口（包装器）
 │   ├── synonym_replace.py   #   同义词替换
 │   ├── text_analysis.py     #   文本分析
 │   ├── format_checker.py    #   格式检查
-│   ├── chart_generator.py   #   图表生成（原位替代）
-│   ├── chart_renderer.py    #   图表在线渲染
-│   ├── chart_renderer_offline.py  #   图表离线渲染 ⭐
-│   ├── chart_template_loader.py   #   图表模板加载 ⭐
-│   ├── llm_chart_generator.py     #   LLM 辅助图表生成 ⭐
+│   ├── charts/              #   图表生成渲染子系统
+│   │   ├── INDEX.md         #   图表脚本索引
+│   │   ├── manifest_builder.py  # 从正文占位符生成 images.yaml
+│   │   ├── source_writer.py     # 准备并校验 dot/mmd/puml 源文件
+│   │   ├── render.py            # 按 Mermaid/Graphviz/PlantUML 渲染 PNG
+│   │   ├── markdown_updater.py  # 回填 Markdown 图片引用
+│   │   └── validate.py          # 校验图表链路完整性
 │   ├── keyword_extractor.py       #   关键词提取器 ⭐
 │   ├── document_exporter.py #   文档导出（含图片插入）
 │   ├── reference_engine.py  #   文献引用引擎 ⭐
