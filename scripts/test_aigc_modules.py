@@ -48,6 +48,37 @@ class AIGCModulesTestCase(unittest.TestCase):
         for expected in ("detect.py", "technical_detect.py", "term_whitelist.txt"):
             self.assertIn(expected, index_text)
 
+    def test_aigc_detect_returns_rewrite_self_check(self):
+        from aigc.detect import detect_text
+
+        text = (
+            "首先，系统具有重要意义。其次，系统可以提升用户体验。最后，系统能够发挥重要作用。\n\n"
+            "本文围绕该目标展开研究。系统具备一定的应用价值。综上所述，该系统具有良好前景。"
+        )
+        result = detect_text(text, output_format="json")
+
+        self.assertIn("self_check", result)
+        self.assertIn("sentence_rhythm", result["self_check"])
+        self.assertIn("template_words", result["self_check"])
+        self.assertIn("eight_part_style", result["self_check"])
+        self.assertIn("rewrite_goal_checklist", result["self_check"])
+
+    def test_self_check_flags_template_words_and_eight_part_style(self):
+        from aigc.detect import AIGCDetector
+
+        text = (
+            "首先，系统具有重要意义。其次，系统可以提升用户体验。最后，系统能够发挥重要作用。\n\n"
+            "本文围绕该目标展开研究。系统具备一定的应用价值。综上所述，该系统具有良好前景。"
+        )
+        result = AIGCDetector().detect(text)
+        self_check = result["self_check"]
+
+        self.assertGreater(self_check["template_words"]["total_count"], 0)
+        self.assertTrue(self_check["eight_part_style"]["has_risk"])
+        self.assertTrue(
+            any(item["status"] == "未通过" for item in self_check["rewrite_goal_checklist"])
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

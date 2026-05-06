@@ -22,6 +22,11 @@ from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Tuple, Set, Optional
 
+try:
+    from aigc.detect import AIGCDetector
+except ImportError:
+    AIGCDetector = None
+
 CHAPTER_STRATEGIES = {
     "abstract": {
         "label": "摘要",
@@ -309,6 +314,143 @@ def get_chapter_strategy(chapter_type: str) -> Dict[str, object]:
     return CHAPTER_STRATEGIES.get(chapter_type, CHAPTER_STRATEGIES["generic"])
 
 
+CLAUSE_MARKER_PATTERN = re.compile(r"[（(]\s*\d+\s*[）)]")
+
+
+def normalize_clause_marker(marker: str) -> str:
+    number = re.search(r"\d+", marker)
+    return f"（{number.group(0)}）" if number else marker
+
+
+def extract_clause_markers(text: str) -> List[str]:
+    markers = []
+    for match in CLAUSE_MARKER_PATTERN.finditer(text):
+        marker = normalize_clause_marker(match.group(0))
+        if marker not in markers:
+            markers.append(marker)
+    return markers
+
+
+def build_clause_preservation_summary(original_text: str, processed_text: str) -> Dict[str, object]:
+    before = extract_clause_markers(original_text)
+    after = extract_clause_markers(processed_text)
+    missing = [marker for marker in before if marker not in after]
+    kept = [marker for marker in before if marker in after]
+    status = "通过" if not missing else "未通过"
+    return {
+        "status": status,
+        "total_before": len(before),
+        "total_after": len(after),
+        "kept": kept,
+        "missing": missing,
+    }
+
+
+def _metric_score(result: Dict[str, object], key: str) -> float:
+    value = result.get(key, {})
+    if isinstance(value, dict):
+        return float(value.get("score", 0) or 0)
+    return 0.0
+
+
+def _score_delta(before: float, after: float) -> float:
+    return round(after - before, 1)
+
+
+def _format_paragraphs(paragraphs: object) -> str:
+    if not paragraphs:
+        return "无"
+    return "、".join(f"第 {item} 段" for item in paragraphs)
+
+
+def _format_markers(markers: List[str]) -> str:
+    return "、".join(markers) if markers else "无"
+
+
+def build_aigc_comparison_report(
+    before_result: Dict[str, object],
+    after_result: Dict[str, object],
+    clause_summary: Dict[str, object],
+    input_path: str,
+    output_path: str,
+) -> str:
+    before_overall = float(before_result.get("overall_score", 0) or 0)
+    after_overall = float(after_result.get("overall_score", 0) or 0)
+
+    rows = [
+        ("整体 AIGC 检测率", before_overall, after_overall),
+        ("句长波动风险", _metric_score(before_result, "burstiness"), _metric_score(after_result, "burstiness")),
+        ("词汇多样性风险", _metric_score(before_result, "vocabulary"), _metric_score(after_result, "vocabulary")),
+        ("过渡词风险", _metric_score(before_result, "transition"), _metric_score(after_result, "transition")),
+        ("结构模式风险", _metric_score(before_result, "structure"), _metric_score(after_result, "structure")),
+    ]
+
+    report = f'''# AIGC 降低前后量化对比报告
+
+## 1. 基本信息
+
+- 输入文件：`{input_path}`
+- 改写后文件：`{output_path}`
+- 检测时间：{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+
+## 2. 总体对比
+
+| 指标 | 改写前 | 改写后 | 变化 |
+|---|---:|---:|---:|
+'''
+    for label, before, after in rows:
+        report += f"| {label} | {before:.1f} | {after:.1f} | {_score_delta(before, after):+.1f} |\n"
+
+    before_high_risk = before_result.get("high_risk_paragraphs", [])
+    after_high_risk = after_result.get("high_risk_paragraphs", [])
+    template_check = after_result.get("rewrite_self_check", {}).get("template_words", {})
+    clause_status = clause_summary.get("status", "需人工确认")
+    clause_total_before = clause_summary.get("total_before", 0)
+    clause_total_after = clause_summary.get("total_after", 0)
+    clause_kept = clause_summary.get("kept", [])
+    clause_missing = clause_summary.get("missing", [])
+
+    report += f'''
+## 3. 高风险段落变化
+
+- 改写前：{_format_paragraphs(before_high_risk)}
+- 改写后：{_format_paragraphs(after_high_risk)}
+- 仍需处理：{_format_paragraphs(after_high_risk)}
+
+## 4. 条款保留检查
+
+- 检查状态：{clause_status}
+- 原文条款数：{clause_total_before}
+- 改写后条款数：{clause_total_after}
+- 已保留条款：{_format_markers(clause_kept)}
+- 缺失条款：{_format_markers(clause_missing)}
+
+## 5. 处理完成自检
+
+| 检查项 | 状态 | 说明 |
+|---|---|---|
+| 保留原条款编号 | {clause_status} | 缺失条款：{_format_markers(clause_missing)} |
+| 保留原功能含义 | 需人工确认 | 本地脚本无法判断语义是否完全一致 |
+| 未新增技术术语 | 需人工确认 | 需要人工核对是否加入原文没有的功能或术语 |
+| 模板词已压缩 | {"通过" if template_check.get("status") == "pass" else "需人工确认"} | {template_check.get("detail", "未获取模板词检查结果")} |
+| 句式节奏已调整 | 需人工确认 | 参考句长波动风险变化 |
+| 高风险条款已处理 | 需人工确认 | 参考高风险段落变化 |
+| 量化报告已生成 | 通过 | 已生成本报告 |
+
+## 6. 结论
+
+本报告基于本地 AIGC 辅助检测结果生成，只用于定位模板化表达、句式均匀和条款保留问题，不代表任何第三方检测工具结论。最终文本仍需人工审校。
+'''
+    return report
+
+
+def detect_aigc_for_report(text: str) -> Dict[str, object]:
+    if AIGCDetector is None:
+        return {"overall_score": 0, "error": "AIGCDetector 不可用"}
+    detector = AIGCDetector(mode="lite")
+    return detector.detect(text)
+
+
 class PaperReducer:
     """论文降重处理器"""
 
@@ -378,7 +520,32 @@ class PaperReducer:
 
 ## 任务背景
 
-我使用自动化工具对论文进行了同义词替换，目的是降低 AIGC 检测率。请帮我审核替换结果是否合理。
+我使用自动化工具对论文进行了初步同义词替换，目的是发现机械替换、术语漂移和表达不自然的问题。请以学术表达质量和语义准确性为目标，审核替换结果是否合理。
+
+## 软件工程方向毕业论文风格要求
+
+- 在保证语义不变的前提下进行重写，而不是简单同义替换
+- 避免大量使用“系统应……从而……”这类标准答案式句式
+- 控制句式多样性，使文本符合软件工程方向毕业论文的客观表述习惯
+- 适当保留自然表达，避免过度压缩造成表达生硬
+- 删除口语化、评价性或解释性表达，改为客观陈述
+- 不引入额外技术术语或扩展内容
+- 保持论文表达严谨，不使用过度口语化或夸张化表述
+
+## AIGC 降低核心流程
+
+处理前必须先给出简短计划：
+1. 原文结构识别：是否包含（1）（2）（3）（4）等条款编号。
+2. 高风险点判断：模板句、重复主语、句长均匀、模板词残留。
+3. 本轮处理策略：保留条款、逐条处理、只处理用户指出的 100% 疑似条款或整体处理。
+4. 预期输出：改写文本、量化对比报告、自检结果。
+
+处理时必须遵守：
+- 原文存在条款编号时，保留原编号、标题和顺序。
+- 不删除、不合并原功能项，除非用户明确要求。
+- 100% 疑似条款优先局部深改，不牵连整章。
+- 减少“系统提供、系统支持、管理员可以、从而、确保”等模板链条。
+- 不新增原文没有的接口、数据库表、实验指标或系统能力。
 
 ## 章节识别
 
@@ -432,7 +599,7 @@ class PaperReducer:
 ### 3. 语义一致性检查
 - 核心观点是否保持不变？
 - 论述逻辑是否通顺？
-- 是否因为降 AIGC 处理削弱了本章应保留的学术表达？
+- 是否因为机械替换削弱了本章应保留的学术表达？
 
 ### 4. 改写范围控制
 - 优先标记高风险表达、模板化过渡词和明显不自然句子
@@ -442,6 +609,20 @@ class PaperReducer:
 ## 输出格式
 
 请输出以下内容：
+
+### AIGC 降低处理计划
+
+### 改写后文本
+
+### 处理完成自检
+
+| 检查项 | 状态 | 说明 |
+|---|---|---|
+| 保留原条款编号 | 通过/未通过 | ... |
+| 保留原功能含义 | 通过/需人工确认/未通过 | ... |
+| 未新增技术术语 | 通过/需人工确认/未通过 | ... |
+| 模板词已压缩 | 通过/需人工确认/未通过 | ... |
+| 量化报告已生成 | 通过/未通过 | ... |
 
 ### 问题报告
 
@@ -542,6 +723,27 @@ def run_workflow(input_path: str, output_dir: str, ratio: float = 0.5, whitelist
         json.dump(record_data, f, ensure_ascii=False, indent=2)
     print(f"替换记录: {record_path}")
 
+    before_aigc = detect_aigc_for_report(original_text)
+    after_aigc = detect_aigc_for_report(replaced_text)
+    clause_summary = build_clause_preservation_summary(original_text, replaced_text)
+
+    comparison_report_path = output_dir / f"AIGC降低量化对比_{output_token}.md"
+    comparison_report = build_aigc_comparison_report(
+        before_aigc,
+        after_aigc,
+        clause_summary,
+        input_path,
+        str(output_paper),
+    )
+    with open(comparison_report_path, "w", encoding="utf-8") as f:
+        f.write(comparison_report)
+
+    print("\nAIGC 降低量化摘要:")
+    print(f"  改写前整体分数: {before_aigc.get('overall_score', 0)}")
+    print(f"  改写后整体分数: {after_aigc.get('overall_score', 0)}")
+    print(f"  条款保留检查: {clause_summary['status']}")
+    print(f"  对比报告: {comparison_report_path}")
+
     # 生成报告
     report_path = output_dir / f"降重报告_{output_token}.md"
     report = f'''# 论文降重报告
@@ -613,6 +815,7 @@ def run_workflow(input_path: str, output_dir: str, ratio: float = 0.5, whitelist
 | 降重后论文 | {output_paper} |
 | 审核Prompt | {prompt_path} |
 | 替换记录 | {record_path} |
+| AIGC量化对比报告 | {comparison_report_path} |
 | 本报告 | {report_path} |
 '''
 
@@ -625,6 +828,7 @@ def run_workflow(input_path: str, output_dir: str, ratio: float = 0.5, whitelist
         "prompt_path": str(prompt_path),
         "record_path": str(record_path),
         "report_path": str(report_path),
+        "comparison_report_path": str(comparison_report_path),
         "total_replacements": len(replacements),
         "chapter_type": chapter_type,
         "chapter_label": strategy["label"],

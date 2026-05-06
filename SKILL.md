@@ -198,7 +198,8 @@ thesis-workspace/
 | 文件 | 说明 | 加载时机 |
 |------|------|----------|
 | `prompts/writer_guidelines.md` | 写作规范 | Step 4 |
-| `prompts/aigc_reducer_prompt.md` | AIGC降重 | Step 4 |
+| `prompts/aigc_reducer_prompt.md` | AIGC 表达质量优化与深度人工化流程 | Step 6 |
+| `prompts/humanizer_guidelines.md` | 人工化改写细则与风险边界 | Step 6 |
 | `prompts/reference_citation_prompt.md` | 引用铁律 | Step 4 |
 | `workspace/references/verified_references.yaml` | 文献池 | **必须加载** |
 

@@ -45,8 +45,18 @@ AI_TRANSITION_WORDS = [
 # AI 高频动词/短语
 AI_HIGH_FREQ_PHRASES = [
     '旨在', '致力于', '表现为', '体现为', '涉及到', '具有重要意义',
-    '发挥了重要作用', '起到了关键作用', '在很大程度上', '在一定程度上'
+    '发挥了重要作用', '发挥重要作用', '起到了关键作用', '在很大程度上', '在一定程度上',
+    '围绕该目标', '提升用户体验', '具备一定', '提供有力支撑', '奠定基础'
 ]
+
+EIGHT_PART_PATTERNS = [
+    '首先', '其次', '再次', '最后', '综上所述', '总而言之',
+    '本文旨在', '围绕该目标', '具有重要意义', '提升用户体验',
+    '具备一定', '发挥重要作用', '提供有力支撑', '奠定基础'
+]
+
+SHORT_SENTENCE_MAX = 15
+MEDIUM_SENTENCE_MAX = 30
 
 
 @dataclass
@@ -396,6 +406,7 @@ class AIGCDetector:
 
         # 识别高风险段落
         results['high_risk_paragraphs'] = self._identify_high_risk_paragraphs(text)
+        results['self_check'] = self._build_self_check(text)
 
         # 生成建议
         if overall > 50:
@@ -406,6 +417,127 @@ class AIGCDetector:
             results['suggestion'] = f"AIGC 检测率较低（{overall:.1f}%），通过检测的可能性较高"
 
         return results
+
+    def _sentence_rhythm_details(self, text: str) -> Dict:
+        sentences = self._split_sentences(text)
+        lengths = [len(sentence) for sentence in sentences]
+
+        if not lengths:
+            return {
+                'sentence_count': 0,
+                'std_dev': 0,
+                'short_count': 0,
+                'medium_count': 0,
+                'long_count': 0,
+                'has_risk': True,
+                'detail': '未检测到可分析句子'
+            }
+
+        mean_len = sum(lengths) / len(lengths)
+        variance = sum((length - mean_len) ** 2 for length in lengths) / len(lengths)
+        std_dev = math.sqrt(variance)
+        short_count = sum(1 for length in lengths if length <= SHORT_SENTENCE_MAX)
+        medium_count = sum(1 for length in lengths if SHORT_SENTENCE_MAX < length <= MEDIUM_SENTENCE_MAX)
+        long_count = sum(1 for length in lengths if length > MEDIUM_SENTENCE_MAX)
+        mixed_length_types = sum(1 for count in (short_count, medium_count, long_count) if count > 0)
+        has_risk = std_dev < 10 or mixed_length_types < 2
+
+        return {
+            'sentence_count': len(sentences),
+            'std_dev': round(std_dev, 1),
+            'short_count': short_count,
+            'medium_count': medium_count,
+            'long_count': long_count,
+            'has_risk': has_risk,
+            'detail': '句长波动不足，建议加入短句点题和长句展开' if has_risk else '句长存在波动，长短句交织较明显'
+        }
+
+    def _template_word_details(self, text: str) -> Dict:
+        found = []
+        total_count = 0
+
+        for word in AI_TRANSITION_WORDS + AI_HIGH_FREQ_PHRASES:
+            count = text.count(word)
+            if count > 0:
+                found.append({'word': word, 'count': count})
+                total_count += count
+
+        return {
+            'total_count': total_count,
+            'found': found,
+            'has_risk': total_count > 0,
+            'detail': '仍存在模板词残留' if total_count > 0 else '未发现明显模板词残留'
+        }
+
+    def _eight_part_style_details(self, text: str) -> Dict:
+        found = []
+        total_count = 0
+        ordered_markers = ['首先', '其次', '再次', '最后']
+        ordered_count = sum(1 for marker in ordered_markers if marker in text)
+
+        for pattern in EIGHT_PART_PATTERNS:
+            count = text.count(pattern)
+            if count > 0:
+                found.append({'pattern': pattern, 'count': count})
+                total_count += count
+
+        paragraphs = self._split_paragraphs(text)
+        summary_like_endings = sum(
+            1 for paragraph in paragraphs
+            if paragraph.endswith(('具有重要意义。', '发挥重要作用。', '具有良好前景。', '提供有力支撑。'))
+        )
+        has_risk = ordered_count >= 3 or total_count >= 3 or summary_like_endings >= 2
+
+        return {
+            'total_count': total_count,
+            'ordered_marker_count': ordered_count,
+            'summary_like_endings': summary_like_endings,
+            'found': found,
+            'has_risk': has_risk,
+            'detail': '存在连续列举或套话式总结，建议重组段落' if has_risk else '未发现明显八股式结构'
+        }
+
+    def _build_rewrite_goal_checklist(self, self_check: Dict) -> List[Dict[str, str]]:
+        rhythm = self_check['sentence_rhythm']
+        template_words = self_check['template_words']
+        eight_part_style = self_check['eight_part_style']
+
+        return [
+            {
+                'item': '长短句交织',
+                'status': '未通过' if rhythm['has_risk'] else '通过',
+                'detail': rhythm['detail']
+            },
+            {
+                'item': '模板词清理',
+                'status': '未通过' if template_words['has_risk'] else '通过',
+                'detail': template_words['detail']
+            },
+            {
+                'item': '八股文结构祛除',
+                'status': '未通过' if eight_part_style['has_risk'] else '通过',
+                'detail': eight_part_style['detail']
+            },
+            {
+                'item': '场景化与细节注入',
+                'status': '需人工确认',
+                'detail': '请确认改写是否补入真实使用场景、系统响应路径或结果呈现方式，且未编造事实'
+            },
+            {
+                'item': '学术边界',
+                'status': '需人工确认',
+                'detail': '请确认未口语化、未改错术语、未新增虚假引用或实验数据'
+            }
+        ]
+
+    def _build_self_check(self, text: str) -> Dict:
+        self_check = {
+            'sentence_rhythm': self._sentence_rhythm_details(text),
+            'template_words': self._template_word_details(text),
+            'eight_part_style': self._eight_part_style_details(text)
+        }
+        self_check['rewrite_goal_checklist'] = self._build_rewrite_goal_checklist(self_check)
+        return self_check
 
     def _identify_high_risk_paragraphs(self, text: str) -> List[int]:
         """识别高风险段落"""
@@ -474,6 +606,23 @@ class AIGCDetector:
         # 高风险段落
         if results['high_risk_paragraphs']:
             console.print(f"\n[yellow]高风险段落：第 {results['high_risk_paragraphs']} 段[/yellow]")
+
+        if 'self_check' in results:
+            checklist_table = Table(title="改写后自测清单")
+            checklist_table.add_column("检查项", style="cyan")
+            checklist_table.add_column("状态", style="green")
+            checklist_table.add_column("说明", style="white")
+
+            for item in results['self_check']['rewrite_goal_checklist']:
+                item_status = item['status']
+                status_color = "green" if item_status == "通过" else "red" if item_status == "未通过" else "yellow"
+                checklist_table.add_row(
+                    item['item'],
+                    f"[{status_color}]{item_status}[/{status_color}]",
+                    item['detail']
+                )
+
+            console.print(checklist_table)
 
         # 建议
         console.print(f"\n[bold]建议：[/bold]{results['suggestion']}")
