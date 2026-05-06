@@ -81,9 +81,14 @@ class ReduceWorkflowChapterStrategyTestCase(unittest.TestCase):
         self.assertIn("不引入额外技术术语或扩展内容", prompt_text)
         self.assertIn("以学术表达质量和语义准确性为目标", prompt_text)
         self.assertIn("AIGC 降低处理计划", prompt_text)
-        self.assertIn("保留原编号", prompt_text)
-        self.assertIn("100% 疑似条款", prompt_text)
+        self.assertIn("场景化重写、结构重组、细节注入、语言去模板化", prompt_text)
+        self.assertIn("显性转接词", prompt_text)
+        self.assertIn("原句骨架", prompt_text)
+        self.assertIn("场景或系统细节充足", prompt_text)
         self.assertIn("处理完成自检", prompt_text)
+        self.assertIn("条款编号与顺序保留", prompt_text)
+        self.assertIn("未新增虚构信息", prompt_text)
+        self.assertIn("100% 疑似条款", prompt_text)
         self.assertNotIn("降低 AIGC 检测率", prompt_text)
         self.assertNotIn("通过常规论文查重与AI检测", prompt_text)
 
@@ -181,6 +186,11 @@ class ReduceWorkflowChapterStrategyTestCase(unittest.TestCase):
         self.assertIn("| 整体 AIGC 检测率 | 82.4 | 46.7 | -35.7 |", report)
         self.assertIn("（1）、（2）", report)
         self.assertIn("模板词残留减少", report)
+        self.assertIn("语义与术语未改变", report)
+        self.assertIn("显性转接词减少", report)
+        self.assertIn("原句骨架已重组", report)
+        self.assertIn("场景或系统细节充足", report)
+        self.assertIn("未新增虚构信息", report)
     def test_aigc_comparison_report_tolerates_missing_fields(self):
         report = build_aigc_comparison_report(
             {},
