@@ -22,6 +22,8 @@ from typing import Optional, Tuple
 
 import yaml
 
+from terminal_encoding import subprocess_text_kwargs
+
 try:
     from docx import Document
     from docx.shared import Pt, Inches, Cm, RGBColor, Twips
@@ -882,8 +884,8 @@ def convert_docx_to_pdf(docx_path: str, pdf_path: str) -> Tuple[bool, str]:
             ['soffice', '--headless', '--convert-to', 'pdf', '--outdir',
              str(Path(pdf_path).parent), docx_path],
             capture_output=True,
-            text=True,
-            timeout=60
+            timeout=60,
+            **subprocess_text_kwargs()
         )
         if result.returncode == 0:
             print(f"[成功] PDF 文档已保存: {pdf_path}")

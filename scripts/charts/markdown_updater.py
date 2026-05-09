@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 from pathlib import Path
 
 try:
@@ -22,6 +23,11 @@ def _should_replace(item) -> bool:
     return item.engine != "user" and item.render_status == "rendered"
 
 
+def _remove_image_requirement_block(content: str, image_id: str) -> str:
+    pattern = re.compile(r"\n?<!--\s*image-requirement\b(?:(?!-->).)*?\bid\s*:\s*" + re.escape(image_id) + r"\b(?:(?!-->).)*?-->\n?", re.DOTALL)
+    return pattern.sub("\n", content)
+
+
 def update_markdown(input_path: Path, manifest_path: Path, in_place: bool = False, root: Path | None = None) -> str:
     root = root or Path.cwd()
     content = input_path.read_text(encoding="utf-8")
@@ -36,6 +42,7 @@ def update_markdown(input_path: Path, manifest_path: Path, in_place: bool = Fals
         relative = Path(os.path.relpath(output_path, start=input_path.parent)).as_posix()
         markdown_image = f"![{item.title}]({relative})"
         content = content.replace(placeholder, markdown_image)
+        content = _remove_image_requirement_block(content, item.id)
 
     if in_place:
         input_path.write_text(content, encoding="utf-8")

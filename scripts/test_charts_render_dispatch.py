@@ -9,6 +9,7 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 import charts.render as chart_render
+from charts.engines import plantuml
 
 
 MANIFEST_TEXT = """
@@ -117,6 +118,35 @@ class ChartsRenderDispatchTest(unittest.TestCase):
             self.assertEqual(report["rendered"], 3)
             self.assertEqual(report["skipped"], 1)
             self.assertIn("render_status: rendered", manifest.read_text(encoding="utf-8"))
+
+    def test_plantuml_falls_back_to_graphviz_when_external_renderers_fail(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            source = root / "flow.puml"
+            output = root / "flow.png"
+            source.write_text("@startuml\nstart\n:开始;\nstop\n@enduml\n", encoding="utf-8")
+            calls = []
+
+            def failing_local(src, out):
+                calls.append("local")
+                raise FileNotFoundError("plantuml")
+
+            def failing_kroki(src, out):
+                calls.append("kroki")
+                raise TimeoutError("kroki timeout")
+
+            original_local = plantuml._render_local
+            original_kroki = plantuml._render_kroki
+            try:
+                plantuml._render_local = failing_local
+                plantuml._render_kroki = failing_kroki
+                plantuml.render(source, output, method="auto")
+            finally:
+                plantuml._render_local = original_local
+                plantuml._render_kroki = original_kroki
+
+            self.assertTrue(output.exists())
+            self.assertEqual(calls, ["local", "kroki"])
 
 
 if __name__ == "__main__":

@@ -70,7 +70,7 @@ def infer_engine(item: Dict[str, Any]) -> str:
         return "user"
     if diagram_type in {"er", "erd", "dot"}:
         return "graphviz"
-    if diagram_type in {"sequence", "usecase", "class", "activity", "plantuml"}:
+    if diagram_type in {"sequence", "usecase", "class", "activity", "plantuml", "flowchart", "flow", "workflow", "流程图"}:
         return "plantuml"
     return "mermaid"
 

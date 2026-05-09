@@ -3,7 +3,7 @@
 
 id: "ecommerce"
 name: "电商系统 E-R 图"
-description: "适用于电商系统，包含用户、商品、订单等核心实体"
+description: "适用于电商系统，包含用户、商品、订单等核心实体，默认输出 Graphviz DOT"
 
 # 模板变量定义
 variables:
@@ -21,51 +21,23 @@ variables:
     type: "list"
     default: []
 
-# Mermaid 代码模板
-mermaid_template: |
-  %% {{chart_id}} {{chart_name}}
-  %% 自动生成于 {{timestamp}}
-  erDiagram
-      {{user_entity}} ||--o{ {{order_entity}} : "下单"
-      {{user_entity}} {
-          bigint id PK "用户ID"
-          varchar username "用户名"
-          varchar email "邮箱"
-          datetime created_at "创建时间"
-      }
+# Graphviz DOT 代码模板
+# ER 图默认从 background.md 提取表和字段生成 DOT，模板仅用于事实不足时的示例补全。
+dot_template: |
+  digraph {{chart_id}} {
+      graph [rankdir=LR, bgcolor=white, nodesep=0.5, ranksep=0.8];
+      node [fontname="Microsoft YaHei", shape=box, style=rounded];
+      edge [fontname="Microsoft YaHei", color="#555555"];
 
-      {{order_entity}} ||--|{ ORDER_ITEM : "包含"
-      {{order_entity}} {
-          bigint id PK "订单ID"
-          bigint user_id FK "用户ID"
-          decimal total_amount "总金额"
-          varchar status "状态"
-          datetime created_at "创建时间"
-      }
+      {{user_entity}} [shape=box, style="rounded,filled", fillcolor="#F8FBFF"];
+      {{product_entity}} [shape=box, style="rounded,filled", fillcolor="#F8FBFF"];
+      {{order_entity}} [shape=box, style="rounded,filled", fillcolor="#F8FBFF"];
+      ORDER_ITEM [shape=box, style="rounded,filled", fillcolor="#F8FBFF"];
 
-      ORDER_ITEM }}|--|| {{product_entity}} : "包含商品"
-      ORDER_ITEM {
-          bigint id PK "明细ID"
-          bigint order_id FK "订单ID"
-          bigint product_id FK "商品ID"
-          int quantity "数量"
-          decimal price "单价"
-      }
-
-      {{product_entity}} {
-          bigint id PK "商品ID"
-          varchar name "商品名称"
-          decimal price "价格"
-          int stock "库存"
-      }
-
-      {% for entity in additional_entities %}
-      {{entity.name}} {
-          {% for field in entity.fields %}
-          {{field.type}} {{field.name}} {{field.constraint}}
-          {% endfor %}
-      }
-      {% endfor %}
+      {{user_entity}} -> {{order_entity}};
+      {{order_entity}} -> ORDER_ITEM;
+      ORDER_ITEM -> {{product_entity}};
+  }
 
 # 关键词匹配规则
 keywords:

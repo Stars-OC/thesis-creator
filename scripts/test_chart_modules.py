@@ -71,8 +71,10 @@ class ChartModulesTestCase(unittest.TestCase):
 
             prepare_sources(manifest, sources_dir)
 
+            er_dot = (sources_dir / "image_2.dot").read_text(encoding="utf-8")
             self.assertIn(PLACEHOLDER_MARKER, (sources_dir / "image_1.mmd").read_text(encoding="utf-8"))
-            self.assertIn(PLACEHOLDER_MARKER, (sources_dir / "image_2.dot").read_text(encoding="utf-8"))
+            self.assertIn("digraph", er_dot)
+            self.assertNotIn(PLACEHOLDER_MARKER, er_dot)
             self.assertIn(PLACEHOLDER_MARKER, (sources_dir / "image_3.puml").read_text(encoding="utf-8"))
             engines = [item.engine for item in load_manifest(manifest)]
             self.assertEqual(["mermaid", "graphviz", "plantuml"], engines)

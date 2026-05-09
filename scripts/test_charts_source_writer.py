@@ -48,7 +48,18 @@ images:
     status: pending
     description: 时序图需求
   - id: image_4
-    title: 图5-2 登录截图
+    title: 图5-2 登录流程图
+    chapter: 第5章
+    section: "5.1"
+    source: ai
+    diagram_type: flowchart
+    purpose: 展示登录流程
+    fact_source: chapter_5.md
+    placement: 图前说明，图后分析
+    status: pending
+    description: 流程图需求
+  - id: image_5
+    title: 图5-3 登录截图
     chapter: 第5章
     section: "5.1"
     source: user
@@ -74,10 +85,12 @@ class ChartsSourceWriterTest(unittest.TestCase):
             self.assertTrue((sources / "image_1.mmd").exists())
             self.assertTrue((sources / "image_2.dot").exists())
             self.assertTrue((sources / "image_3.puml").exists())
-            self.assertFalse((sources / "image_4").exists())
+            self.assertTrue((sources / "image_4.puml").exists())
+            self.assertFalse((sources / "image_5").exists())
             self.assertIn("source_file: workspace/final/images/sources/image_1.mmd", manifest.read_text(encoding="utf-8"))
             self.assertEqual(load_manifest(manifest)[0].source_file, "workspace/final/images/sources/image_1.mmd")
-            self.assertEqual(items[3].engine, "user")
+            self.assertEqual(items[3].engine, "plantuml")
+            self.assertEqual(items[4].engine, "user")
 
     def test_validate_sources_rejects_placeholder_only_source(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -100,6 +113,7 @@ class ChartsSourceWriterTest(unittest.TestCase):
             (sources / "image_1.mmd").write_text("flowchart LR\nA-->B\n", encoding="utf-8")
             (sources / "image_2.dot").write_text("digraph G { A -> B }\n", encoding="utf-8")
             (sources / "image_3.puml").write_text("@startuml\nA -> B\n@enduml\n", encoding="utf-8")
+            (sources / "image_4.puml").write_text("@startuml\nstart\n:登录;\nstop\n@enduml\n", encoding="utf-8")
 
             validate_sources(manifest, root)
 

@@ -8,6 +8,11 @@ import zlib
 from pathlib import Path
 import urllib.request
 
+try:
+    from ...terminal_encoding import subprocess_text_kwargs
+except ImportError:
+    from terminal_encoding import subprocess_text_kwargs
+
 MAX_MERMAID_HEIGHT_PX = 800
 
 
@@ -16,8 +21,8 @@ def _render_with_mmdc(source: Path, output: Path) -> None:
     result = subprocess.run(
         ["mmdc", "-i", str(source), "-o", str(output), "-b", "white", "-H", str(MAX_MERMAID_HEIGHT_PX)],
         capture_output=True,
-        text=True,
         timeout=60,
+        **subprocess_text_kwargs(),
     )
     if result.returncode != 0 or not output.exists():
         raise RuntimeError(result.stderr or "mmdc 未生成输出文件")

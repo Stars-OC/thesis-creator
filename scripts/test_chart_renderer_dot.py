@@ -2,6 +2,7 @@
 
 import sys
 import tempfile
+import types
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -12,10 +13,29 @@ scripts_dir = Path(__file__).parent
 if str(scripts_dir) not in sys.path:
     sys.path.insert(0, str(scripts_dir))
 
+from charts.engines import graphviz  # noqa: E402
 from charts.render import render_manifest  # noqa: E402
 
 
+class FakeGraphvizSource:
+    calls = []
+
+    def __init__(self, code, format="png", engine="dot"):
+        self.calls.append({"code": code, "format": format, "engine": engine})
+
+    def render(self, filename, directory, cleanup=True):
+        output = Path(directory) / f"{filename}.png"
+        output.write_bytes(b"x")
+        return str(output)
+
+
 class ChartRendererDotTestCase(unittest.TestCase):
+    def setUp(self):
+        FakeGraphvizSource.calls = []
+
+    def _patch_graphviz_source(self):
+        return patch.dict(sys.modules, {"graphviz": types.SimpleNamespace(Source=FakeGraphvizSource)})
+
     def test_render_manifest_dispatches_graphviz_dot_source(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
@@ -63,6 +83,66 @@ class ChartRendererDotTestCase(unittest.TestCase):
 
             self.assertEqual(1, report["rendered"])
             self.assertTrue(output.exists())
+
+    def test_graph_level_layout_uses_whitelisted_engine(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            source = root / "image.dot"
+            output = root / "image.png"
+            source.write_text("digraph G {\n  graph [layout=neato];\n  A -> B;\n}\n", encoding="utf-8")
+
+            with self._patch_graphviz_source():
+                graphviz.render(source, output)
+
+            self.assertEqual("neato", FakeGraphvizSource.calls[-1]["engine"])
+
+    def test_graph_level_layout_can_appear_after_other_attributes(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            source = root / "image.dot"
+            output = root / "image.png"
+            source.write_text("digraph G {\n  graph [rankdir=LR, layout=neato];\n  A -> B;\n}\n", encoding="utf-8")
+
+            with self._patch_graphviz_source():
+                graphviz.render(source, output)
+
+            self.assertEqual("neato", FakeGraphvizSource.calls[-1]["engine"])
+
+    def test_graph_level_layout_can_be_quoted(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            source = root / "image.dot"
+            output = root / "image.png"
+            source.write_text("digraph G {\n  graph [layout=\"neato\"];\n  A -> B;\n}\n", encoding="utf-8")
+
+            with self._patch_graphviz_source():
+                graphviz.render(source, output)
+
+            self.assertEqual("neato", FakeGraphvizSource.calls[-1]["engine"])
+
+    def test_node_layout_text_does_not_select_engine(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            source = root / "image.dot"
+            output = root / "image.png"
+            source.write_text("digraph G {\n  node [layout=neato];\n  A [tooltip=\"layout=neato\"];\n  A -> B;\n}\n", encoding="utf-8")
+
+            with self._patch_graphviz_source():
+                graphviz.render(source, output)
+
+            self.assertEqual("dot", FakeGraphvizSource.calls[-1]["engine"])
+
+    def test_unknown_graph_level_layout_falls_back_to_dot(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            source = root / "image.dot"
+            output = root / "image.png"
+            source.write_text("digraph G {\n  graph [layout=unknown];\n  A -> B;\n}\n", encoding="utf-8")
+
+            with self._patch_graphviz_source():
+                graphviz.render(source, output)
+
+            self.assertEqual("dot", FakeGraphvizSource.calls[-1]["engine"])
 
 
 if __name__ == "__main__":

@@ -170,26 +170,48 @@ class AIGCDetector:
             维度分数（0-100，越高越像 AI）
         """
         words = list(jieba.cut(text))
-        meaningful_words = [w for w in words if len(w) >= 2 and w.strip()]
+        meaningful_words = []
+        for word in words:
+            token = word.strip().lower()
+            if len(token) < 2:
+                continue
+            if re.fullmatch(r'\d+(?:\.\d+)*', token):
+                continue
+            if re.fullmatch(r'[-_./\\:]+', token):
+                continue
+            if re.fullmatch(r'[a-z][a-z+-]*', token) or re.search(r'[一-鿿]', token):
+                meaningful_words.append(token)
 
         if len(meaningful_words) < 50:
             return DimensionScore(0, "词汇数量不足，无法计算")
 
-        # 计算 TTR
-        unique_words = set(meaningful_words)
-        ttr = len(unique_words) / len(meaningful_words)
-
-        # 人类典型 TTR > 0.50，AI 典型 < 0.45
-        if ttr < 0.45:
-            score = 50 + (0.45 - ttr) * 200  # 50-90
-            detail = f"TTR = {ttr:.3f}，低于人类典型值 0.50+，疑似 AI"
-        elif ttr < 0.50:
-            score = 30 + (0.50 - ttr) * 400  # 30-50
-            detail = f"TTR = {ttr:.3f}，接近人类/AI 边界"
+        window_size = 300
+        if len(meaningful_words) >= window_size + 80:
+            weighted_sum = 0.0
+            total_weight = 0
+            for start in range(0, len(meaningful_words), window_size):
+                window = meaningful_words[start:start + window_size]
+                if len(window) >= 80:
+                    weighted_sum += (len(set(window)) / len(window)) * len(window)
+                    total_weight += len(window)
+            ttr = weighted_sum / total_weight
+            metric_name = "分窗口 TTR"
         else:
-            score = max(0, 30 - (ttr - 0.50) * 100)  # 0-30
-            detail = f"TTR = {ttr:.3f}，符合人类特征"
+            ttr = len(set(meaningful_words)) / len(meaningful_words)
+            metric_name = "全文 TTR"
 
+        # 长篇技术论文存在术语复用，按窗口 TTR 评价更接近正文表达质量。
+        if ttr < 0.42:
+            score = 50 + (0.42 - ttr) * 120
+            detail = f"{metric_name} = {ttr:.3f}，词汇复用偏高"
+        elif ttr < 0.48:
+            score = 30 + (0.48 - ttr) * 333
+            detail = f"{metric_name} = {ttr:.3f}，接近技术论文边界"
+        else:
+            score = max(0, 30 - (ttr - 0.48) * 80)
+            detail = f"{metric_name} = {ttr:.3f}，符合技术论文特征"
+
+        score = max(0, min(100, score))
         return DimensionScore(round(score, 1), detail)
 
     def _calculate_transition_density(self, text: str) -> DimensionScore:
@@ -214,7 +236,7 @@ class AIGCDetector:
         transition_count = 0
         found_words = []
 
-        for word in AI_TRANSITION_WORDS:
+        for word in dict.fromkeys(AI_TRANSITION_WORDS):
             count = text.count(word)
             if count > 0:
                 transition_count += count
@@ -231,7 +253,7 @@ class AIGCDetector:
             score = 30 + (density - 2) * 20  # 30-50
             detail = f"过渡词密度 {density:.2f}%，略高于正常"
         else:
-            score = max(0, 30 - density * 5)  # 0-30
+            score = max(0, density * 10)  # 0-20
             detail = f"过渡词密度 {density:.2f}%，符合人类特征"
 
         return DimensionScore(round(score, 1), detail)
@@ -285,7 +307,7 @@ class AIGCDetector:
             score = 30 + (ratio - 30)  # 30-50
             detail = f"总分总结构占比 {ratio:.1f}%，接近边界"
         else:
-            score = max(0, 30 - ratio * 0.5)  # 0-30
+            score = max(0, ratio * 0.5)  # 0-15
             detail = f"总分总结构占比 {ratio:.1f}%，符合人类特征"
 
         return DimensionScore(round(score, 1), detail)
@@ -456,7 +478,7 @@ class AIGCDetector:
         found = []
         total_count = 0
 
-        for word in AI_TRANSITION_WORDS + AI_HIGH_FREQ_PHRASES:
+        for word in dict.fromkeys(AI_TRANSITION_WORDS + AI_HIGH_FREQ_PHRASES):
             count = text.count(word)
             if count > 0:
                 found.append({'word': word, 'count': count})
@@ -475,7 +497,7 @@ class AIGCDetector:
         ordered_markers = ['首先', '其次', '再次', '最后']
         ordered_count = sum(1 for marker in ordered_markers if marker in text)
 
-        for pattern in EIGHT_PART_PATTERNS:
+        for pattern in dict.fromkeys(EIGHT_PART_PATTERNS):
             count = text.count(pattern)
             if count > 0:
                 found.append({'pattern': pattern, 'count': count})
@@ -547,7 +569,7 @@ class AIGCDetector:
         for i, para in enumerate(paragraphs):
             # 检查是否包含大量 AI 特征词
             ai_word_count = 0
-            for word in AI_TRANSITION_WORDS + AI_HIGH_FREQ_PHRASES:
+            for word in dict.fromkeys(AI_TRANSITION_WORDS + AI_HIGH_FREQ_PHRASES):
                 ai_word_count += para.count(word)
 
             # 如果 AI 特征词密度 > 5%，标记为高风险
@@ -628,10 +650,40 @@ class AIGCDetector:
         console.print(f"\n[bold]建议：[/bold]{results['suggestion']}")
 
 
+def _extract_prose_for_detection(text: str) -> str:
+    """提取正文段落，排除 Markdown 结构性内容。"""
+    text = re.sub(r'```[\s\S]*?```', '\n', text)
+    text = re.sub(r'~~~[\s\S]*?~~~', '\n', text)
+    text = re.sub(r'<!--([\s\S]*?)-->', '\n', text)
+    text = re.split(r'(?mi)^\s*(?:#{1,6}\s*)?(?:(?:第?[一二三四五六七八九十]+章?|\d+(?:\.\d+)*)[、.．:]?\s*)?(?:参考文献|references|bibliography)\s*[：:]?(?:\s*[（(].*[）)])?\s*$', text, maxsplit=1)[0]
+    text = re.sub(r'(?m)^\s*!\[[^\]]*\]\([^)]*\)\s*$', '', text)
+    text = re.sub(r'(?m)^\s*\[[Ii]mage_?\d+\]\s*$', '', text)
+    text = re.sub(r'(?m)^\s*图\s*\d+(?:[-.．]\d+)?\s*[：:]?\s*.{0,60}(?:图|示意|流程|架构|模块|关系|结构)?\s*$', '', text)
+    text = re.sub(r'\[([^\]]+)\]\((?:https?://|#)[^)]+\)', r'\1', text)
+    text = re.sub(r'[`*_]{1,3}', '', text)
+    text = re.sub(r'(?m)^\s*\|.*\|\s*$', '', text)
+    text = re.sub(r'(?m)^\s*[-:|]{3,}\s*$', '', text)
+    paragraphs = []
+    for paragraph in text.split('\n\n'):
+        lines = [line.strip() for line in paragraph.splitlines()]
+        cleaned_lines = []
+        for line in lines:
+            if not line or line.startswith('#'):
+                continue
+            line = re.sub(r'^\s*>\s?', '', line)
+            line = re.sub(r'^\s*(?:[-*+]|\d+[.)、])\s+', '', line)
+            if re.fullmatch(r'\[\^\d+\]:.*', line):
+                continue
+            cleaned_lines.append(line)
+        if cleaned_lines:
+            paragraphs.append(' '.join(cleaned_lines))
+    return '\n\n'.join(paragraphs)
+
+
 def detect_file(path: str, mode: str = 'lite', output_format: str = 'table') -> Dict:
     """检测文件"""
     with open(path, 'r', encoding='utf-8') as f:
-        text = f.read()
+        text = _extract_prose_for_detection(f.read())
 
     detector = AIGCDetector(mode=mode)
     results = detector.detect(text)
@@ -672,7 +724,7 @@ def detect_directory(dir_path: str, mode: str = 'lite') -> List[Dict]:
 
     for md_file in md_files:
         with open(md_file, 'r', encoding='utf-8') as f:
-            text = f.read()
+            text = _extract_prose_for_detection(f.read())
 
         result = detector.detect(text)
         result['file'] = md_file.name

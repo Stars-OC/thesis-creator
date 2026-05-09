@@ -23,6 +23,8 @@ from pathlib import Path
 from datetime import datetime
 from typing import Optional, Tuple, List
 
+from terminal_encoding import subprocess_text_kwargs
+
 # 检查 python-docx 是否可用
 try:
     from docx import Document
@@ -45,8 +47,8 @@ def check_pandoc_installed() -> bool:
         result = subprocess.run(
             ['pandoc', '--version'],
             capture_output=True,
-            text=True,
-            timeout=10
+            timeout=10,
+            **subprocess_text_kwargs()
         )
         return result.returncode == 0
     except (FileNotFoundError, subprocess.TimeoutExpired):
@@ -130,9 +132,8 @@ def convert_with_pandoc(
         result = subprocess.run(
             cmd,
             capture_output=True,
-            text=True,
             timeout=120,
-            encoding='utf-8'
+            **subprocess_text_kwargs()
         )
 
         if result.returncode == 0:

@@ -18,7 +18,7 @@ from charts.source_writer import prepare_sources, validate_sources  # noqa: E402
 
 
 class ChartLayoutConfigTestCase(unittest.TestCase):
-    def test_architecture_and_flowchart_use_mermaid_sources(self):
+    def test_architecture_uses_mermaid_and_flowchart_uses_plantuml_sources(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             paper = root / "workspace" / "final" / "论文终稿.md"
@@ -61,9 +61,9 @@ description: 用户登录流程
             items = build_manifest(paper, manifest)
             prepare_sources(manifest, sources_dir)
 
-            self.assertEqual(["mermaid", "mermaid"], [item.engine for item in items])
+            self.assertEqual(["mermaid", "plantuml"], [item.engine for item in items])
             self.assertTrue((sources_dir / "image_1.mmd").exists())
-            self.assertTrue((sources_dir / "image_2.mmd").exists())
+            self.assertTrue((sources_dir / "image_2.puml").exists())
 
     def test_plantuml_diagrams_dispatch_to_plantuml_renderer(self):
         with tempfile.TemporaryDirectory() as tmpdir:

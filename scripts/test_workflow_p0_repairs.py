@@ -21,6 +21,10 @@ class WorkflowP0RepairsTest(unittest.TestCase):
         self.assertIn("python scripts/lifecycle.py --workspace thesis-workspace/ --check-workspace", content)
         self.assertIn(".thesis-status.json", content)
         self.assertIn("logs/", content)
+        self.assertIn("scripts/charts/render.py", content)
+        self.assertIn("workspace/final/images/sources", content)
+        self.assertIn("workspace/drafts", content)
+        self.assertIn("workspace/reports", content)
         self.assertIn("填写 references/prompt/background.md", content)
         self.assertNotIn("是否初始化工作区", content)
 
@@ -29,6 +33,8 @@ class WorkflowP0RepairsTest(unittest.TestCase):
         self.assertIn("python scripts/lifecycle.py --workspace thesis-workspace/ --check-workspace", content)
         self.assertIn("thesis-workspace/.thesis-status.json", content)
         self.assertIn("thesis-workspace/logs/", content)
+        self.assertIn("thesis-workspace/scripts/charts/render.py", content)
+        self.assertIn("thesis-workspace/workspace/final/images/sources", content)
         self.assertIn("thesis-workspace/workspace/references/images.yaml", content)
 
     def test_reference_workflow_and_step_7_use_layered_verification_states(self):
@@ -50,6 +56,16 @@ class WorkflowP0RepairsTest(unittest.TestCase):
         self.assertIn("Step 4 只负责记录图片需求", content)
         self.assertNotIn("<!-- 图表占位符", content)
 
+    def test_step_8_er_documentation_matches_current_dot_builder_scope(self):
+        step8 = (WORKFLOWS_DIR / "step_8_image.md").read_text(encoding="utf-8")
+        self.assertIn("从 `background.md` 启发式提取表名、字段和关联关系", step8)
+        self.assertIn("图名、表名和字段节点会使用 DOT 安全引用", step8)
+        self.assertIn("不承诺完整读取 `er_modeling` 布局配置", step8)
+        self.assertIn("不承诺自动归一为英文物理表名", step8)
+        self.assertNotIn("唯一配置源：`thesis-workspace/.thesis-config.yaml -> er_modeling`", step8)
+        self.assertNotIn("实体居中、字段环绕", step8)
+        self.assertNotIn("优先归一到英文物理表名", step8)
+
     def test_step_8_and_step_9_use_manifest_driven_image_flow(self):
         step8 = (WORKFLOWS_DIR / "step_8_image.md").read_text(encoding="utf-8")
         step9 = (WORKFLOWS_DIR / "step_9_export.md").read_text(encoding="utf-8")
@@ -62,6 +78,8 @@ class WorkflowP0RepairsTest(unittest.TestCase):
         self.assertIn("渲染 PNG", step8)
         self.assertIn("回填", step8)
         self.assertIn("将 [image_N] 替换为 Markdown 图片引用", step8)
+        self.assertIn("同步从正文中删除 `image-requirement` 参数块", step8)
+        self.assertIn("生成 images.yaml，并同步清除正文参数块", step8)
         self.assertNotIn("--no-render", step8)
         self.assertNotIn("生成模板", step8)
         self.assertIn("正文不得残留 [image_N]", step9)

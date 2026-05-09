@@ -67,6 +67,55 @@ class ChartsMarkdownUpdateTest(unittest.TestCase):
             self.assertIn("[image_2]", updated)
             self.assertNotIn("[image_1]", updated)
 
+    def test_update_markdown_removes_rendered_ai_image_requirement_block(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            md = root / "workspace" / "final" / "论文终稿.md"
+            manifest = root / "workspace" / "references" / "images.yaml"
+            image = root / "workspace" / "final" / "images" / "image_1.png"
+            md.parent.mkdir(parents=True)
+            manifest.parent.mkdir(parents=True)
+            image.parent.mkdir(parents=True)
+            md.write_text(
+                """
+[image_1]
+<!-- image-requirement
+id: image_1
+title: 图4-1 系统整体架构图
+chapter: 第4章
+section: "4.1"
+source: ai
+diagram_type: architecture
+purpose: 展示系统整体分层
+fact_source: background.md
+placement: 图前说明，图后分析
+status: pending
+description: 架构图
+-->
+
+[image_2]
+<!-- image-requirement
+id: image_2
+title: 图5-1 登录截图
+source: user
+description: 用户补充截图
+-->
+                """.strip(),
+                encoding="utf-8",
+            )
+            manifest.write_text(MANIFEST_TEXT.strip(), encoding="utf-8")
+            image.write_bytes(b"x" * 2048)
+
+            updated = update_markdown(md, manifest, in_place=True, root=root)
+
+            self.assertIn("![图4-1 系统整体架构图](images/image_1.png)", updated)
+            self.assertIn("[image_2]", updated)
+            self.assertIn("id: image_2", updated)
+            self.assertNotIn("[image_1]", updated)
+            self.assertNotIn("id: image_1", updated)
+            self.assertNotIn("purpose: 展示系统整体分层", updated)
+            self.assertNotIn("description: 架构图", updated)
+
     def test_update_markdown_rejects_missing_png(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)

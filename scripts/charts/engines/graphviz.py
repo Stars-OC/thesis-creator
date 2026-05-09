@@ -11,6 +11,8 @@ GRAPHVIZ_BIN_CANDIDATES = [
     Path(r"C:/Program Files (x86)/Graphviz/bin"),
 ]
 
+GRAPHVIZ_LAYOUT_ENGINES = {"dot", "neato", "fdp", "sfdp", "twopi", "circo", "osage", "patchwork"}
+
 
 def _ensure_graphviz_on_path() -> None:
     current_path = os.environ.get("PATH", "")
@@ -24,6 +26,21 @@ def _ensure_graphviz_on_path() -> None:
         return
 
 
+def _detect_layout_engine(code: str) -> str:
+    for line in code.splitlines():
+        stripped = line.strip()
+        graph_attrs = re.match(r"^graph\s*\[(.*)\]", stripped)
+        bare_attrs = re.match(r"^\[(.*)\]", stripped)
+        attrs = graph_attrs.group(1) if graph_attrs else bare_attrs.group(1) if bare_attrs else ""
+        if not attrs:
+            continue
+        match = re.search(r"(?:^|,)\s*layout\s*=\s*\"?([A-Za-z0-9_]+)\"?\s*(?:,|$)", attrs)
+        if match:
+            engine = match.group(1).lower()
+            return engine if engine in GRAPHVIZ_LAYOUT_ENGINES else "dot"
+    return "dot"
+
+
 def render(source: Path, output: Path) -> None:
     try:
         from graphviz import Source
@@ -32,10 +49,7 @@ def render(source: Path, output: Path) -> None:
 
     _ensure_graphviz_on_path()
     code = source.read_text(encoding="utf-8")
-    engine = "dot"
-    layout_match = re.search(r"layout\s*=\s*(\w+)", code)
-    if layout_match:
-        engine = layout_match.group(1)
+    engine = _detect_layout_engine(code)
     output.parent.mkdir(parents=True, exist_ok=True)
     rendered = Path(Source(code, format="png", engine=engine).render(filename=output.stem, directory=str(output.parent), cleanup=True))
     if rendered != output and rendered.exists():

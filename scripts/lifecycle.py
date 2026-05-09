@@ -44,15 +44,26 @@ def _load_lifecycle_config(workspace: Path) -> Dict[str, Any]:
     return default
 
 
+def _should_copy_runtime_item(path: Path) -> bool:
+    excluded_names = {"__pycache__", ".venv", ".pytest_cache"}
+    if any(part in excluded_names for part in path.parts):
+        return False
+    if path.name.startswith("test_") or path.suffix.lower() in {".pyc", ".pyo"}:
+        return False
+    return path.is_dir() or path.suffix.lower() in {".py", ".txt", ".yaml", ".yml", ".md"}
+
+
 def _copy_runtime_scripts(source_dir: Path, target_dir: Path):
     target_dir.mkdir(parents=True, exist_ok=True)
     for item in source_dir.iterdir():
-        if item.name == "__pycache__":
+        if not _should_copy_runtime_item(item):
             continue
-        if item.is_file() and item.suffix.lower() in {".py", ".txt"}:
-            target = target_dir / item.name
-            if not target.exists():
-                shutil.copyfile(item, target)
+        target = target_dir / item.name
+        if item.is_dir():
+            _copy_runtime_scripts(item, target)
+            continue
+        if not target.exists():
+            shutil.copyfile(item, target)
 
 
 def _copy_tree_if_missing(source_dir: Path, target_dir: Path):
@@ -109,6 +120,19 @@ def _ensure_image_manifest(workspace: Path):
 
 
 
+def _ensure_workspace_output_dirs(workspace: Path):
+    for relative_path in (
+        "workspace/drafts",
+        "workspace/final",
+        "workspace/final/images",
+        "workspace/final/images/sources",
+        "workspace/reports",
+        "workspace/references",
+    ):
+        (workspace / relative_path).mkdir(parents=True, exist_ok=True)
+
+
+
 def ensure_workspace_structure(workspace_path: str, sync_scripts: bool = True) -> Path:
     workspace = Path(workspace_path)
     workspace.mkdir(parents=True, exist_ok=True)
@@ -124,6 +148,7 @@ def ensure_workspace_structure(workspace_path: str, sync_scripts: bool = True) -
     if sync_scripts:
         _copy_runtime_scripts(Path(__file__).resolve().parent, scripts_dir)
 
+    _ensure_workspace_output_dirs(workspace)
     _ensure_workspace_references(workspace)
 
     target_background = workspace / "references" / "prompt" / "background.md"
@@ -148,12 +173,28 @@ def ensure_workspace_structure(workspace_path: str, sync_scripts: bool = True) -
 
 
 def check_workspace_preflight(workspace: Path) -> Dict[str, Any]:
-    missing = []
+    required_paths = [
+        "scripts",
+        "scripts/lifecycle.py",
+        "scripts/charts/render.py",
+        "scripts/charts/source_writer.py",
+        "scripts/charts/engines/plantuml.py",
+        "scripts/charts/engines/graphviz.py",
+        "scripts/references/reference_engine.py",
+        "scripts/aigc/detect.py",
+        "logs",
+        ".thesis-status.json",
+        ".thesis-config.yaml",
+        "references/prompt/background.md",
+        "workspace/drafts",
+        "workspace/final",
+        "workspace/final/images",
+        "workspace/final/images/sources",
+        "workspace/reports",
+        "workspace/references/images.yaml",
+    ]
+    missing = [relative_path for relative_path in required_paths if not (workspace / relative_path).exists()]
     incomplete = []
-
-    background_path = workspace / "references" / "prompt" / "background.md"
-    if not background_path.exists():
-        missing.append("references/prompt/background.md")
 
     suggestions = []
     if missing:

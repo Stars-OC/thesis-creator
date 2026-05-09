@@ -16,7 +16,9 @@ class ChartsSchemaTest(unittest.TestCase):
         self.assertEqual(infer_engine({"source": "user", "diagram_type": "screenshot"}), "user")
         self.assertEqual(infer_engine({"source": "ai", "diagram_type": "er"}), "graphviz")
         self.assertEqual(infer_engine({"source": "ai", "diagram_type": "sequence"}), "plantuml")
-        self.assertEqual(infer_engine({"source": "ai", "diagram_type": "flowchart"}), "mermaid")
+        self.assertEqual(infer_engine({"source": "ai", "diagram_type": "flowchart"}), "plantuml")
+        self.assertEqual(infer_engine({"source": "ai", "diagram_type": "workflow"}), "plantuml")
+        self.assertEqual(infer_engine({"source": "ai", "diagram_type": "流程图"}), "plantuml")
 
     def test_load_manifest_rejects_missing_required_fields(self):
         with tempfile.TemporaryDirectory() as tmpdir:

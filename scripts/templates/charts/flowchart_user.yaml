@@ -3,7 +3,7 @@
 
 id: "user_flow"
 name: "用户业务流程图"
-description: "适用于描述用户在系统中的主要操作流程"
+description: "适用于描述用户在系统中的主要操作流程，默认输出 PlantUML activity diagram"
 
 # 模板变量定义
 variables:
@@ -19,23 +19,25 @@ variables:
     description: "结束动作"
     default: "流程结束"
 
-# Mermaid 代码模板
-mermaid_template: |
-  %% {{chart_id}} {{chart_name}}
-  %% 自动生成于 {{timestamp}}
-  flowchart TD
-      A([开始]) --> B[{{start_action}}]
-      {% for step in steps %}
-      {% if step.type == 'decision' %}
-      {{step.node_id}}{ {{step.name}} }
-      {{step.node_id}} -->|是| {{step.next_node}}
-      {{step.node_id}} -->|否| Z([结束])
-      {% else %}
-      {{step.node_id}}[{{step.name}}]
-      {{step.node_id}} --> {{step.next_node}}
-      {% endif %}
-      {% endfor %}
-      Z([结束])
+# PlantUML activity diagram 代码模板
+plantuml_template: |
+  @startuml
+  start
+  :{{start_action}};
+  {% for step in steps %}
+  {% if step.type == 'decision' %}
+  if ({{step.name}}) then (Y)
+    :{{step.yes_action}};
+  else (N)
+    :{{step.no_action}};
+  endif
+  {% else %}
+  :{{step.name}};
+  {% endif %}
+  {% endfor %}
+  :{{end_action}};
+  stop
+  @enduml
 
 # 步骤提取规则
 step_extraction:

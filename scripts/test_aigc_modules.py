@@ -79,6 +79,48 @@ class AIGCModulesTestCase(unittest.TestCase):
             any(item["status"] == "未通过" for item in self_check["rewrite_goal_checklist"])
         )
 
+    def test_extract_prose_removes_markdown_structural_content_before_inline_cleanup(self):
+        from aigc.detect import _extract_prose_for_detection
+
+        markdown = """# 第4章 系统设计
+
+正文段落保留，用于检测自然语言表达。
+
+[image_1]
+[Image_2]
+![系统架构图](https://example.com/arch.png)
+图 4-1 系统架构图
+<!-- image-requirement
+id: image_1
+-->
+
+| 字段 | 含义 |
+| --- | --- |
+| user_id | 用户编号 |
+
+## 7. 参考文献：
+[1] 作者. 文献标题. 2025.
+"""
+        prose = _extract_prose_for_detection(markdown)
+
+        self.assertIn("正文段落保留", prose)
+        for unexpected in ("image_1", "Image_2", "系统架构图", "user_id", "参考文献", "文献标题"):
+            self.assertNotIn(unexpected, prose)
+
+    def test_transition_words_are_counted_once_when_word_list_contains_duplicates(self):
+        from aigc import detect
+        from aigc.detect import AIGCDetector
+
+        try:
+            detect.AI_TRANSITION_WORDS.append("由此可见")
+            result = AIGCDetector()._template_word_details("由此可见，系统完成检测。")
+        finally:
+            detect.AI_TRANSITION_WORDS.pop()
+
+        found = {item["word"]: item["count"] for item in result["found"]}
+        self.assertEqual(1, found["由此可见"])
+        self.assertEqual(1, result["total_count"])
+
 
 if __name__ == "__main__":
     unittest.main()

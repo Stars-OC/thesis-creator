@@ -17,6 +17,7 @@
 import re
 import argparse
 import requests
+import sys
 from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Optional, Tuple
@@ -26,6 +27,7 @@ import time
 
 # 导入日志模块
 try:
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
     from logger import get_logger, init_logger
 except ImportError:
     import logging
@@ -33,7 +35,7 @@ except ImportError:
     def get_logger():
         """get_logger"""
         return logging.getLogger()
-    def init_logger():
+    def init_logger(*args, **kwargs):
         """init_logger"""
         return get_logger()
 

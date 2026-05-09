@@ -50,8 +50,9 @@ flowchart TD
 - 推荐命令：`python scripts/lifecycle.py --workspace thesis-workspace/ --prepare-runtime`
 - 初始化完成后必须执行预检：`python scripts/lifecycle.py --workspace thesis-workspace/ --check-workspace`
 - 预检必须覆盖 `scripts/`、`logs/`、`.thesis-status.json`、`.thesis-config.yaml`、`references/prompt/background.md`、`workspace/references/images.yaml`
-- 自动创建完整目录结构
-- 自动创建 `scripts/` 目录与运行环境
+- 预检必须覆盖运行脚本子模块，例如 `scripts/charts/render.py`、`scripts/charts/source_writer.py`、`scripts/charts/engines/plantuml.py`、`scripts/charts/engines/graphviz.py`、`scripts/references/reference_engine.py`、`scripts/aigc/detect.py`
+- 自动创建完整目录结构，包括 `workspace/drafts`、`workspace/final`、`workspace/final/images`、`workspace/final/images/sources`、`workspace/reports`、`workspace/references`
+- 自动创建 `scripts/` 目录、运行环境与完整运行脚本模块
 - 自动生成 `README.md` 使用说明
 - 自动创建 `logs/` 目录
 - 复制模板文件：
@@ -84,6 +85,8 @@ flowchart TD
 6. 将参考文献放入 references/reference/doc/
 7. 确认 `thesis-workspace/.thesis-config.yaml` 已生成，并按学校要求修改
 8. 确认 `thesis-workspace/workspace/references/images.yaml` 已生成
+9. 确认 `thesis-workspace/scripts/charts/render.py` 等脚本子模块已生成
+10. 确认 `thesis-workspace/workspace/final/images/sources`、`workspace/drafts`、`workspace/reports` 已生成
 
 ⏸️ 请先填写 references/prompt/background.md，再回复「继续」开始论文创作。
 ```

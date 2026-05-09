@@ -32,8 +32,8 @@ flowchart TD
 ## Step 4 到 Step 8 的衔接规则(硬约束)
 
 - Step 4 正文只放 `[image_N]` 和 `image-requirement` 注释块，不在正文中写图表源码。
-- Step 8 先运行 `manifest_builder.py`，把正文需求块转写到 `workspace/references/images.yaml`。
-- 大模型只能基于 `images.yaml` 的 `purpose`、`fact_source`、`description`、`prompt_hint` 生成源码文件。
+- Step 8 先运行 `manifest_builder.py`，把正文需求块转写到 `workspace/references/images.yaml`，并同步从正文中删除 `image-requirement` 参数块。
+- 大模型只能基于 `images.yaml` 的 `purpose`、`fact_source`、`description`、`prompt_hint` 生成源码文件；正文中不得继续携带图片参数描述。
 - 图表源码统一放在 `workspace/final/images/sources/`，后缀按引擎区分：
   - Mermaid：`.mmd`
   - Graphviz DOT：`.dot`
@@ -73,7 +73,7 @@ images:
 |---|---|---|
 | `source=user` | `user` | 无源码 |
 | `diagram_type=er/erd/dot` | `graphviz` | `.dot` |
-| `diagram_type=flowchart/activity/usecase/sequence/class/plantuml` | `plantuml` | `.puml` |
+| `diagram_type=flowchart/flow/workflow/流程图/activity/usecase/sequence/class/plantuml` | `plantuml` | `.puml` |
 | `diagram_type=architecture/module` | `mermaid` | `.mmd` |
 | 其他 AI 图 | `mermaid` | `.mmd` |
 
@@ -84,14 +84,13 @@ images:
 ### ER 图生成口径(硬约束)
 
 - 默认引擎：`engine=graphviz`，源码格式：`.dot`
-- 唯一事实源：`thesis-workspace/references/prompt/background.md`
-- 唯一配置源：`thesis-workspace/.thesis-config.yaml -> er_modeling`
-- 教科书 DOT 要求：实体居中、字段环绕、字段中文
-- 当 background.md 的表标题同时包含中文逻辑名与英文物理表名时，ER 图实体节点优先使用英文物理表名；字段说明仍保持中文语义。
-- 关联表无论写成 `角色表`、`角色表（sys_role）` 还是 `角色表(sys_role)`，都应优先归一到英文物理表名后再参与 ER 图生成。
+- 事实源：优先读取 `thesis-workspace/references/prompt/background.md`
+- 当前实现范围：从 `background.md` 启发式提取表名、字段和关联关系，生成基础 Graphviz DOT。
 - DOT 输出约束：不要显式生成 `label=` 属性，直接使用节点文本。
-- 信息不足时：尽量生成并 warning，不因字段说明缺失直接阻断。
-- 只有 ER 图受 `er_modeling` 配置影响；架构图、流程图、模块图、时序图不跟随该配置。
+- 图名、表名和字段节点会使用 DOT 安全引用，以支持图号、空格、括号等常见论文写法。
+- `source_writer.py` 会优先从 `background.md` 生成真实 DOT 源码，不再为 ER 图生成占位源码。
+- 信息不足时：尽量生成最小 DOT 并 warning，不因字段说明缺失直接阻断。
+- 当前不承诺完整读取 `er_modeling` 布局配置，也不承诺自动归一为英文物理表名；如需严格物理表名建模，应在 `background.md` 中直接写明期望节点名称或人工补充 DOT。
 
 | 图表 | 来源 | 推荐 engine | 占位符标记 |
 |------|------|-------------|------------|
@@ -117,6 +116,8 @@ images:
 - 包含必要循环（如存在用户持续操作、重试或追问）
 - 避免语法歧义（防止被解析为class diagram）
 - 图结构简洁，不超过3层嵌套
+- 判断分支连线必须明确标注 Y/N
+- 全图只保留一个最终结束节点，所有分支和普通路径最终汇入该结束节点
 - 适合论文插图展示
 
 只输出PlantUML代码。
@@ -142,7 +143,7 @@ images:
 ## 执行命令
 
 ```bash
-# Step 1: 从正文占位符和 image-requirement 块生成 images.yaml
+# Step 1: 从正文占位符和 image-requirement 块生成 images.yaml，并同步清除正文参数块
 python scripts/charts/manifest_builder.py --input workspace/final/论文终稿.md --output workspace/references/images.yaml
 
 # Step 2: 根据 images.yaml 创建 .dot/.mmd/.puml 源码文件占位
@@ -208,6 +209,6 @@ python scripts/charts/validate.py --input workspace/final/论文终稿.md --mani
 
 ## Step 8 中 ER 图的推荐口径
 
-- `graphviz`：默认模式，读取 `background.md` 作为唯一事实源，输出教科书风格 Graphviz DOT；强调实体居中、字段环绕、字段中文，信息不足时尽量生成并 warning。
-- `mermaid`：用于普通架构图、流程图、模块图等。
-- `plantuml`：用于用例图、时序图、类图和活动图，更符合 UML 表达规范。
+- `graphviz`：ER 图默认模式，读取 `background.md` 并启发式生成基础 Graphviz DOT；图名、表名、字段节点使用 DOT 安全引用，信息不足时尽量生成并 warning。
+- `mermaid`：用于普通架构图、模块图等非流程型结构图。
+- `plantuml`：用于流程图、用例图、时序图、类图和活动图，更符合 UML 表达规范。

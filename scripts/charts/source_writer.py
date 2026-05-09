@@ -6,8 +6,10 @@ from pathlib import Path
 from typing import List
 
 try:
+    from .er_dot_builder import build_er_dot_from_background
     from .schemas import ImageItem, dump_manifest, load_manifest, source_suffix
 except ImportError:
+    from er_dot_builder import build_er_dot_from_background
     from schemas import ImageItem, dump_manifest, load_manifest, source_suffix
 
 PLACEHOLDER_MARKER = "CHART_SOURCE_PLACEHOLDER"
@@ -40,6 +42,30 @@ def _placeholder_source(item: ImageItem) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _is_er_graphviz_item(item: ImageItem) -> bool:
+    return item.engine == "graphviz" and item.diagram_type.strip().lower() in {"er", "erd", "dot"}
+
+
+def _resolve_fact_source(item: ImageItem, manifest_path: Path) -> Path:
+    root = manifest_path.parent.parent.parent if len(manifest_path.parents) >= 3 else manifest_path.parent
+    fact_source = Path(item.fact_source) if item.fact_source else Path("references/prompt/background.md")
+    if fact_source.is_absolute():
+        return fact_source
+    primary = root / fact_source
+    if primary.exists():
+        return primary
+    return root / "references" / "prompt" / "background.md"
+
+
+def _er_dot_source(item: ImageItem, manifest_path: Path) -> str:
+    fact_source = _resolve_fact_source(item, manifest_path)
+    background = fact_source.read_text(encoding="utf-8") if fact_source.exists() else ""
+    dot, warnings = build_er_dot_from_background(background, title=item.title)
+    if warnings:
+        item.prompt_hint = "; ".join(warnings)
+    return dot
+
+
 def prepare_sources(manifest_path: Path, sources_dir: Path) -> List[ImageItem]:
     items = load_manifest(manifest_path)
     sources_dir.mkdir(parents=True, exist_ok=True)
@@ -55,7 +81,8 @@ def prepare_sources(manifest_path: Path, sources_dir: Path) -> List[ImageItem]:
             continue
         item.source_file = _manifest_source_path(item, source_path)
         if not source_path.exists():
-            source_path.write_text(_placeholder_source(item), encoding="utf-8")
+            source = _er_dot_source(item, manifest_path) if _is_er_graphviz_item(item) else _placeholder_source(item)
+            source_path.write_text(source, encoding="utf-8")
         updated.append(item)
 
     dump_manifest(manifest_path, updated)

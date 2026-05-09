@@ -45,6 +45,10 @@ def parse_requirement_blocks(content: str) -> Dict[str, Dict[str, Any]]:
     return requirements
 
 
+def remove_requirement_blocks(content: str) -> str:
+    return REQUIREMENT_BLOCK_PATTERN.sub("", content)
+
+
 def _missing_requirement_item(image_id: str) -> ImageItem:
     return ImageItem(
         id=image_id,
@@ -84,6 +88,7 @@ def build_manifest(input_path: Path, output_path: Path, image_dir: Path | None =
         items.append(ImageItem.from_dict(data))
 
     dump_manifest(output_path, items)
+    input_path.write_text(remove_requirement_blocks(content), encoding="utf-8")
     return items
 
 
