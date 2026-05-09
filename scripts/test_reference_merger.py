@@ -14,7 +14,7 @@ scripts_dir = Path(__file__).parent
 if str(scripts_dir) not in sys.path:
     sys.path.insert(0, str(scripts_dir))
 
-from reference_merger import assess_reference_quality, save_yaml, select_top  # noqa: E402
+from references.reference_merger import assess_reference_quality, save_yaml, select_top  # noqa: E402
 
 
 class ReferenceMergerTestCase(unittest.TestCase):

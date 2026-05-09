@@ -312,10 +312,10 @@ flowchart TD
 
 ```bash
 # 用户选择「20-30 篇」时执行：
-python scripts/reference_engine.py --query "章节主题关键词" --limit 30 --format yaml -o workspace/references/verified_references.yaml --verify-doi
+python scripts/references/reference_engine.py --query "章节主题关键词" --limit 30 --format yaml -o workspace/references/verified_references.yaml --verify-doi
 
 # 用户选择「稍后校验」时执行：
-python scripts/reference_engine.py --query "章节主题关键词" --limit 30 --format yaml -o workspace/references/verified_references.yaml --no-verify
+python scripts/references/reference_engine.py --query "章节主题关键词" --limit 30 --format yaml -o workspace/references/verified_references.yaml --no-verify
 ```
 
 ---
@@ -352,7 +352,7 @@ python scripts/reference_engine.py --query "章节主题关键词" --limit 30 --
 
 ```bash
 # 示例：按章节关键词推荐候选文献
-python scripts/verified_reference_pool.py --recommend --keywords "章节关键词1 章节关键词2" --limit 5
+python scripts/references/verified_reference_pool.py --recommend --keywords "章节关键词1 章节关键词2" --limit 5
 ```
 
 > **执行要求**：优先从 `verified_reference_pool.py` 的推荐结果中选择候选 `ref_id`，再写入正文临时引用；禁止跳过推荐步骤后凭空编造引用。

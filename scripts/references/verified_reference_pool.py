@@ -10,10 +10,10 @@
 5. 导出最终参考文献列表（带可点击 DOI 链接）
 
 使用方法：
-    python scripts/verified_reference_pool.py --init --chapter "第四章"
-    python scripts/verified_reference_pool.py --add --file search_results.yaml
-    python scripts/verified_reference_pool.py --recommend --keywords "RAG 知识库 检索"
-    python scripts/verified_reference_pool.py --export --format gbt7714
+    python scripts/references/verified_reference_pool.py --init --chapter "第四章"
+    python scripts/references/verified_reference_pool.py --add --file search_results.yaml
+    python scripts/references/verified_reference_pool.py --recommend --keywords "RAG 知识库 检索"
+    python scripts/references/verified_reference_pool.py --export --format gbt7714
 """
 
 import re
@@ -24,7 +24,7 @@ import requests
 from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Optional, Set
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from difflib import SequenceMatcher
 
 
@@ -43,13 +43,13 @@ class PoolReference:
     relevance_score: float = 0.0
     citation_count: int = 0
     gb7714: str = ""
-    keywords: List[str] = []
+    keywords: List[str] = field(default_factory=list)
     language: str = "en"
     volume: Optional[str] = None
     issue: Optional[str] = None
     pages: Optional[str] = None
     used_count: int = 0  # 已被引用次数
-    chapters_used: List[str] = []  # 已被引用的章节列表
+    chapters_used: List[str] = field(default_factory=list)  # 已被引用的章节列表
 
     def to_dict(self) -> Dict:
         """转换为字典"""
@@ -524,9 +524,10 @@ class VerifiedReferencePool:
     def print_stats(self):
         """打印统计信息"""
         stats = self.get_stats()
+        verified_ratio = stats['verified'] / stats['total'] * 100 if stats['total'] else 0.0
         print("\n=== 文献池统计 ===")
         print(f"文献总数: {stats['total']}")
-        print(f"已验证: {stats['verified']} ({stats['verified']/stats['total']*100:.1f}%)")
+        print(f"已验证: {stats['verified']} ({verified_ratio:.1f}%)")
         print(f"中文文献: {stats['chinese']}")
         print(f"英文文献: {stats['english']}")
         print(f"总引用次数: {stats['used_count']}")

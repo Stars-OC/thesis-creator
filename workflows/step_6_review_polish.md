@@ -125,7 +125,7 @@ flowchart TD
 python scripts/format_checker.py --dir workspace/drafts/
 
 # 2) 基于章节关键词复核文献池候选结果，确认引用来源与 DOI 完整性
-python scripts/verified_reference_pool.py --recommend --keywords "章节关键词1 章节关键词2" --limit 5
+python scripts/references/verified_reference_pool.py --recommend --keywords "章节关键词1 章节关键词2" --limit 5
 
 # 3) 对表达质量问题章节进行复查
 python scripts/aigc/detect.py --input workspace/drafts/chapter_4.md

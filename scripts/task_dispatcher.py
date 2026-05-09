@@ -327,7 +327,7 @@ python scripts/enhanced_replace.py --input "{file_path}" --output "{output_path}
 
 ## 执行命令
 ```bash
-python scripts/reference_searcher.py --query "{query}" --year-range {year_range} --limit {limit} --format gbt7714
+python scripts/references/reference_searcher.py --query "{query}" --year-range {year_range} --limit {limit} --format gbt7714
 ```
 
 ## 输出要求

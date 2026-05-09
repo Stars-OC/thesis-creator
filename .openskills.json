@@ -56,8 +56,8 @@
     "chart_generator": "scripts/chart_generator.py",
     "chart_renderer": "scripts/chart_renderer.py",
     "document_exporter": "scripts/document_exporter.py",
-    "reference_engine": "scripts/reference_engine.py",
-    "reference_validator": "scripts/reference_validator.py",
+    "reference_engine": "scripts/references/reference_engine.py",
+    "reference_validator": "scripts/references/reference_validator.py",
     "merge_drafts": "scripts/merge_drafts.py"
   },
   "targets": {

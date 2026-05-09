@@ -17,7 +17,7 @@
 - **Step 0 初始化补齐**：`scripts/lifecycle.py` 现会在工作区初始化时自动生成 `thesis-workspace/.thesis-config.yaml` 与 `thesis-workspace/workspace/references/images.yaml`。
 - **图片清单路径统一**：图表生成脚本统一读取 `workspace/references/images.yaml`，并同步修正 CLI 提示文案。
 - **DOT ER 图输出约束收敛**：`scripts/chart_generator.py` 生成的 Graphviz DOT 概念 ER 图不再显式输出 `label=`，仅 E-R 图受 `er_modeling` 配置控制。
-- **引用规则对齐**：`scripts/verified_reference_pool.py` 默认推荐未占用文献；`scripts/merge_drafts.py` 在保持“按正文首次出现顺序编号”的同时，新增同一 `ref_id` 重复引用告警。
+- **引用规则对齐**：`scripts/references/verified_reference_pool.py` 默认推荐未占用文献；`scripts/merge_drafts.py` 在保持“按正文首次出现顺序编号”的同时，新增同一 `ref_id` 重复引用告警。
 - **ER 图测试更新**：同步调整 DOT ER 图与渲染测试，使断言与“无显式 `label=`”规则一致。
 
 ---
@@ -50,8 +50,8 @@
 
 #### 文献引用真实性保障
 
-- **引用引擎**：新增 `scripts/reference_engine.py`（1250 行），集成 Semantic Scholar / CrossRef / OpenAlex 三源学术搜索
-- **已验证文献池**：新增 `scripts/verified_reference_pool.py`，自动缓存验证通过的文献，避免重复搜索
+- **引用引擎**：新增 `scripts/references/reference_engine.py`（1250 行），集成 Semantic Scholar / CrossRef / OpenAlex 三源学术搜索
+- **已验证文献池**：新增 `scripts/references/verified_reference_pool.py`，自动缓存验证通过的文献，避免重复搜索
 - **引用提示词**：新增 `prompts/reference_citation_prompt.md`，规范 AI 引用生成行为
 - **文献搜索工作流**：新增 `workflows/reference_workflow.md`
 - **reference_validator 增强**：支持在线 DOI 验证、虚构文献自动替换为真实文献

@@ -11,13 +11,13 @@
 
 使用方法：
     # 合并目录下所有 YAML 文献文件，选出最相关 25 篇
-    python scripts/reference_merger.py -i workspace/references/ --top 25
+    python scripts/references/reference_merger.py -i workspace/references/ --top 25
 
     # 合并指定文件
-    python scripts/reference_merger.py -i workspace/references/search_rag.yaml workspace/references/search_vector.yaml --top 30
+    python scripts/references/reference_merger.py -i workspace/references/search_rag.yaml workspace/references/search_vector.yaml --top 30
 
     # 包含已有的文献池
-    python scripts/reference_merger.py -i workspace/references/ --existing workspace/references/verified_references.yaml --top 25
+    python scripts/references/reference_merger.py -i workspace/references/ --existing workspace/references/verified_references.yaml --top 25
 """
 
 import argparse

@@ -341,8 +341,9 @@ thesis-creator/
 │   ├── reference_citation_prompt.md  #   文献引用提示词 ⭐
 │   └── image_generation.md          #   图片生成提示词 ⭐
 ├── scripts/                 # Python 工具
+│   ├── INDEX.md             #   scripts 总索引
 │   ├── aigc/                #   AIGC 检测与降 AIGC 子模块
-│   │   ├── _index.yaml      #   AIGC 脚本索引
+│   │   ├── INDEX.md         #   AIGC 脚本索引
 │   │   ├── detect.py        #   通用 AIGC 检测入口
 │   │   ├── technical_detect.py # 技术论文 AIGC 检测入口
 │   │   └── term_whitelist.txt  # 技术术语白名单
@@ -357,12 +358,14 @@ thesis-creator/
 │   │   ├── render.py            # 按 Mermaid/Graphviz/PlantUML 渲染 PNG
 │   │   ├── markdown_updater.py  # 回填 Markdown 图片引用
 │   │   └── validate.py          # 校验图表链路完整性
+│   ├── references/          #   参考文献流程子模块
+│   │   ├── INDEX.md         #   参考文献脚本索引
+│   │   ├── reference_engine.py  # 多源搜索 + DOI验证 ⭐
+│   │   ├── reference_validator.py # 参考文献验证（增强版） ⭐
+│   │   ├── reference_searcher.py  # 文献搜索
+│   │   └── verified_reference_pool.py # 已验证文献池 ⭐
 │   ├── keyword_extractor.py       #   关键词提取器 ⭐
 │   ├── document_exporter.py #   文档导出（含图片插入）
-│   ├── reference_engine.py  #   文献引用引擎 ⭐
-│   ├── reference_validator.py     #   参考文献验证（增强版） ⭐
-│   ├── reference_searcher.py      #   文献搜索
-│   ├── verified_reference_pool.py #   已验证文献池 ⭐
 │   ├── merge_drafts.py      #   章节合并（支持大纲匹配）
 │   └── logger.py            #   日志系统（可配置）
 ├── scripts/templates/       # 图表模板

@@ -174,16 +174,16 @@ references:
 
 ```bash
 # 搜索并验证文献
-python scripts/reference_engine.py --query "关键词" --limit 25 --verify-doi -o workspace/references/verified_references.yaml
+python scripts/references/reference_engine.py --query "关键词" --limit 25 --verify-doi -o workspace/references/verified_references.yaml
 
 # 验证单个 DOI
-python scripts/reference_engine.py --doi "10.xxx/yyy" --verify-doi
+python scripts/references/reference_engine.py --doi "10.xxx/yyy" --verify-doi
 
 # 导出 GB/T 7714 格式
-python scripts/reference_engine.py --query "关键词" --format gbt7714 -o workspace/references/references_gbt7714.md
+python scripts/references/reference_engine.py --query "关键词" --format gbt7714 -o workspace/references/references_gbt7714.md
 
 # Step 7 合并前执行在线验证与 404 检查
-python scripts/reference_validator.py workspace/drafts/参考文献.md --validate-online --check-404
+python scripts/references/reference_validator.py workspace/drafts/参考文献.md --validate-online --check-404
 ```
 
 > **硬约束**：合并前必须执行 `--validate-online --check-404`，存在 404 的文献不能仅凭 DOI 直接判死，必须结合元数据验证状态再决定是否替换。

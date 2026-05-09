@@ -16,10 +16,10 @@
 5. 格式化为 GB/T 7714 标准格式
 
 使用方法：
-    python scripts/reference_searcher.py --query "精准营销 大数据" --limit 10
-    python scripts/reference_searcher.py --doi "10.1234/example.2023" --verify
-    python scripts/reference_searcher.py --query "RAG 知识库" --source all --language zh --limit 15
-    python scripts/reference_searcher.py --query "deep learning" --source crossref --verify-doi
+    python scripts/references/reference_searcher.py --query "精准营销 大数据" --limit 10
+    python scripts/references/reference_searcher.py --doi "10.1234/example.2023" --verify
+    python scripts/references/reference_searcher.py --query "RAG 知识库" --source all --language zh --limit 15
+    python scripts/references/reference_searcher.py --query "deep learning" --source crossref --verify-doi
 """
 
 import re
@@ -34,13 +34,22 @@ from dataclasses import dataclass, asdict
 
 # 导入多源搜索引擎（可选）
 try:
-    from reference_engine import (
+    from .reference_engine import (
         CrossRefSearcher, OpenAlexSearcher,
-        VerifiedReference, MultiSourceSearcher
+        VerifiedReference, MultiSourceSearcher,
     )
-    MULTI_SOURCE_AVAILABLE = True
 except ImportError:
-    MULTI_SOURCE_AVAILABLE = False
+    try:
+        from reference_engine import (
+            CrossRefSearcher, OpenAlexSearcher,
+            VerifiedReference, MultiSourceSearcher,
+        )
+    except ImportError:
+        MULTI_SOURCE_AVAILABLE = False
+    else:
+        MULTI_SOURCE_AVAILABLE = True
+else:
+    MULTI_SOURCE_AVAILABLE = True
 
 
 @dataclass
@@ -530,7 +539,10 @@ def main():
     if args.query:
         # 多源搜索模式（如果可用）
         if args.source != "semantic-scholar" and MULTI_SOURCE_AVAILABLE:
-            from reference_engine import search_and_format
+            try:
+                from .reference_engine import search_and_format
+            except ImportError:
+                from reference_engine import search_and_format
             sources = ["semantic-scholar", "crossref", "openalex"] if args.source == "all" else [args.source]
 
             output = search_and_format(

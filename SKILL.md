@@ -124,7 +124,7 @@ flowchart LR
 1. **Step 3 大纲确认后询问文献数量**（默认 20-30 篇）
 2. **多源搜索**：Semantic Scholar + CrossRef + OpenAlex
 3. **DOI 验证**：判断 4xx 错误状态码
-4. **合并去重**：多源结果合并，按相关度选出最相关 x 篇（`scripts/reference_merger.py`）
+4. **合并去重**：多源结果合并，按相关度选出最相关 x 篇（`scripts/references/reference_merger.py`）
 5. **写作时从文献池选取未占用引用**
 6. **文献搜索与建池阶段可回流复用**：在 Step 4/6/7 任一阶段，如果当前章节缺少可用未占用文献、文献验证失败、语种比例不达标或引用密度不足，必须回到该阶段补充搜索，并增量更新 `workspace/references/verified_references.yaml`
 7. **单篇文献整篇仅允许引用一次**：一旦某个 `ref_id` 被正文使用一次，就必须标记为已占用，后续章节不得重复使用；Step 7 发现重复 `ref_id` 必须硬阻断
@@ -210,8 +210,8 @@ thesis-workspace/
 
 | 文件 | 说明 |
 |------|------|
-| `scripts/reference_engine.py` | 多源搜索 + DOI验证 |
-| `scripts/reference_merger.py` | 文献合并去重 + 选出最相关 x 篇 |
+| `scripts/references/reference_engine.py` | 多源搜索 + DOI验证 |
+| `scripts/references/reference_merger.py` | 文献合并去重 + 选出最相关 x 篇 |
 | `scripts/document_exporter.py` | Word导出 + 图片插入 |
 | `scripts/merge_drafts.py` | 章节合并 |
 | `scripts/aigc/detect.py` | AIGC检测 |

@@ -14,9 +14,9 @@
 - 生成可点击DOI链接
 
 使用方法：
-    python scripts/reference_engine.py --query "deep learning recommendation" --limit 10
-    python scripts/reference_engine.py --verify-doi "10.18653/v1/2020.naacl-main.13"
-    python scripts/reference_engine.py --query "RAG 知识库" --source all --language zh --limit 15
+    python scripts/references/reference_engine.py --query "deep learning recommendation" --limit 10
+    python scripts/references/reference_engine.py --verify-doi "10.18653/v1/2020.naacl-main.13"
+    python scripts/references/reference_engine.py --query "RAG 知识库" --source all --language zh --limit 15
 """
 
 import re
@@ -711,10 +711,11 @@ class MultiSourceSearcher:
     def __init__(
         self,
         semantic_scholar_key: Optional[str] = None,
-        sources: List[str] = ["semantic-scholar", "crossref", "openalex"],
+        sources: Optional[List[str]] = None,
         config_path: Optional[str] = None
     ):
         self.searchers = {}
+        sources = sources or ["semantic-scholar", "crossref", "openalex"]
 
         if "semantic-scholar" in sources:
             ss_config_path = config_path or self.DEFAULT_CONFIG_PATH
@@ -1028,7 +1029,7 @@ def search_and_format(
     query: str,
     year_range: Tuple[int, int] = (2020, 2025),
     limit: int = 10,
-    sources: List[str] = ["semantic-scholar", "crossref", "openalex"],
+    sources: Optional[List[str]] = None,
     output_format: str = "yaml",
     cross_verify: bool = True,
     language: str = "all",
@@ -1056,6 +1057,7 @@ def search_and_format(
     Returns:
         格式化后的输出
     """
+    sources = sources or ["semantic-scholar", "crossref", "openalex"]
     searcher = MultiSourceSearcher(
         semantic_scholar_key=api_key,
         sources=sources,

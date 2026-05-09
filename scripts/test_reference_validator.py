@@ -1,7 +1,7 @@
 import unittest
 
-from reference_validator import Reference, ReferenceValidator
-from reference_engine import VerifiedReference
+from references.reference_validator import Reference, ReferenceValidator
+from references.reference_engine import VerifiedReference
 
 
 class FakeCrossRefSearcher:

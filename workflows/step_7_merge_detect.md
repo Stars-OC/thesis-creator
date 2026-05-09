@@ -72,7 +72,7 @@ python scripts/merge_drafts.py -i workspace/drafts/ -o workspace/final/论文终
 > **硬约束**：`workspace/drafts/参考文献.md` 生成后，进入 AIGC 检测前必须执行在线验证与 404 检查。
 
 ```bash
-python scripts/reference_validator.py workspace/drafts/参考文献.md --validate-online --check-404
+python scripts/references/reference_validator.py workspace/drafts/参考文献.md --validate-online --check-404
 ```
 
 - 允许继续的状态：`verified_doi`、`verified_metadata_only`、`broken_doi_metadata_ok`

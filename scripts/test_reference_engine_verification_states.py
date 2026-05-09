@@ -1,6 +1,6 @@
 import unittest
 
-from reference_engine import VerifiedReference, ReferenceFormatter
+from references.reference_engine import VerifiedReference, ReferenceFormatter
 
 
 class ReferenceEngineVerificationStatesTest(unittest.TestCase):

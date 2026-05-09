@@ -41,7 +41,7 @@ class AIGCModulesTestCase(unittest.TestCase):
         self.assertIs(aigc_detect_technical.TechnicalPaperAIGCDetector, TechnicalPaperAIGCDetector)
 
     def test_aigc_index_lists_modules_and_resources(self):
-        index_path = scripts_dir / "aigc" / "_index.yaml"
+        index_path = scripts_dir / "aigc" / "INDEX.md"
 
         self.assertTrue(index_path.exists())
         index_text = index_path.read_text(encoding="utf-8")

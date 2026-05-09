@@ -39,17 +39,26 @@ except ImportError:
 
 # 导入在线验证模块
 try:
-    from reference_searcher import SemanticScholarSearcher, verify_doi
+    from .reference_searcher import SemanticScholarSearcher, verify_doi
 except ImportError:
-    SemanticScholarSearcher = None
-    verify_doi = None
+    try:
+        from reference_searcher import SemanticScholarSearcher, verify_doi
+    except ImportError:
+        SemanticScholarSearcher = None
+        verify_doi = None
 
 # 导入多源验证模块（新增）
 try:
-    from reference_engine import CrossRefSearcher
-    CROSSREF_AVAILABLE = True
+    from .reference_engine import CrossRefSearcher
 except ImportError:
-    CROSSREF_AVAILABLE = False
+    try:
+        from reference_engine import CrossRefSearcher
+    except ImportError:
+        CROSSREF_AVAILABLE = False
+    else:
+        CROSSREF_AVAILABLE = True
+else:
+    CROSSREF_AVAILABLE = True
 
 
 @dataclass
@@ -152,10 +161,16 @@ class ReferenceValidator:
         # OpenAlex 作为中文标题搜索兜底
         if enable_online_validation and CROSSREF_AVAILABLE:
             try:
-                from reference_engine import OpenAlexSearcher
-                self.openalex_searcher = OpenAlexSearcher()
+                from .reference_engine import OpenAlexSearcher
             except ImportError:
-                self.openalex_searcher = None
+                try:
+                    from reference_engine import OpenAlexSearcher
+                except ImportError:
+                    self.openalex_searcher = None
+                else:
+                    self.openalex_searcher = OpenAlexSearcher()
+            else:
+                self.openalex_searcher = OpenAlexSearcher()
         else:
             self.openalex_searcher = None
 
