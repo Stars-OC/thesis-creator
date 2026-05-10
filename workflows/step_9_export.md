@@ -58,13 +58,13 @@ flowchart TD
 
 ```bash
 # 导出 Word 文档(自动插入图片)
-python scripts/document_exporter.py --input workspace/final/论文终稿.md --output workspace/final/ --format docx
+PYTHONPATH=scripts python -m document_exporter --input workspace/final/论文终稿.md --output workspace/final/ --format docx
 
 # 导出 PDF 文档
-python scripts/document_exporter.py --input workspace/final/论文终稿.md --output workspace/final/ --format pdf
+PYTHONPATH=scripts python -m document_exporter --input workspace/final/论文终稿.md --output workspace/final/ --format pdf
 
 # 同时导出两种格式
-python scripts/document_exporter.py --input workspace/final/论文终稿.md --output workspace/final/ --format both
+PYTHONPATH=scripts python -m document_exporter --input workspace/final/论文终稿.md --output workspace/final/ --format both
 ```
 
 ---

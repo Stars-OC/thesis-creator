@@ -214,7 +214,7 @@ thesis-workspace/
 |------|------|
 | `scripts/references/reference_engine.py` | 多源搜索 + DOI验证 |
 | `scripts/references/reference_merger.py` | 文献合并去重 + 选出最相关 x 篇 |
-| `scripts/document_exporter.py` | Word导出 + 图片插入 |
+| `scripts/document_exporter/` | Word导出 + 图片插入 |
 | `scripts/merge_drafts.py` | 章节合并 |
 | `scripts/aigc/detect.py` | AIGC检测 |
 | `scripts/aigc/technical_detect.py` | 技术论文 AIGC 检测 |

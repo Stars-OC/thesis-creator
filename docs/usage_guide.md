@@ -408,13 +408,13 @@ python scripts/charts/validate.py --input workspace/final/论文终稿.md --mani
 
 ```powershell
 # 导出 Word 文档（含图片）
-python scripts/document_exporter.py --input workspace/final/论文终稿.md --format docx
+PYTHONPATH=scripts python -m document_exporter --input workspace/final/论文终稿.md --format docx
 
 # 导出 PDF 文档
-python scripts/document_exporter.py --input workspace/final/论文终稿.md --format pdf
+PYTHONPATH=scripts python -m document_exporter --input workspace/final/论文终稿.md --format pdf
 
 # 同时导出两种格式
-python scripts/document_exporter.py --input workspace/final/论文终稿.md --format both
+PYTHONPATH=scripts python -m document_exporter --input workspace/final/论文终稿.md --format both
 ```
 
 **导出成功示例**：
@@ -584,13 +584,13 @@ pip install playwright && playwright install
 
 ```powershell
 # 导出 Word
-python scripts/document_exporter.py --input paper.md --format docx
+PYTHONPATH=scripts python -m document_exporter --input paper.md --format docx
 
 # 导出 PDF
-python scripts/document_exporter.py --input paper.md --format pdf
+PYTHONPATH=scripts python -m document_exporter --input paper.md --format pdf
 
 # 同时导出两种格式
-python scripts/document_exporter.py --input paper.md --format both
+PYTHONPATH=scripts python -m document_exporter --input paper.md --format both
 ```
 
 > ⭐ 图片插入功能已集成：导出 Word 时自动解析 Markdown 图片引用并插入到文档中。

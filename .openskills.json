@@ -55,7 +55,7 @@
     "format_checker": "scripts/format_checker.py",
     "chart_generator": "scripts/chart_generator.py",
     "chart_renderer": "scripts/chart_renderer.py",
-    "document_exporter": "scripts/document_exporter.py",
+    "document_exporter": "scripts/document_exporter/__main__.py",
     "reference_engine": "scripts/references/reference_engine.py",
     "reference_validator": "scripts/references/reference_validator.py",
     "merge_drafts": "scripts/merge_drafts.py"
