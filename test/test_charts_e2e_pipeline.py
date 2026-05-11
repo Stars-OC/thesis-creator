@@ -74,7 +74,9 @@ description: 时序图
 
             build_manifest(md, manifest)
             prepare_sources(manifest, sources)
-            (sources / "image_1.mmd").write_text("flowchart LR\nA-->B\n", encoding="utf-8")
+            image_1 = root / "workspace" / "final" / "images" / "image_1.png"
+            image_1.parent.mkdir(parents=True, exist_ok=True)
+            image_1.write_bytes(b"x" * 2048)
             (sources / "image_2.dot").write_text("digraph G { A -> B }\n", encoding="utf-8")
             (sources / "image_3.puml").write_text("@startuml\nA -> B\n@enduml\n", encoding="utf-8")
 
@@ -103,10 +105,9 @@ description: 时序图
             updated = update_markdown(md, manifest, in_place=True, root=root)
             validation = validate_pipeline(md, manifest, root=root)
 
-            self.assertEqual(report["rendered"], 3)
+            self.assertEqual(report["rendered"], 2)
             self.assertTrue((root / "workspace" / "final" / "images" / "image_1.png").exists())
-            self.assertIn("![图4-1 系统架构图](images/image_1.png)", updated)
-            self.assertNotIn("[image_1]", updated)
+            self.assertIn("[image_1]", updated)
             self.assertNotIn("[image_2]", updated)
             self.assertNotIn("[image_3]", updated)
             self.assertEqual(validation["errors"], [])

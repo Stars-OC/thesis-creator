@@ -6,11 +6,11 @@ from typing import Dict
 
 class LLMChartGenerator:
     CHART_PROMPTS: Dict[str, str] = {
-        "架构图": "请生成 Mermaid 架构图，使用 graph LR 表示左到右布局，分层展示系统结构。",
-        "流程图": "请生成 Mermaid 流程图，方向不要固定为单一方向，可根据内容选择 LR、TB、BT、RL，避免节点过于密集。",
-        "E-R图": "请生成 Mermaid E-R 图，突出实体、字段和关系。",
-        "用例图": "请生成 Mermaid 用例图，展示参与者与用例之间的关系。",
-        "时序图": "请生成 Mermaid sequenceDiagram，展示参与者交互顺序。",
+        "架构图": "架构图不生成 Mermaid 源码；请保留 source=user 占位，提示用户自行生成或使用 GPT image 生图后补入。",
+        "流程图": "请生成 PlantUML activity diagram，所有节点使用中文，判断分支连线明确标注 Y/N，全图只保留一个最终结束节点。",
+        "E-R图": "E-R 图由 .thesis-config.yaml 的 er_modeling.graph_type 控制；默认使用 Graphviz DOT Chen 风格，事实源优先 references/prompt/background.md。",
+        "用例图": "请生成 PlantUML 用例图，使用标准 UML 用例图规范，actor 使用中文，系统边界使用 rectangle 包裹。",
+        "时序图": "请生成 PlantUML sequence 图，展示参与者交互顺序。",
         "功能模块图": "请生成 Mermaid 模块结构图，展示功能模块划分。",
     }
 
@@ -36,59 +36,66 @@ class HybridChartGenerator:
         return self._module(chart_id, chart_name)
 
     def _architecture(self, chart_id: str, chart_name: str) -> str:
-        return f'''```mermaid
-%% {chart_id} {chart_name}
-graph LR
-    A[用户界面] --> B[业务服务]
-    B --> C[数据访问]
-    C --> D[(数据库)]
-```'''
+        return f"""<!-- image-requirement
+id: {chart_id}
+title: {chart_name}
+source=user
+diagram_type=architecture
+status=pending_user
+description=架构图由用户自行生成；如需 AI 生成，请使用 GPT image 生图后作为用户图片补入。
+-->"""
 
     def _flowchart(self, chart_id: str, chart_name: str) -> str:
-        return f'''```mermaid
-%% {chart_id} {chart_name}
-flowchart TB
-    A([开始]) --> B[接收请求]
-    B --> C{{校验是否通过}}
-    C -->|是| D[处理业务]
-    C -->|否| E[返回错误]
-    D --> F([结束])
-    E --> F
-```'''
+        return f'''@startuml
+' {chart_id} {chart_name}
+skinparam shadowing false
+skinparam defaultFontName Microsoft YaHei
+start
+:接收请求;
+if (校验是否通过?) then (Y)
+  :处理业务;
+else (N)
+  :返回错误;
+endif
+stop
+@enduml'''
 
     def _usecase(self, chart_id: str, chart_name: str) -> str:
-        return f'''```mermaid
-%% {chart_id} {chart_name}
-graph TB
-    User((用户)) --> UC1((登录))
-    User --> UC2((查询数据))
-    Admin((管理员)) --> UC3((审核))
-```'''
+        return f'''@startuml
+' {chart_id} {chart_name}
+left to right direction
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam defaultFontName Microsoft YaHei
+rectangle "系统" {{
+  usecase "登录" as UC1
+  usecase "查询数据" as UC2
+  usecase "审核" as UC3
+}}
+actor "用户" as User
+actor "管理员" as Admin
+User --> UC1
+User --> UC2
+Admin --> UC3
+@enduml'''
 
     def _sequence(self, chart_id: str, chart_name: str) -> str:
-        return f'''```mermaid
-%% {chart_id} {chart_name}
-sequenceDiagram
-    participant U as 用户
-    participant S as 系统
-    U->>S: 发起请求
-    S-->>U: 返回结果
-```'''
+        return f'''@startuml
+' {chart_id} {chart_name}
+skinparam shadowing false
+skinparam defaultFontName Microsoft YaHei
+actor 用户 as U
+participant 系统 as S
+U -> S: 发起请求
+S --> U: 返回结果
+@enduml'''
 
     def _er(self, chart_id: str, chart_name: str) -> str:
-        return f'''```mermaid
-%% {chart_id} {chart_name}
-erDiagram
-    USER ||--o{{ ORDER : creates
-    USER {{
-        bigint id PK
-        string username
-    }}
-    ORDER {{
-        bigint id PK
-        bigint user_id FK
-    }}
-```'''
+        return f"""# {chart_id} {chart_name}
+# E-R 图由 .thesis-config.yaml 的 er_modeling.graph_type 控制。
+# 默认生成 Graphviz DOT Chen 风格：实体矩形、属性椭圆、联系菱形。
+# 事实源优先读取 references/prompt/background.md。
+# 请通过 scripts/charts/source_writer.py 生成或刷新正式 ER 源码。"""
 
     def _module(self, chart_id: str, chart_name: str) -> str:
         return f'''```mermaid

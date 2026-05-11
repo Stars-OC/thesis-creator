@@ -70,10 +70,47 @@ def _missing_requirement_item(image_id: str) -> ImageItem:
     )
 
 
+def _display_priority(item: ImageItem) -> tuple[int, str]:
+    diagram_type = item.diagram_type.strip().lower()
+    if diagram_type in {"overall_er", "overall-er", "总体er图", "总体er"}:
+        return (0, item.id)
+    return (1, item.id)
+
+
+def _load_usecase_layout(config_path: Path) -> str:
+    if not config_path.exists():
+        return "overall"
+    data = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+    if not isinstance(data, dict):
+        return "overall"
+    usecase_modeling = data.get("usecase_modeling", {})
+    if not isinstance(usecase_modeling, dict):
+        return "overall"
+    return str(usecase_modeling.get("layout") or "overall").strip().lower()
+
+
+def _expand_usecase_per_actor(data: Dict[str, Any]) -> List[ImageItem]:
+    original_id = str(data.get("id", "")).strip()
+    actors = ["普通用户", "知识库管理员", "系统管理员"]
+    items: List[ImageItem] = []
+    for index, actor in enumerate(actors, start=1):
+        actor_data = dict(data)
+        actor_data["id"] = f"{original_id}_{index}"
+        actor_data["placeholder_id"] = original_id
+        actor_data["title"] = f"{actor_data.get('title', original_id)}（{actor}）"
+        actor_data["description"] = f"{actor}：{actor_data.get('description', '')}".strip()
+        actor_data["prompt_hint"] = f"仅绘制{actor}相关用例。{actor_data.get('prompt_hint', '')}".strip()
+        actor_data.pop("source_file", None)
+        actor_data.pop("output_file", None)
+        items.append(ImageItem.from_dict(actor_data))
+    return items
+
+
 def build_manifest(input_path: Path, output_path: Path, image_dir: Path | None = None) -> List[ImageItem]:
     content = input_path.read_text(encoding="utf-8")
     placeholders = parse_image_placeholders(content)
     requirements = parse_requirement_blocks(content)
+    usecase_layout = _load_usecase_layout(input_path.parents[2] / ".thesis-config.yaml")
 
     items: List[ImageItem] = []
     for image_id in placeholders:
@@ -85,8 +122,12 @@ def build_manifest(input_path: Path, output_path: Path, image_dir: Path | None =
         data.setdefault("id", image_id)
         if image_dir is not None and not data.get("output_file"):
             data["output_file"] = f"{image_dir.as_posix().rstrip('/')}/{image_id}.png"
-        items.append(ImageItem.from_dict(data))
+        if str(data.get("diagram_type", "")).strip().lower() == "usecase" and usecase_layout == "per_actor":
+            items.extend(_expand_usecase_per_actor(data))
+        else:
+            items.append(ImageItem.from_dict(data))
 
+    items.sort(key=_display_priority)
     dump_manifest(output_path, items)
     input_path.write_text(remove_requirement_blocks(content), encoding="utf-8")
     return items

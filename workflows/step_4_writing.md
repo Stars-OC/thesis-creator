@@ -131,9 +131,9 @@ Paragraph 3: Key functional modules, results and significance.
 
 | 图片 | 来源 | 推荐 engine | 占位符标记 |
 |------|------|-------------|------------|
-| 系统整体架构图 | **AI(大模型)生成** | `mermaid` | `[image_N]` |
+| 系统整体架构图 | **用户自行生成；如需 AI 生成请使用 GPT image 生图后补入** | `user` | `[image_N]` |
 | 功能模块图 | **用户手动提供** | `user` | `[image_N]` |
-| 各模块业务流程图 | **AI(大模型)生成** | `mermaid` | `[image_N]` |
+| 各模块业务流程图 | **AI(大模型)生成** | `plantuml` | `[image_N]` |
 | 实体 E-R 图(每表一张) | **AI(大模型)生成** | `graphviz` | `[image_N]` |
 | 用例图/时序图/类图/活动图 | **AI(大模型)生成** | `plantuml` | `[image_N]` |
 
@@ -163,14 +163,14 @@ id: image_1
 title: 图4-1 系统整体架构图
 chapter: 第4章
 section: "4.1"
-source: ai
+source: user
 diagram_type: architecture
 purpose: 展示系统整体分层与核心组件关系
-fact_source: thesis-workspace/references/prompt/background.md
+fact_source: 用户自行生成；如需 AI 生成请使用 GPT image
 placement: 图前先写架构设计目标，图后写分层说明
-status: pending
-description: 展示表现层、业务层、数据层和外部服务之间的调用关系
-prompt_hint: 根据论文背景生成具体架构，不要使用默认三层模板
+status: pending_user
+description: 系统架构图由用户自行生成后补入
+prompt_hint: 架构图不进入自动源码生成和渲染链路
 -->
 ```
 

@@ -108,36 +108,36 @@ def demo_offline_render():
 
 
 def demo_hybrid_generate():
-    """演示混合生成 - 生成 Mermaid 代码"""
+    """演示混合生成 - 展示不同图表类型的输出口径"""
     print("\n" + "="*60)
     print("演示: 混合图表生成 (模板 + LLM 兜底)")
     print("="*60)
 
     generator = HybridChartGenerator()
 
-    # 1. 生成架构图 Mermaid 代码
-    print("\n[1] 生成架构图 Mermaid 代码...")
+    # 1. 生成架构图用户补图占位
+    print("\n[1] 生成架构图用户补图占位...")
     description = "Web系统采用前后端分离架构，前端使用Vue.js，后端使用Spring Boot，数据库使用MySQL"
-    mermaid = generator.generate("架构图", description, "", "图2-1", "系统架构图")
-    print("    生成的 Mermaid 代码:")
+    output = generator.generate("架构图", description, "", "图2-1", "系统架构图")
+    print("    生成的占位说明:")
     print("-" * 40)
-    print(mermaid[:500] + "..." if len(mermaid) > 500 else mermaid)
+    print(output[:500] + "..." if len(output) > 500 else output)
 
-    # 2. 生成流程图 Mermaid 代码
-    print("\n[2] 生成流程图 Mermaid 代码...")
+    # 2. 生成流程图 PlantUML 代码
+    print("\n[2] 生成流程图 PlantUML 代码...")
     description = "用户注册流程：输入注册信息 -> 验证信息格式 -> 检查用户名是否已存在 -> 创建用户账号 -> 返回注册结果"
-    mermaid = generator.generate("流程图", description, "", "图3-2", "用户注册流程图")
-    print("    生成的 Mermaid 代码:")
+    output = generator.generate("流程图", description, "", "图3-2", "用户注册流程图")
+    print("    生成的 PlantUML 代码:")
     print("-" * 40)
-    print(mermaid[:500] + "..." if len(mermaid) > 500 else mermaid)
+    print(output[:500] + "..." if len(output) > 500 else output)
 
-    # 3. 生成 E-R 图 Mermaid 代码
-    print("\n[3] 生成 E-R 图 Mermaid 代码...")
+    # 3. 生成 E-R 图配置驱动说明
+    print("\n[3] 生成 E-R 图配置驱动说明...")
     description = "电商系统，包含用户、商品、订单三个核心实体，用户可以下订单购买商品"
-    mermaid = generator.generate("E-R图", description, "", "图4-1", "电商系统E-R图")
-    print("    生成的 Mermaid 代码:")
+    output = generator.generate("E-R图", description, "", "图4-1", "电商系统E-R图")
+    print("    生成的配置说明:")
     print("-" * 40)
-    print(mermaid[:600] + "..." if len(mermaid) > 600 else mermaid)
+    print(output[:600] + "..." if len(output) > 600 else output)
 
 
 def demo_theme_change():
@@ -176,7 +176,7 @@ def main():
 
     print("\n请选择演示内容:")
     print("  1. 离线渲染演示 (生成PNG图片)")
-    print("  2. 混合生成演示 (生成Mermaid代码)")
+    print("  2. 混合生成演示 (展示用户占位、PlantUML 与配置驱动图表输出)")
     print("  3. 主题切换演示")
     print("  4. 全部演示")
 

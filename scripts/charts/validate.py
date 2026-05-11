@@ -18,17 +18,25 @@ def _resolve_path(path_text: str, root: Path) -> Path:
     return root / path
 
 
+def _placeholder_key(item) -> str:
+    return str(item.placeholder_id or item.id)
+
+
 def validate_pipeline(input_path: Path, manifest_path: Path, root: Path | None = None, images_dir: Path | None = None) -> Dict[str, Any]:
     root = root or Path.cwd()
     content = input_path.read_text(encoding="utf-8")
     errors: List[str] = []
     user_required: List[str] = []
+    seen_rendered_placeholders = set()
+    seen_user_placeholders = set()
 
     for item in load_manifest(manifest_path):
-        placeholder = f"[{item.id}]"
+        placeholder_id = _placeholder_key(item)
+        placeholder = f"[{placeholder_id}]"
         if item.engine == "user":
-            if item.status in {"pending_user", "pending"} and placeholder in content:
-                user_required.append(item.id)
+            if item.status in {"pending_user", "pending"} and placeholder in content and placeholder_id not in seen_user_placeholders:
+                user_required.append(placeholder_id)
+                seen_user_placeholders.add(placeholder_id)
             continue
 
         source_path = _resolve_path(item.source_file, root)
@@ -37,8 +45,9 @@ def validate_pipeline(input_path: Path, manifest_path: Path, root: Path | None =
 
         output_path = _resolve_path(item.output_file, root)
         if item.render_status == "rendered":
-            if placeholder in content:
-                errors.append(f"{item.id} 已渲染但正文仍残留占位符")
+            if placeholder in content and placeholder_id not in seen_rendered_placeholders:
+                errors.append(f"{placeholder_id} 已渲染但正文仍残留占位符")
+                seen_rendered_placeholders.add(placeholder_id)
             if not output_path.exists():
                 errors.append(f"{item.id} 图片文件缺失: {item.output_file}")
             elif output_path.stat().st_size <= 1024:

@@ -2,8 +2,16 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 from typing import Any, Dict
+
+import yaml
+
+if __package__ in {None, ""}:
+    scripts_dir = Path(__file__).resolve().parents[1]
+    if str(scripts_dir) not in sys.path:
+        sys.path.insert(0, str(scripts_dir))
 
 try:
     from .engines import graphviz, mermaid, plantuml
@@ -20,17 +28,40 @@ def _resolve_path(path_text: str, root: Path) -> Path:
     return root / path
 
 
+def _load_plantuml_method(root: Path) -> str:
+    config = root / ".thesis-config.yaml"
+    if not config.exists():
+        return "auto"
+    data = yaml.safe_load(config.read_text(encoding="utf-8")) or {}
+    if not isinstance(data, dict):
+        return "auto"
+    plantuml_render = data.get("plantuml_render") or {}
+    if not isinstance(plantuml_render, dict):
+        return "auto"
+    method = str(plantuml_render.get("method") or "auto").strip().lower()
+    if method in {"auto", "plantuml", "kroki", "official_server"}:
+        return method
+    return "auto"
+
+
+def _effective_method(item, root: Path, method: str) -> str:
+    if item.engine == "plantuml" and method == "auto":
+        return _load_plantuml_method(root)
+    return method
+
+
 def _render_item(item, root: Path, method: str) -> bool:
     source = _resolve_path(item.source_file, root)
     output = _resolve_path(item.output_file, root)
+    effective_method = _effective_method(item, root, method)
     if item.engine == "mermaid":
-        mermaid.render(source, output, method=method)
+        mermaid.render(source, output, method=effective_method)
         return True
     if item.engine == "graphviz":
         graphviz.render(source, output)
         return True
     if item.engine == "plantuml":
-        plantuml.render(source, output, method=method)
+        plantuml.render(source, output, method=effective_method)
         return True
     return False
 

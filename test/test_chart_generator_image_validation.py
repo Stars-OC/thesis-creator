@@ -64,7 +64,7 @@ class ChartGeneratorImageValidationTest(unittest.TestCase):
             source.parent.mkdir(parents=True)
             output.parent.mkdir(parents=True, exist_ok=True)
             manifest.parent.mkdir(parents=True)
-            paper.write_text("架构图仍残留 [image_1]。", encoding="utf-8")
+            paper.write_text("模块图仍残留 [image_1]。", encoding="utf-8")
             source.write_text("graph LR\nA-->B\n", encoding="utf-8")
             output.write_bytes(b"x" * 128)
             manifest.write_text(
@@ -73,16 +73,16 @@ class ChartGeneratorImageValidationTest(unittest.TestCase):
                         "images": [
                             {
                                 "id": "image_1",
-                                "title": "图4-1 系统架构图",
+                                "title": "图4-1 系统模块图",
                                 "chapter": "第4章",
                                 "section": "4.1",
                                 "source": "ai",
-                                "diagram_type": "architecture",
-                                "purpose": "展示系统架构",
+                                "diagram_type": "module",
+                                "purpose": "展示系统模块关系",
                                 "fact_source": "background.md",
-                                "placement": "架构说明之后",
+                                "placement": "模块说明之后",
                                 "status": "pending",
-                                "description": "展示系统结构",
+                                "description": "展示系统模块结构",
                                 "engine": "mermaid",
                                 "source_file": "workspace/final/images/sources/image_1.mmd",
                                 "output_file": "workspace/final/images/image_1.png",

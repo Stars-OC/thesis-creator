@@ -18,7 +18,7 @@ from charts.source_writer import prepare_sources, validate_sources  # noqa: E402
 
 
 class ChartLayoutConfigTestCase(unittest.TestCase):
-    def test_architecture_uses_mermaid_and_flowchart_uses_plantuml_sources(self):
+    def test_architecture_uses_user_source_and_flowchart_uses_plantuml_sources(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             paper = root / "workspace" / "final" / "论文终稿.md"
@@ -61,8 +61,8 @@ description: 用户登录流程
             items = build_manifest(paper, manifest)
             prepare_sources(manifest, sources_dir)
 
-            self.assertEqual(["mermaid", "plantuml"], [item.engine for item in items])
-            self.assertTrue((sources_dir / "image_1.mmd").exists())
+            self.assertEqual(["user", "plantuml"], [item.engine for item in items])
+            self.assertFalse((sources_dir / "image_1.mmd").exists())
             self.assertTrue((sources_dir / "image_2.puml").exists())
 
     def test_plantuml_diagrams_dispatch_to_plantuml_renderer(self):
@@ -109,6 +109,112 @@ description: 用户登录流程
                 report = render_manifest(manifest, root=root)
 
             self.assertEqual(1, report["rendered"])
+            self.assertTrue(output.exists())
+
+    def test_plantuml_renderer_uses_method_from_workspace_config(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            source = root / "workspace" / "final" / "images" / "sources" / "image_3.puml"
+            output = root / "workspace" / "final" / "images" / "image_3.png"
+            manifest = root / "workspace" / "references" / "images.yaml"
+            config = root / ".thesis-config.yaml"
+            source.parent.mkdir(parents=True)
+            manifest.parent.mkdir(parents=True)
+            source.write_text("@startuml\nactor 用户\n@enduml\n", encoding="utf-8")
+            config.write_text(
+                "plantuml_render:\n  method: kroki\n",
+                encoding="utf-8",
+            )
+            manifest.write_text(
+                yaml.safe_dump(
+                    {
+                        "images": [
+                            {
+                                "id": "image_3",
+                                "title": "图3-1 用例图",
+                                "chapter": "第3章",
+                                "section": "3.2",
+                                "source": "ai",
+                                "diagram_type": "usecase",
+                                "purpose": "展示系统用例",
+                                "fact_source": "outline.md",
+                                "placement": "需求分析之后",
+                                "status": "pending",
+                                "description": "用户和管理员参与系统用例",
+                            }
+                        ]
+                    },
+                    allow_unicode=True,
+                    sort_keys=False,
+                ),
+                encoding="utf-8",
+            )
+            validate_sources(manifest, root=root)
+            methods = []
+
+            def fake_plantuml_render(source_path, output_path, method="auto"):
+                methods.append(method)
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                output_path.write_bytes(b"x" * 2048)
+
+            with patch("charts.render.plantuml.render", side_effect=fake_plantuml_render):
+                report = render_manifest(manifest, root=root)
+
+            self.assertEqual(1, report["rendered"])
+            self.assertEqual(["kroki"], methods)
+            self.assertTrue(output.exists())
+
+    def test_plantuml_renderer_accepts_official_server_from_workspace_config(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            source = root / "workspace" / "final" / "images" / "sources" / "image_3.puml"
+            output = root / "workspace" / "final" / "images" / "image_3.png"
+            manifest = root / "workspace" / "references" / "images.yaml"
+            config = root / ".thesis-config.yaml"
+            source.parent.mkdir(parents=True)
+            manifest.parent.mkdir(parents=True)
+            source.write_text("@startuml\nactor 用户\n@enduml\n", encoding="utf-8")
+            config.write_text(
+                "plantuml_render:\n  method: official_server\n",
+                encoding="utf-8",
+            )
+            manifest.write_text(
+                yaml.safe_dump(
+                    {
+                        "images": [
+                            {
+                                "id": "image_3",
+                                "title": "图3-1 用例图",
+                                "chapter": "第3章",
+                                "section": "3.2",
+                                "source": "ai",
+                                "diagram_type": "usecase",
+                                "purpose": "展示系统用例",
+                                "fact_source": "outline.md",
+                                "placement": "需求分析之后",
+                                "status": "pending",
+                                "description": "用户和管理员参与系统用例",
+                            }
+                        ]
+                    },
+                    allow_unicode=True,
+                    sort_keys=False,
+                ),
+                encoding="utf-8",
+            )
+            validate_sources(manifest, root=root)
+            methods = []
+
+            def fake_plantuml_render(source_path, output_path, method="auto"):
+                methods.append(method)
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                output_path.write_bytes(b"x" * 2048)
+
+            with patch("charts.render.plantuml.render", side_effect=fake_plantuml_render):
+                report = render_manifest(manifest, root=root)
+
+            self.assertEqual(1, report["rendered"])
+            self.assertEqual(["official_server"], methods)
             self.assertTrue(output.exists())
 
 

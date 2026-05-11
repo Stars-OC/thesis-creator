@@ -41,6 +41,7 @@ class ImageItem:
     render_status: str = "pending"
     prompt_hint: str = ""
     render_error: str = ""
+    placeholder_id: str = ""
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "ImageItem":
@@ -50,8 +51,19 @@ class ImageItem:
             raise ValueError(f"{image_id} 缺少必填字段: {', '.join(missing)}")
 
         item = dict(data)
+        diagram_type = str(item.get("diagram_type", "")).strip().lower()
+        if diagram_type == "architecture":
+            item["source"] = "user"
+            item["engine"] = "user"
+            item["status"] = "pending_user"
+            item["render_status"] = "pending_user"
+            item["source_file"] = ""
+            item["prompt_hint"] = str(item.get("prompt_hint") or "架构图由用户自行生成；如需 AI 生成，请使用 GPT image 生图后作为用户图片补入。")
         item["engine"] = str(item.get("engine") or infer_engine(item))
-        item["source_file"] = str(item.get("source_file") or default_source_file(item["id"], item["engine"]))
+        if item["engine"] == "user":
+            item["source_file"] = ""
+        else:
+            item["source_file"] = str(item.get("source_file") or default_source_file(item["id"], item["engine"]))
         item["output_file"] = str(item.get("output_file") or f"workspace/final/images/{item['id']}.png")
         item["render_status"] = str(item.get("render_status") or "pending")
         item["prompt_hint"] = str(item.get("prompt_hint") or "")
@@ -68,7 +80,7 @@ def infer_engine(item: Dict[str, Any]) -> str:
     diagram_type = str(item.get("diagram_type", "")).strip().lower()
     if source == "user":
         return "user"
-    if diagram_type in {"er", "erd", "dot"}:
+    if diagram_type in {"er", "erd", "dot", "overall_er", "overall-er", "总体er图", "总体er"}:
         return "graphviz"
     if diagram_type in {"sequence", "usecase", "class", "activity", "plantuml", "flowchart", "flow", "workflow", "流程图"}:
         return "plantuml"

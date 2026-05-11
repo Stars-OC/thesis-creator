@@ -58,10 +58,14 @@ class WorkflowP0RepairsTest(unittest.TestCase):
 
     def test_step_8_er_documentation_matches_current_dot_builder_scope(self):
         step8 = (WORKFLOWS_DIR / "step_8_image.md").read_text(encoding="utf-8")
-        self.assertIn("从 `background.md` 启发式提取表名、字段和关联关系", step8)
-        self.assertIn("图名、表名和字段节点会使用 DOT 安全引用", step8)
-        self.assertIn("不承诺完整读取 `er_modeling` 布局配置", step8)
-        self.assertIn("不承诺自动归一为英文物理表名", step8)
+        self.assertIn("ER 图类型由 `thesis-workspace/.thesis-config.yaml` 的 `er_modeling.graph_type` 决定", step8)
+        self.assertIn("教科书 Chen 风格", step8)
+        self.assertIn("实体用矩形、属性用椭圆、联系用菱形", step8)
+        self.assertIn("总体 ER 图", step8)
+        self.assertIn("第一个展示", step8)
+        self.assertIn("DOT 实体-联系-实体结构", step8)
+        self.assertIn("`graph_type=erd` 时输出 Mermaid `erDiagram`", step8)
+        self.assertIn("图名、表名、字段节点和联系节点会使用 DOT 安全引用", step8)
         self.assertNotIn("唯一配置源：`thesis-workspace/.thesis-config.yaml -> er_modeling`", step8)
         self.assertNotIn("实体居中、字段环绕", step8)
         self.assertNotIn("优先归一到英文物理表名", step8)
@@ -83,6 +87,12 @@ class WorkflowP0RepairsTest(unittest.TestCase):
         self.assertNotIn("--no-render", step8)
         self.assertNotIn("生成模板", step8)
         self.assertIn("正文不得残留 [image_N]", step9)
+
+    def test_step_8_documents_usecase_layout_per_actor(self):
+        step8 = (WORKFLOWS_DIR / "step_8_image.md").read_text(encoding="utf-8")
+        self.assertIn("usecase_modeling.layout", step8)
+        self.assertIn("per_actor", step8)
+        self.assertIn("一个角色一张图", step8)
 
     def test_reference_workflow_documents_manual_chinese_supplement_and_duplicate_blocking(self):
         reference_workflow = (WORKFLOWS_DIR / "reference_workflow.md").read_text(encoding="utf-8")

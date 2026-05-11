@@ -15,16 +15,16 @@ from charts.engines import plantuml
 MANIFEST_TEXT = """
 images:
   - id: image_1
-    title: 图4-1 架构图
+    title: 图4-1 模块图
     chapter: 第4章
     section: "4.1"
     source: ai
-    diagram_type: architecture
-    purpose: 展示架构
+    diagram_type: module
+    purpose: 展示模块关系
     fact_source: background.md
     placement: 图前说明，图后分析
     status: pending
-    description: 架构图
+    description: 模块图
     engine: mermaid
     source_file: workspace/final/images/sources/image_1.mmd
     output_file: workspace/final/images/image_1.png
@@ -119,7 +119,7 @@ class ChartsRenderDispatchTest(unittest.TestCase):
             self.assertEqual(report["skipped"], 1)
             self.assertIn("render_status: rendered", manifest.read_text(encoding="utf-8"))
 
-    def test_plantuml_falls_back_to_graphviz_when_external_renderers_fail(self):
+    def test_plantuml_auto_tries_official_server_after_local_and_kroki(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             source = root / "flow.puml"
@@ -135,18 +135,69 @@ class ChartsRenderDispatchTest(unittest.TestCase):
                 calls.append("kroki")
                 raise TimeoutError("kroki timeout")
 
+            def succeeding_official(src, out):
+                calls.append("official")
+                out.parent.mkdir(parents=True, exist_ok=True)
+                out.write_bytes(b"png")
+
             original_local = plantuml._render_local
             original_kroki = plantuml._render_kroki
+            original_official = plantuml._render_official_server
             try:
                 plantuml._render_local = failing_local
                 plantuml._render_kroki = failing_kroki
+                plantuml._render_official_server = succeeding_official
                 plantuml.render(source, output, method="auto")
             finally:
                 plantuml._render_local = original_local
                 plantuml._render_kroki = original_kroki
+                plantuml._render_official_server = original_official
 
             self.assertTrue(output.exists())
-            self.assertEqual(calls, ["local", "kroki"])
+            self.assertEqual(calls, ["local", "kroki", "official"])
+
+    def test_plantuml_kroki_tries_official_server_after_kroki_failure(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            source = root / "flow.puml"
+            output = root / "flow.png"
+            source.write_text("@startuml\nstart\n:开始;\nstop\n@enduml\n", encoding="utf-8")
+            calls = []
+
+            def failing_kroki(src, out):
+                calls.append("kroki")
+                raise TimeoutError("kroki timeout")
+
+            def succeeding_official(src, out):
+                calls.append("official")
+                out.parent.mkdir(parents=True, exist_ok=True)
+                out.write_bytes(b"png")
+
+            original_kroki = plantuml._render_kroki
+            original_official = plantuml._render_official_server
+            try:
+                plantuml._render_kroki = failing_kroki
+                plantuml._render_official_server = succeeding_official
+                plantuml.render(source, output, method="kroki")
+            finally:
+                plantuml._render_kroki = original_kroki
+                plantuml._render_official_server = original_official
+
+            self.assertTrue(output.exists())
+            self.assertEqual(calls, ["kroki", "official"])
+
+    def test_plantuml_rejects_graphviz_method(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            source = root / "usecase.puml"
+            output = root / "usecase.png"
+            source.write_text("@startuml\nactor 用户 as U\nU --> (登录)\n@enduml\n", encoding="utf-8")
+
+            with self.assertRaises(RuntimeError) as ctx:
+                plantuml.render(source, output, method="graphviz")
+
+            self.assertIn("PlantUML", str(ctx.exception))
+            self.assertIn("graphviz", str(ctx.exception).lower())
 
 
 if __name__ == "__main__":

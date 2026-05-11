@@ -15,7 +15,9 @@ class ChartsSchemaTest(unittest.TestCase):
     def test_infer_engine_defaults(self):
         self.assertEqual(infer_engine({"source": "user", "diagram_type": "screenshot"}), "user")
         self.assertEqual(infer_engine({"source": "ai", "diagram_type": "er"}), "graphviz")
+        self.assertEqual(infer_engine({"source": "ai", "diagram_type": "overall_er"}), "graphviz")
         self.assertEqual(infer_engine({"source": "ai", "diagram_type": "sequence"}), "plantuml")
+        self.assertEqual(infer_engine({"source": "ai", "diagram_type": "usecase"}), "plantuml")
         self.assertEqual(infer_engine({"source": "ai", "diagram_type": "flowchart"}), "plantuml")
         self.assertEqual(infer_engine({"source": "ai", "diagram_type": "workflow"}), "plantuml")
         self.assertEqual(infer_engine({"source": "ai", "diagram_type": "流程图"}), "plantuml")
@@ -51,10 +53,11 @@ images:
             items = load_manifest(manifest)
 
             self.assertIsInstance(items[0], ImageItem)
-            self.assertEqual(items[0].engine, "mermaid")
-            self.assertEqual(items[0].source_file, "workspace/final/images/sources/image_1.mmd")
+            self.assertEqual(items[0].source, "user")
+            self.assertEqual(items[0].engine, "user")
+            self.assertEqual(items[0].source_file, "")
             self.assertEqual(items[0].output_file, "workspace/final/images/image_1.png")
-            self.assertEqual(items[0].render_status, "pending")
+            self.assertEqual(items[0].render_status, "pending_user")
 
 
 if __name__ == "__main__":

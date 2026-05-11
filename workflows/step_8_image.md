@@ -53,18 +53,17 @@ images:
     title: 图4-1 系统整体架构图
     chapter: 第4章
     section: "4.1"
-    source: ai
+    source: user
     diagram_type: architecture
-    engine: mermaid
+    engine: user
     purpose: 展示系统整体分层与核心组件关系
-    fact_source: thesis-workspace/references/prompt/background.md
+    fact_source: 用户自行生成；如需 AI 生成请使用 GPT image
     placement: 图前说明架构目标，图后分析分层职责
-    status: pending
-    description: 展示系统整体分层、组件关系与数据流向
-    prompt_hint: 根据论文背景生成具体架构，不要使用默认模板
-    source_file: workspace/final/images/sources/image_1.mmd
+    status: pending_user
+    description: 系统架构图由用户自行生成后补入
+    prompt_hint: 架构图不进入自动源码生成和渲染链路
     output_file: workspace/final/images/image_1.png
-    render_status: pending
+    render_status: pending_user
 ```
 
 ### engine 推断规则
@@ -72,9 +71,11 @@ images:
 | source / diagram_type | 默认 engine | 源码后缀 |
 |---|---|---|
 | `source=user` | `user` | 无源码 |
-| `diagram_type=er/erd/dot` | `graphviz` | `.dot` |
+| `diagram_type=er/overall_er/dot` | `graphviz` | `.dot` |
+| `diagram_type=erd` 且 `.thesis-config.yaml` 中 `er_modeling.graph_type=erd` | `mermaid` | `.mmd` |
 | `diagram_type=flowchart/flow/workflow/流程图/activity/usecase/sequence/class/plantuml` | `plantuml` | `.puml` |
-| `diagram_type=architecture/module` | `mermaid` | `.mmd` |
+| `diagram_type=architecture` | `user` | 无源码 |
+| `diagram_type=module` | `mermaid` | `.mmd` |
 | 其他 AI 图 | `mermaid` | `.mmd` |
 
 ---
@@ -83,18 +84,21 @@ images:
 
 ### ER 图生成口径(硬约束)
 
-- 默认引擎：`engine=graphviz`，源码格式：`.dot`
-- 事实源：优先读取 `thesis-workspace/references/prompt/background.md`
-- 当前实现范围：从 `background.md` 启发式提取表名、字段和关联关系，生成基础 Graphviz DOT。
+- ER 图类型由 `thesis-workspace/.thesis-config.yaml` 的 `er_modeling.graph_type` 决定；仅 ER 图读取该配置。
+- 默认 `graph_type=dot`，输出 Graphviz DOT `.dot`，并采用教科书 Chen 风格：实体用矩形、属性用椭圆、联系用菱形，实体通过联系节点连接实体。
+- `diagram_type=overall_er` 表示总体 ER 图，必须在数据库设计流程中第一个展示，并使用 DOT 实体-联系-实体结构。
+- 总体 ER 图只展示实体、联系与 `1:1` / `1:N` 基数，不展示字段节点；关系菱形节点必须结合外键字段或实体语义命名，如“拥有”“包含”，不得统一写成“关联”。
+- `graph_type=erd` 时输出 Mermaid `erDiagram` `.mmd`；`graph_type=chen` 当前按 DOT Chen 风格处理。
+- 事实源：优先读取 `thesis-workspace/references/prompt/background.md`。
 - DOT 输出约束：不要显式生成 `label=` 属性，直接使用节点文本。
-- 图名、表名和字段节点会使用 DOT 安全引用，以支持图号、空格、括号等常见论文写法。
-- `source_writer.py` 会优先从 `background.md` 生成真实 DOT 源码，不再为 ER 图生成占位源码。
+- 图名、表名、字段节点和联系节点会使用 DOT 安全引用，以支持图号、空格、括号等常见论文写法。
+- `source_writer.py` 会优先从 `background.md` 生成真实 ER 源码，不再为 ER 图生成占位源码。
 - 信息不足时：尽量生成最小 DOT 并 warning，不因字段说明缺失直接阻断。
-- 当前不承诺完整读取 `er_modeling` 布局配置，也不承诺自动归一为英文物理表名；如需严格物理表名建模，应在 `background.md` 中直接写明期望节点名称或人工补充 DOT。
 
 | 图表 | 来源 | 推荐 engine | 占位符标记 |
 |------|------|-------------|------------|
-| 系统整体架构图 | AI 生成 | `mermaid` | `[image_N]` |
+| 总体 ER 图 | AI 生成 | `graphviz` | `[image_N]`，数据库设计流程第一个展示 |
+| 系统整体架构图 | 用户自行生成；如需 AI 生成请使用 GPT image 生图后补入 | `user` | `[image_N]` |
 | 系统功能模块图 | 用户手动提供 | `user` | `[image_N]` |
 | 各模块业务流程图 | AI 生成 | `plantuml` | `[image_N]` |
 | 实体 E-R 图 | AI 生成 | `graphviz` | `[image_N]` |
@@ -123,7 +127,45 @@ images:
 只输出PlantUML代码。
 ```
 
-- 架构图、模块图等 Mermaid 非流程型结构图不附加这段 PlantUML 提示词。
+### PlantUML 用例图固定提示词(硬约束)
+
+- 用例图布局由 `thesis-workspace/.thesis-config.yaml` 的 `usecase_modeling.layout` 控制。
+- `usecase_modeling.layout=overall`：生成一张总体用例图。
+- `usecase_modeling.layout=per_actor`：一个角色一张图；`manifest_builder.py` 会把单个 `[image_N]` 展开为多条 manifest，并在回填时按同一个占位符插入多张图片。
+- 当 `diagram_type=usecase` 时，生成 `.puml` 源码前必须附加以下固定提示词：
+
+```text
+请基于以下业务描述，生成一个符合软件工程论文规范的 PlantUML 用例图（Use Case Diagram）。
+
+要求：
+
+1. 使用标准 UML 用例图规范
+2. 风格偏学术化、简洁、黑白
+3. 不使用彩色、渐变、阴影
+4. actor 使用中文
+5. 系统边界使用 rectangle 包裹
+6. 用例名称简洁，避免长句
+7. 控制整体节点数量，保持论文可读性
+8. 避免复杂交叉线
+9. 使用 left to right direction 布局
+10. 输出完整可运行的 PlantUML 代码
+11. 使用如下 skinparam 风格：
+
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam usecase {
+    BackgroundColor white
+    BorderColor black
+}
+skinparam defaultFontName Microsoft YaHei
+
+12. 若功能较多，仅保留核心业务用例
+13. include / extend 仅在确实存在复用关系时使用
+14. 图的整体风格应接近高校计算机专业毕业论文中的 UML 用例图
+```
+
+- 架构图不走 Mermaid 自动生成；必须由用户自行生成，若需要 AI 生成则使用 GPT image 生图后作为 `source=user` 图片补入。
+- 模块图等 Mermaid 非流程型结构图不附加这段 PlantUML 提示词。
 - 普通业务流程图、活动流程图统一优先使用 PlantUML，而不是 Mermaid。
 - 若图题为“历史会话管理流程”等多轮交互主题，应在流程中显式体现上下文读取、历史检索、上下文合并、回答生成与持续追问循环。
 - **当用户要求“生成流程图”“测试流程图”或单独生成某张图时，默认先将源码写入 `thesis-workspace/workspace/final/images/sources/` 下对应 `.puml/.dot/.mmd` 文件，再按需渲染；除非用户明确要求“只输出代码”，否则不要把完整图表源码直接打印到控制台。**
@@ -177,8 +219,9 @@ python scripts/charts/validate.py --input workspace/final/论文终稿.md --mani
 | `mmdc` | Mermaid CLI 本地渲染 | `npm install -g @mermaid-js/mermaid-cli` |
 | `playwright` | Mermaid 浏览器渲染 | `pip install playwright && playwright install` |
 | `plantuml` | PlantUML 本地渲染 | 安装 PlantUML 命令行与 Java 环境 |
-| `kroki` | 在线 API 渲染 Mermaid/PlantUML | 需要网络 |
-| `auto` | Mermaid/PlantUML 自动选择可用方式；DOT 仍走 Graphviz | 已安装的优先 |
+| `kroki` | PlantUML 先尝试 Kroki，失败后再尝试 PlantUML 官方服务器；Mermaid 仍走 Kroki | 需要网络 |
+| `official_server` | 仅 PlantUML 官方服务器渲染 | 需要网络 |
+| `auto` | PlantUML 按“本地 PlantUML → Kroki → PlantUML 官方服务器”自动选择；Mermaid 自动选择本地或 Kroki；DOT 仍走 Graphviz | 已安装的优先 |
 
 ---
 
@@ -210,5 +253,5 @@ python scripts/charts/validate.py --input workspace/final/论文终稿.md --mani
 ## Step 8 中 ER 图的推荐口径
 
 - `graphviz`：ER 图默认模式，读取 `background.md` 并启发式生成基础 Graphviz DOT；图名、表名、字段节点使用 DOT 安全引用，信息不足时尽量生成并 warning。
-- `mermaid`：用于普通架构图、模块图等非流程型结构图。
+- `mermaid`：用于模块图等非流程型结构图；系统架构图固定按 `source=user` 处理，不进入 Mermaid 自动生成链路。
 - `plantuml`：用于流程图、用例图、时序图、类图和活动图，更符合 UML 表达规范。

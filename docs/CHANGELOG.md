@@ -28,13 +28,13 @@
 
 #### 图片生成与渲染系统（Step 8）
 
-- **自动图表生成**：根据论文内容自动生成架构图、流程图、E-R 图等 Mermaid 图表
-- **多渲染模式**：支持在线渲染（mermaid.ink）和离线渲染（Playwright + Puppeteer）
-- **模板化图表**：新增 `scripts/templates/charts/` 图表模板目录，提供架构图、E-R 图、流程图、时序图等预设模板
+- **自动图表生成**：根据论文内容生成流程图、E-R 图、用例图等图表；系统架构图按用户补图占位处理
+- **多渲染模式**：支持 Mermaid、Graphviz 和 PlantUML 图表渲染
+- **模板化图表**：新增 `scripts/templates/charts/` 图表模板目录，提供 E-R 图、流程图、时序图等预设模板
 - **主题配置**：新增 `scripts/templates/chart_themes.yaml`，支持自定义图表配色方案
 - **智能关键词提取**：新增 `scripts/keyword_extractor.py`，从论文文本中提取关键术语用于图表标注
-- **LLM 辅助生成**：新增 `scripts/llm_chart_generator.py`，利用 AI 生成高质量 Mermaid 代码
-- **占位符原位替代**：图表占位符自动替换为 Mermaid 代码块，无需额外导出
+- **LLM 辅助生成**：新增 `scripts/llm_chart_generator.py`，辅助生成 Mermaid、Graphviz、PlantUML 图表内容
+- **占位符原位替代**：图表占位符按渲染结果或用户补图状态回填，无需额外导出
 
 新增脚本：
 

@@ -47,12 +47,61 @@ def _render_kroki(source: Path, output: Path) -> None:
     output.write_bytes(data)
 
 
+def _plantuml_server_encode(text: str) -> str:
+    data = zlib.compress(text.encode("utf-8"))[2:-4]
+    alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_"
+    result = []
+
+    for i in range(0, len(data), 3):
+        chunk = data[i:i + 3]
+        b1 = chunk[0]
+        b2 = chunk[1] if len(chunk) > 1 else 0
+        b3 = chunk[2] if len(chunk) > 2 else 0
+        c1 = b1 >> 2
+        c2 = ((b1 & 0x3) << 4) | (b2 >> 4)
+        c3 = ((b2 & 0xF) << 2) | (b3 >> 6)
+        c4 = b3 & 0x3F
+        result.append(alphabet[c1 & 0x3F])
+        result.append(alphabet[c2 & 0x3F])
+        if len(chunk) > 1:
+            result.append(alphabet[c3 & 0x3F])
+        if len(chunk) > 2:
+            result.append(alphabet[c4 & 0x3F])
+
+    return "".join(result)
+
+
+def _render_official_server(source: Path, output: Path) -> None:
+    code = source.read_text(encoding="utf-8")
+    encoded = _plantuml_server_encode(code)
+    url = f"https://www.plantuml.com/plantuml/png/{encoded}"
+    req = urllib.request.Request(url, headers={"User-Agent": "thesis-creator/1.0"})
+    with urllib.request.urlopen(req, timeout=30) as response:
+        data = response.read()
+    if not data:
+        raise RuntimeError("PlantUML 官方服务器返回空数据")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_bytes(data)
+
+
 def _strip_markup(text: str) -> str:
     return re.sub(r"<[^>]+>|<<[^>]+>>", "", text).strip()
 
 
 def _quote_dot(text: str) -> str:
     return '"' + text.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n') + '"'
+
+
+def _actor_html_label(text: str) -> str:
+    safe = text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+    return (
+        '<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0">'
+        '<TR><TD>○</TD></TR>'
+        '<TR><TD>╱│╲</TD></TR>'
+        '<TR><TD>╱ ╲</TD></TR>'
+        f'<TR><TD>{safe}</TD></TR>'
+        '</TABLE>>'
+    )
 
 
 def _activity_to_dot(code: str) -> str:
@@ -186,7 +235,8 @@ def _usecase_to_dot(code: str) -> str:
         "  edge [fontname=\"Microsoft YaHei\", fontsize=10, color=\"#555555\"];",
     ]
     for alias, label in actors.items():
-        dot_lines.append(f"  {alias} [label={_quote_dot(label)}, shape=box, style=\"rounded,filled\", fillcolor=\"#FFF8E8\"];")
+        dot_lines.append(
+            f"  {alias} [label={_actor_html_label(label)}, shape=none, margin=0, color=\"#2F5D8C\"];")
     for alias, label in usecases.items():
         dot_lines.append(f"  {alias} [label={_quote_dot(label)}, shape=ellipse, style=filled, fillcolor=\"#F8FBFF\"];")
     for start, end, label in edges:
@@ -212,15 +262,23 @@ def render(source: Path, output: Path, method: str = "auto") -> None:
     if method == "plantuml":
         _render_local(source, output)
         return
+    if method == "official_server":
+        _render_official_server(source, output)
+        return
     if method == "kroki":
-        _render_kroki(source, output)
-        return
+        errors = []
+        for renderer in (_render_kroki, _render_official_server):
+            try:
+                renderer(source, output)
+                return
+            except Exception as exc:
+                errors.append(str(exc))
+        raise RuntimeError("; ".join(errors))
     if method == "graphviz":
-        _render_graphviz_fallback(source, output)
-        return
+        raise RuntimeError("PlantUML 图禁止使用 graphviz 渲染方法")
 
     errors = []
-    for renderer in (_render_local, _render_kroki, _render_graphviz_fallback):
+    for renderer in (_render_local, _render_kroki, _render_official_server):
         try:
             renderer(source, output)
             return

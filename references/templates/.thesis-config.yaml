@@ -68,6 +68,17 @@ diagram_generation:
   architecture_mode: llm
   flowchart_direction: LR
 
+# PlantUML 渲染方式
+# method 可选值：
+# - auto: 先尝试本地 plantuml 命令，再尝试 Kroki，最后尝试 PlantUML 官方服务器
+# - plantuml: 仅使用本地 plantuml 命令，适合本机已安装 PlantUML CLI 的场景
+# - kroki: 先尝试 Kroki，失败后再尝试 PlantUML 官方服务器
+# - official_server: 仅使用 PlantUML 官方服务器
+# 当前模板默认值为 kroki；如需改为本地优先，再手动改成 auto
+# 注意：PlantUML 图不会再跨到 Graphviz 渲染引擎
+plantuml_render:
+  method: kroki
+
 logging:
   # 是否启用日志功能
   # true: 正常生成日志文件（适合调试、问题排查）

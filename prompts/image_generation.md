@@ -33,9 +33,9 @@ er_modeling:
 
 ### `graph_type` 映射
 
-- `chen`：概念 ER 图（Mermaid `flowchart LR`，实体矩形/属性椭圆，默认）
+- `dot`：Graphviz DOT（默认），采用教科书 Chen 风格：实体矩形、属性椭圆、联系菱形，实体通过联系节点连接实体
+- `chen`：按 Graphviz DOT 的 Chen 风格输出
 - `erd`：工程 ERD（Mermaid `erDiagram`）
-- `dot`：Graphviz DOT（输出 `dot` 代码块）
 
 ---
 
@@ -45,13 +45,13 @@ er_modeling:
 
 **适用场景**：第4章「系统设计」、第5章「系统实现」
 
-**生成方式**：使用 `scripts/charts/` 图表子系统，按图类型选择固定引擎：架构图/模块图 → Mermaid，流程图/用例图/时序图/类图/活动图 → PlantUML，ER 图 → Graphviz DOT
+**生成方式**：系统架构图需要用户自行生成；若需要 AI 生成，请使用 GPT image 生图后作为用户图片补入。`scripts/charts/` 图表子系统仅负责保留 `source=user` 占位、校验和回填，不自动生成架构图源码。
 
 **规范**：
 - 分层清晰(表现层、接口层、业务层、数据层)
-- 使用 `graph TB` 自上而下布局
-- 每个子系统用 `subgraph` 分组
+- 图中应体现前端、后端、数据库、外部服务等核心关系
 - 标注关键技术名称(如 Vue.js、Spring Boot、MySQL)
+- 导出为 PNG 或 SVG 后作为用户图片补入
 
 **示例**：
 ````markdown
@@ -67,7 +67,7 @@ er_modeling:
 
 **适用场景**：第4章「系统设计」、第5章「核心功能实现」
 
-**生成方式**：流程图统一优先使用 PlantUML，由 LLM 根据 `images.yaml` 生成 `.puml` 源码；仅架构图、模块图等非流程型结构图继续优先使用 Mermaid
+**生成方式**：流程图统一优先使用 PlantUML，由 LLM 根据 `images.yaml` 生成 `.puml` 源码；模块图等非流程型结构图继续优先使用 Mermaid，架构图固定由用户补图
 
 **规范**：
 - 起始和结束用圆角矩形 `([开始])` `([结束])`
@@ -100,13 +100,13 @@ er_modeling:
 **补充要求**：
 - `{{图表主题}}` 优先替换为 `images.yaml` 的 `title`，必要时可简化为 `purpose`
 - 若主题涉及多轮对话、历史会话、审核回退、失败重试等场景，必须在图中体现循环与状态回流
-- 架构图、模块图等 Mermaid 非流程型结构图不附加上述 PlantUML 提示词
+- 模块图等 Mermaid 非流程型结构图不附加上述 PlantUML 提示词；架构图不进入 Mermaid 自动生成链路
 
 ---
 
 ### 3. 概念 ER 图（Conceptual ER）
 
-**生成策略**：每个数据库表生成一张独立的 ER 图（默认核心实体单图）
+**生成策略**：先生成一张总体 ER 图并在数据库设计流程中第一个展示；总体 ER 图只展示实体、联系与 `1:1` / `1:N` 基数，不展示字段，且关系菱形节点必须结合外键字段或实体语义命名，如“拥有”“包含”，不得统一写成“关联”。随后再按需要为核心数据库表生成单表 ER 图。
 
 **适用场景**：第4章「数据库设计」
 
@@ -142,13 +142,20 @@ er_modeling:
 
 **适用场景**：第3章「系统总体需求分析」、第4章「系统设计」
 
-**生成方式**：用例图由 LLM 根据 `images.yaml` 需求生成 PlantUML `.puml` 源码，并由 `scripts/charts/render.py` 渲染
+**生成方式**：用例图由 LLM 根据 `images.yaml` 需求生成 PlantUML `.puml` 源码，并由 `scripts/charts/render.py` 渲染。生成前必须附加 `source_writer.py` 写入占位文件的固定 PlantUML 用例图提示词。
+
+**布局配置**：由 `thesis-workspace/.thesis-config.yaml` 中的 `usecase_modeling.layout` 控制。
+- `overall`：生成一张总体用例图
+- `per_actor`：一个角色一张图；`manifest_builder.py` 会把单个占位符展开为多条记录，并在回填时按同一个 `[image_N]` 插入多张图片
 
 **规范**：
-- 角色用圆形 `((用户))`
-- 用例用圆形 `((登录))`
-- 用 `subgraph 系统` 包裹系统边界
-- 连线表示角色与用例的关系
+- 使用标准 UML 用例图规范
+- actor 使用中文
+- 系统边界使用 `rectangle` 包裹
+- 使用 `left to right direction` 布局
+- 风格学术化、简洁、黑白，不使用彩色、渐变、阴影
+- 使用 `skinparam shadowing false`、`packageStyle rectangle`、`defaultFontName Microsoft YaHei`
+- 仅在确有复用关系时使用 include / extend
 - 结合需求描述生成具体角色、具体用例，不使用固定占位模板
 
 ---
@@ -234,17 +241,16 @@ images:
     title: 图4-1 系统整体架构图
     chapter: 第4章
     section: "4.1"
-    source: ai
+    source: user
     diagram_type: architecture
-    engine: mermaid
+    engine: user
     purpose: 展示系统分层结构
-    fact_source: thesis-workspace/references/prompt/background.md
+    fact_source: 用户自行生成；如需 AI 生成请使用 GPT image
     placement: 图前说明设计目标，图后解释模块关系
-    status: pending
-    description: 展示前端、后端、数据库和外部服务关系
-    source_file: workspace/final/images/sources/image_1.mmd
+    status: pending_user
+    description: 系统架构图由用户自行生成后补入
     output_file: workspace/final/images/image_1.png
-    render_status: pending
+    render_status: pending_user
 ```
 
 ---
@@ -268,7 +274,7 @@ images:
 
 | 用户指令 | 执行动作 |
 |----------|----------|
-| 「生成系统架构图」 | 根据系统描述生成 Mermaid 架构图源码文件并渲染 |
+| 「生成系统架构图」 | 生成 `source=user` 架构图占位与图注说明，提示用户自行制图或使用 GPT image 生图后补入 |
 | 「生成流程图」 | 根据业务流程生成 PlantUML 流程图源码文件并渲染 |
 | 「生成 E-R 图」 | 根据数据库设计和 `.thesis-config.yaml` 生成对应格式源码文件 |
 | 「生成系统截图」 | 提示用户提供真实系统运行截图，并生成对应占位符与图注说明 |
@@ -279,8 +285,8 @@ images:
 **执行流程**：
 1. 解析用户指令，确定图片类型和内容
 2. 选择合适的生成方式(PlantUML / Mermaid / Graphviz DOT / 用户提供系统截图 / Python 可视化)
-3. 先将图表源码写入 `workspace/final/images/sources/` 下对应 `.puml/.mmd/.dot` 文件
-4. 再按需渲染并保存到 `workspace/final/images/`
+3. AI 图先将图表源码写入 `workspace/final/images/sources/` 下对应 `.puml/.mmd/.dot` 文件；`source=user` 图片不生成源码
+4. AI 图再按需渲染并保存到 `workspace/final/images/`；用户图片等待用户补入
 5. 更新论文中的图片引用
 6. 输出图片生成报告
 

@@ -339,8 +339,8 @@ Step 8: 文档导出（Word/PDF）
 
 | 图片类型 | 默认引擎 | 源文件 | 适用章节 |
 |----------|----------|--------|----------|
-| 系统架构图 | Mermaid | `.mmd` | 第4章 系统设计 |
-| 流程图 | Mermaid | `.mmd` | 第4-5章 功能设计/实现 |
+| 系统架构图 | 用户补图 | 无源码 | 第4章 系统设计 |
+| 流程图 | PlantUML | `.puml` | 第4-5章 功能设计/实现 |
 | 概念 ER 图 | Graphviz DOT | `.dot` | 第4章 数据库设计 |
 | 用例图 | PlantUML | `.puml` | 第4章 需求分析 |
 | 时序图 | PlantUML | `.puml` | 第5章 接口调用 |
@@ -545,8 +545,8 @@ python scripts/charts/source_writer.py --manifest workspace/references/images.ya
 
 | 图表类型 | 默认引擎 | 源文件 | 适用场景 |
 |----------|----------|--------|----------|
-| 系统架构图 | Mermaid | `.mmd` | 系统整体架构 |
-| 流程图 | Mermaid | `.mmd` | 业务流程、操作流程 |
+| 系统架构图 | 用户补图 | 无源码 | 系统整体架构 |
+| 流程图 | PlantUML | `.puml` | 业务流程、操作流程 |
 | 概念 ER 图 | Graphviz DOT | `.dot` | 数据库设计（实体/属性/联系） |
 | 用例图 | PlantUML | `.puml` | 功能需求分析 |
 | 时序图 | PlantUML | `.puml` | 接口调用流程 |

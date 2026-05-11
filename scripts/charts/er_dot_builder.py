@@ -21,9 +21,13 @@ def _dot_id(value: str) -> str:
     return f'"{escaped or "ER图"}"'
 
 
+def _node_id(*parts: str) -> str:
+    value = re.sub(r"[^0-9A-Za-z_一-鿿]+", "_", "_".join(parts))
+    return value.strip("_") or "node"
+
+
 def _field_id(table: str, field_name: str) -> str:
-    value = re.sub(r"[^0-9A-Za-z_一-鿿]+", "_", f"{table}_{field_name}")
-    return value.strip("_") or "field"
+    return _node_id(table, field_name)
 
 
 def _split_fields(text: str) -> List[str]:
@@ -54,36 +58,194 @@ def _parse_markdown_table_line(line: str, tables: dict[str, ErTable]) -> None:
     _add_table(tables, cells[0], cells[1])
 
 
+def _normalize_table_name(text: str) -> str:
+    value = _clean_cell(text)
+    if value.endswith("表结构"):
+        return value[:-2]
+    return value
+
+
+def _parse_heading_table_line(line: str) -> str:
+    match = re.match(r"^#+\s*(.+?表)(?:结构)?\s*$", line)
+    if not match:
+        return ""
+    return _normalize_table_name(match.group(1))
+
+
 def _parse_text_table_line(line: str, tables: dict[str, ErTable]) -> None:
     match = re.match(r"^([^：:，,。；;\s]*表)\s*[：:]\s*(.+)$", line)
-    if match:
-        _add_table(tables, match.group(1), match.group(2))
+    if match and _clean_cell(match.group(1)) != "关联表":
+        _add_table(tables, _normalize_table_name(match.group(1)), match.group(2))
 
 
-def _parse_relations(text: str, tables: dict[str, ErTable]) -> List[tuple[str, str]]:
+def _parse_relations(text: str, tables: dict[str, ErTable]) -> List[tuple[str, str, str]]:
     relations = []
     table_names = sorted(tables, key=len, reverse=True)
+    table_pattern = "|".join(re.escape(name) for name in table_names)
+    explicit_pattern = re.compile(
+        rf"(?P<start>{table_pattern})[.。．]\s*(?P<field>[0-9A-Za-z_一-鿿]+).*?关联\s*(?P<end>{table_pattern})[.。．]",
+    ) if table_names else None
     for line in text.splitlines():
+        if line.strip().startswith("关联表"):
+            continue
         if "关联" not in line:
             continue
+        if explicit_pattern:
+            match = explicit_pattern.search(line)
+            if match:
+                relation = (
+                    match.group("start"),
+                    match.group("end"),
+                    match.group("field") or "关联",
+                )
+                if relation not in relations:
+                    relations.append(relation)
+                continue
         matched = [name for name in table_names if name in line]
         if len(matched) >= 2:
             start, end = matched[0], matched[1]
-            if (start, end) not in relations:
-                relations.append((start, end))
+            relation = (start, end, "关联")
+            if relation not in relations:
+                relations.append(relation)
     return relations
+
+
+def _is_overall_er(title: str) -> bool:
+    title_text = _clean_cell(title)
+    return "总体ER图" in title_text or "总体 ER 图" in title_text
+
+
+def _cardinality_labels(relation_name: str) -> tuple[str, str]:
+    relation_text = _clean_cell(relation_name).lower()
+    if relation_text.endswith("_id") or relation_text == "关联":
+        return "N", "1"
+    return "1", "1"
+
+
+def _infer_relation_field(start: str, end: str, tables: dict[str, ErTable]) -> str:
+    start_table = tables.get(_clean_cell(start))
+    if not start_table:
+        return "关联"
+
+    preferred_fields = {
+        "角色表": ["role_id"],
+        "知识库表": ["kb_id"],
+        "用户表": ["user_id", "owner_id", "uploader_id"],
+        "文档表": ["doc_id", "document_id"],
+        "文档分段表": ["segment_id"],
+        "对话会话表": ["conversation_id"],
+        "对话消息表": ["message_id"],
+        "API密钥表": ["key_id"],
+        "系统配置表": ["config_id"],
+        "知识图谱节点表": ["node_id"],
+    }
+    for field_name in preferred_fields.get(_clean_cell(end), []):
+        if field_name in start_table.fields:
+            return field_name
+
+    foreign_keys = [field for field in start_table.fields if field.lower().endswith("_id") and field.lower() != "id"]
+    if len(foreign_keys) == 1:
+        return foreign_keys[0]
+    return "关联"
+
+
+def _semantic_relation_name(start: str, end: str, relation_name: str) -> str:
+    relation_text = _clean_cell(relation_name).lower()
+    pair_map = {
+        ("用户表", "角色表", "role_id"): "拥有",
+        ("知识库表", "用户表", "owner_id"): "创建",
+        ("文档表", "知识库表", "kb_id"): "包含",
+        ("文档分段表", "文档表", "doc_id"): "切分",
+        ("向量索引表", "文档分段表", "segment_id"): "索引",
+        ("对话会话表", "用户表", "user_id"): "发起",
+        ("对话会话表", "知识库表", "kb_id"): "基于",
+        ("对话消息表", "对话会话表", "conversation_id"): "包含",
+        ("API密钥表", "用户表", "user_id"): "持有",
+        ("操作日志表", "用户表", "user_id"): "产生",
+        ("知识图谱节点表", "知识库表", "kb_id"): "包含",
+    }
+    pair_key = (_clean_cell(start), _clean_cell(end), relation_text)
+    if pair_key in pair_map:
+        return pair_map[pair_key]
+
+    keyword_map = {
+        "role_id": "拥有",
+        "kb_id": "包含",
+        "owner_id": "创建",
+        "uploader_id": "上传",
+        "doc_id": "切分",
+        "document_id": "切分",
+        "segment_id": "索引",
+        "conversation_id": "包含",
+        "message_id": "产生",
+        "key_id": "持有",
+        "config_id": "配置",
+        "node_id": "构成",
+        "user_id": "归属",
+    }
+    if relation_text in keyword_map:
+        return keyword_map[relation_text]
+    return "对应"
+
+
+def _relation_node_name(start: str, end: str, relation_name: str, seen: dict[str, int]) -> str:
+    base = _semantic_relation_name(start, end, relation_name)
+    count = seen.get(base, 0)
+    seen[base] = count + 1
+    return base + ("​" * count)
 
 
 def build_er_dot_from_background(background_text: str, title: str = "") -> tuple[str, list[str]]:
     tables: dict[str, ErTable] = {}
     warnings = []
+    explicit_relations: list[tuple[str, str, str]] = []
+    pending_relation_targets: list[tuple[str, str]] = []
+    current_table = ""
+    in_field_table = False
 
     for raw_line in background_text.splitlines():
         line = raw_line.strip()
         if not line:
+            in_field_table = False
             continue
+
+        heading_table = _parse_heading_table_line(line)
+        if heading_table:
+            current_table = heading_table
+            tables.setdefault(current_table, ErTable(current_table))
+            in_field_table = False
+            continue
+
+        relation_match = re.match(r"^关联表\s*[：:]\s*(.+)$", line)
+        if relation_match and current_table:
+            targets = re.findall(r"[^，,、；;\s]*表", relation_match.group(1))
+            for target in targets:
+                table_name = _normalize_table_name(target)
+                tables.setdefault(table_name, ErTable(table_name))
+                pending_relation_targets.append((current_table, table_name))
+            continue
+
+        if line.startswith("|") and "---" not in line:
+            cells = [_clean_cell(cell) for cell in line.strip("|").split("|")]
+            if cells and cells[0] == "字段名":
+                in_field_table = True
+                continue
+            if in_field_table and current_table and cells:
+                field_name = _clean_cell(cells[0])
+                if field_name and field_name not in {"字段名", "说明", "类型"}:
+                    table = tables.setdefault(current_table, ErTable(current_table))
+                    if field_name not in table.fields:
+                        table.fields.append(field_name)
+                    continue
+
         _parse_markdown_table_line(line, tables)
         _parse_text_table_line(line, tables)
+
+    for start_table, end_table in pending_relation_targets:
+        relation_field = _infer_relation_field(start_table, end_table, tables)
+        relation = (start_table, end_table, relation_field)
+        if relation not in explicit_relations:
+            explicit_relations.append(relation)
 
     graph_name = _clean_cell(title) or "ER图"
     graph_id = _dot_id(graph_name)
@@ -97,21 +259,33 @@ def build_er_dot_from_background(background_text: str, title: str = "") -> tuple
             "}",
         ]) + "\n", warnings
 
-    relations = _parse_relations(background_text, tables)
+    relations = explicit_relations + [relation for relation in _parse_relations(background_text, tables) if relation not in explicit_relations]
+    overall_er = _is_overall_er(title)
     lines = [
         f"digraph {graph_id} {{",
         "  graph [rankdir=LR, bgcolor=white, nodesep=0.5, ranksep=0.8];",
-        "  node [fontname=\"Microsoft YaHei\", shape=box, style=rounded];",
-        "  edge [fontname=\"Microsoft YaHei\", color=\"#555555\"];",
+        "  node [fontname=\"Microsoft YaHei\", color=black];",
+        "  edge [fontname=\"Microsoft YaHei\", color=black];",
     ]
     for table in tables.values():
         table_id = _dot_id(table.name)
-        lines.append(f"  {table_id} [shape=box, style=\"rounded,filled\", fillcolor=\"#F8FBFF\"];")
+        lines.append(f"  {table_id} [shape=box];")
+        if overall_er:
+            continue
         for field_name in table.fields:
             field_node = _dot_id(_field_id(table.name, field_name))
-            lines.append(f"  {field_node} [shape=plaintext];")
+            lines.append(f"  {field_node} [shape=ellipse];")
             lines.append(f"  {table_id} -> {field_node} [style=dotted, arrowhead=none];")
-    for start, end in relations:
-        lines.append(f"  {_dot_id(start)} -> {_dot_id(end)};")
+    relation_name_seen: dict[str, int] = {}
+    for start, end, relation_name in relations:
+        relation_id = _dot_id(_relation_node_name(start, end, relation_name, relation_name_seen))
+        lines.append(f"  {relation_id} [shape=diamond];")
+        if overall_er:
+            tail_label, head_label = _cardinality_labels(relation_name)
+            lines.append(f"  {_dot_id(start)} -> {relation_id} [arrowhead=none, taillabel=\"{tail_label}\", labeldistance=1.5];")
+            lines.append(f"  {relation_id} -> {_dot_id(end)} [arrowhead=none, headlabel=\"{head_label}\", labeldistance=1.5];")
+            continue
+        lines.append(f"  {_dot_id(start)} -> {relation_id} [arrowhead=none];")
+        lines.append(f"  {relation_id} -> {_dot_id(end)} [arrowhead=none];")
     lines.append("}")
     return "\n".join(lines) + "\n", warnings

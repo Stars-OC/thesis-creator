@@ -24,7 +24,7 @@ class ChartGeneratorMarkdownReplaceTest(unittest.TestCase):
             paper.parent.mkdir(parents=True)
             output.parent.mkdir(parents=True)
             manifest.parent.mkdir(parents=True)
-            paper.write_text("系统架构如 [image_1] 所示。", encoding="utf-8")
+            paper.write_text("系统模块如 [image_1] 所示。", encoding="utf-8")
             output.write_bytes(b"x" * 2048)
             manifest.write_text(
                 yaml.safe_dump(
@@ -32,16 +32,16 @@ class ChartGeneratorMarkdownReplaceTest(unittest.TestCase):
                         "images": [
                             {
                                 "id": "image_1",
-                                "title": "图4-1 系统架构图",
+                                "title": "图4-1 系统模块图",
                                 "chapter": "第4章",
                                 "section": "4.1",
                                 "source": "ai",
-                                "diagram_type": "architecture",
-                                "purpose": "展示系统架构",
+                                "diagram_type": "module",
+                                "purpose": "展示系统模块关系",
                                 "fact_source": "background.md",
-                                "placement": "架构说明之后",
+                                "placement": "模块说明之后",
                                 "status": "pending",
-                                "description": "展示系统结构",
+                                "description": "展示系统模块结构",
                                 "engine": "mermaid",
                                 "source_file": "workspace/final/images/sources/image_1.mmd",
                                 "output_file": "workspace/final/images/image_1.png",
@@ -57,7 +57,7 @@ class ChartGeneratorMarkdownReplaceTest(unittest.TestCase):
 
             updated = update_markdown(paper, manifest, in_place=True, root=root)
 
-            self.assertIn("![图4-1 系统架构图](images/image_1.png)", updated)
+            self.assertIn("![图4-1 系统模块图](images/image_1.png)", updated)
             self.assertNotIn("[image_1]", paper.read_text(encoding="utf-8"))
 
     def test_update_markdown_keeps_pending_user_placeholder(self):

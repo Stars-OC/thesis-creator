@@ -28,21 +28,31 @@ def _remove_image_requirement_block(content: str, image_id: str) -> str:
     return pattern.sub("\n", content)
 
 
+def _placeholder_key(item) -> str:
+    return str(item.placeholder_id or item.id)
+
+
 def update_markdown(input_path: Path, manifest_path: Path, in_place: bool = False, root: Path | None = None) -> str:
     root = root or Path.cwd()
     content = input_path.read_text(encoding="utf-8")
 
+    grouped_items = {}
     for item in load_manifest(manifest_path):
         if not _should_replace(item):
             continue
-        output_path = _resolve_path(item.output_file, root)
-        if not output_path.exists() or output_path.stat().st_size == 0:
-            raise ValueError(f"图片文件缺失或为空: {item.id} -> {item.output_file}")
-        placeholder = f"[{item.id}]"
-        relative = Path(os.path.relpath(output_path, start=input_path.parent)).as_posix()
-        markdown_image = f"![{item.title}]({relative})"
-        content = content.replace(placeholder, markdown_image)
-        content = _remove_image_requirement_block(content, item.id)
+        grouped_items.setdefault(_placeholder_key(item), []).append(item)
+
+    for placeholder_id, items in grouped_items.items():
+        markdown_images = []
+        for item in items:
+            output_path = _resolve_path(item.output_file, root)
+            if not output_path.exists() or output_path.stat().st_size == 0:
+                raise ValueError(f"图片文件缺失或为空: {item.id} -> {item.output_file}")
+            relative = Path(os.path.relpath(output_path, start=input_path.parent)).as_posix()
+            markdown_images.append(f"![{item.title}]({relative})")
+        placeholder = f"[{placeholder_id}]"
+        content = content.replace(placeholder, "\n\n".join(markdown_images))
+        content = _remove_image_requirement_block(content, placeholder_id)
 
     if in_place:
         input_path.write_text(content, encoding="utf-8")

@@ -5,6 +5,8 @@ import argparse
 from pathlib import Path
 from typing import List
 
+import yaml
+
 try:
     from .er_dot_builder import build_er_dot_from_background
     from .schemas import ImageItem, dump_manifest, load_manifest, source_suffix
@@ -14,12 +16,46 @@ except ImportError:
 
 PLACEHOLDER_MARKER = "CHART_SOURCE_PLACEHOLDER"
 
+USECASE_PROMPT = """请基于以下业务描述，生成一个符合软件工程论文规范的 PlantUML 用例图（Use Case Diagram）。
+
+要求：
+
+1. 使用标准 UML 用例图规范
+2. 风格偏学术化、简洁、黑白
+3. 不使用彩色、渐变、阴影
+4. actor 使用中文
+5. 系统边界使用 rectangle 包裹
+6. 用例名称简洁，避免长句
+7. 控制整体节点数量，保持论文可读性
+8. 避免复杂交叉线
+9. 使用 left to right direction 布局
+10. 输出完整可运行的 PlantUML 代码
+11. 使用如下 skinparam 风格：
+
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam usecase {
+    BackgroundColor white
+    BorderColor black
+}
+skinparam defaultFontName Microsoft YaHei
+
+12. 若功能较多，仅保留核心业务用例
+13. include / extend 仅在确实存在复用关系时使用
+14. 图的整体风格应接近高校计算机专业毕业论文中的 UML 用例图
+"""
+
 
 def _source_path_for_item(item: ImageItem, sources_dir: Path) -> Path | None:
     suffix = source_suffix(item.engine)
     if not suffix:
         return None
     return sources_dir / f"{item.id}{suffix}"
+
+
+def _apply_engine(item: ImageItem, engine: str) -> None:
+    item.engine = engine
+    item.source_file = ""
 
 
 def _manifest_source_path(item: ImageItem, source_path: Path) -> str:
@@ -36,25 +72,64 @@ def _placeholder_source(item: ImageItem) -> str:
         f"# purpose: {item.purpose}",
         f"# description: {item.description}",
     ]
+    if item.diagram_type.strip().lower() == "usecase":
+        lines.extend(f"# {line}" if line else "#" for line in USECASE_PROMPT.splitlines())
     if item.prompt_hint:
         lines.append(f"# prompt_hint: {item.prompt_hint}")
     lines.append("# 请用正式图表源码替换本文件内容。")
     return "\n".join(lines) + "\n"
 
 
-def _is_er_graphviz_item(item: ImageItem) -> bool:
-    return item.engine == "graphviz" and item.diagram_type.strip().lower() in {"er", "erd", "dot"}
+def _is_er_item(item: ImageItem) -> bool:
+    return item.diagram_type.strip().lower() in {"er", "erd", "dot", "overall_er", "overall-er", "总体er图", "总体er"}
+
+
+def _workspace_root(manifest_path: Path) -> Path:
+    return manifest_path.parent.parent.parent if len(manifest_path.parents) >= 3 else manifest_path.parent
 
 
 def _resolve_fact_source(item: ImageItem, manifest_path: Path) -> Path:
-    root = manifest_path.parent.parent.parent if len(manifest_path.parents) >= 3 else manifest_path.parent
+    root = _workspace_root(manifest_path)
+    background = root / "references" / "prompt" / "background.md"
+    if _is_er_item(item) and background.exists():
+        return background
     fact_source = Path(item.fact_source) if item.fact_source else Path("references/prompt/background.md")
     if fact_source.is_absolute():
         return fact_source
     primary = root / fact_source
     if primary.exists():
         return primary
-    return root / "references" / "prompt" / "background.md"
+    return background
+
+
+def _er_graph_type(manifest_path: Path) -> str:
+    config = _workspace_root(manifest_path) / ".thesis-config.yaml"
+    if not config.exists():
+        return "dot"
+    data = yaml.safe_load(config.read_text(encoding="utf-8")) or {}
+    if not isinstance(data, dict):
+        return "dot"
+    er_modeling = data.get("er_modeling") or {}
+    if not isinstance(er_modeling, dict):
+        return "dot"
+    return str(er_modeling.get("graph_type") or "dot").strip().lower()
+
+
+def _build_erd_source(item: ImageItem, manifest_path: Path) -> str:
+    fact_source = _resolve_fact_source(item, manifest_path)
+    background = fact_source.read_text(encoding="utf-8") if fact_source.exists() else ""
+    lines = ["erDiagram", f"  %% {item.title}"]
+    for raw_line in background.splitlines():
+        if "表" in raw_line and "|" in raw_line and "---" not in raw_line:
+            cells = [cell.strip().strip("`'\"") for cell in raw_line.strip("|").split("|")]
+            if len(cells) >= 2 and cells[0] not in {"表名", "数据表", "实体"}:
+                table = cells[0]
+                fields = [field.strip() for field in cells[1].replace("，", ",").split(",") if field.strip()]
+                lines.append(f"  {table} {{")
+                for field in fields:
+                    lines.append(f"    string {field}")
+                lines.append("  }")
+    return "\n".join(lines) + "\n"
 
 
 def _er_dot_source(item: ImageItem, manifest_path: Path) -> str:
@@ -66,12 +141,60 @@ def _er_dot_source(item: ImageItem, manifest_path: Path) -> str:
     return dot
 
 
+def _is_overall_er_item(item: ImageItem) -> bool:
+    return item.diagram_type.strip().lower() in {"overall_er", "overall-er", "总体er图", "总体er"}
+
+
+def _prioritize_overall_er(items: List[ImageItem]) -> List[ImageItem]:
+    return [item for item in items if _is_overall_er_item(item)] + [item for item in items if not _is_overall_er_item(item)]
+
+
+def _should_write_source(item: ImageItem, source_path: Path) -> bool:
+    if not source_path.exists():
+        return True
+    if not _is_er_item(item):
+        return False
+    content = source_path.read_text(encoding="utf-8")
+    if item.engine == "graphviz":
+        stripped = content.lstrip()
+        if _is_overall_er_item(item):
+            return (
+                "label=" in content
+                or not stripped.startswith("digraph")
+                or "shape=box" not in content
+                or "shape=diamond" not in content
+                or "shape=ellipse" in content
+                or 'taillabel="' not in content
+                or 'headlabel="' not in content
+                or '_关联_' in content
+                or '_id_关联_' in content
+                or '"关联" [shape=diamond];' in content
+                or '"关联​" [shape=diamond];' in content
+            )
+        return (
+            "label=" in content
+            or not stripped.startswith("digraph")
+            or ("shape=box" not in content and "shape=ellipse" not in content)
+            or "_关联_" in content
+            or "_id_关联_" in content
+        )
+    if item.engine == "mermaid":
+        return "erDiagram" not in content
+    return False
+
+
 def prepare_sources(manifest_path: Path, sources_dir: Path) -> List[ImageItem]:
     items = load_manifest(manifest_path)
     sources_dir.mkdir(parents=True, exist_ok=True)
 
     updated: List[ImageItem] = []
     for item in items:
+        if _is_er_item(item):
+            graph_type = _er_graph_type(manifest_path)
+            if graph_type == "erd":
+                _apply_engine(item, "mermaid")
+            else:
+                _apply_engine(item, "graphviz")
         if item.engine == "user":
             updated.append(item)
             continue
@@ -80,11 +203,17 @@ def prepare_sources(manifest_path: Path, sources_dir: Path) -> List[ImageItem]:
             updated.append(item)
             continue
         item.source_file = _manifest_source_path(item, source_path)
-        if not source_path.exists():
-            source = _er_dot_source(item, manifest_path) if _is_er_graphviz_item(item) else _placeholder_source(item)
+        if _should_write_source(item, source_path):
+            if _is_er_item(item) and item.engine == "graphviz":
+                source = _er_dot_source(item, manifest_path)
+            elif _is_er_item(item) and item.engine == "mermaid":
+                source = _build_erd_source(item, manifest_path)
+            else:
+                source = _placeholder_source(item)
             source_path.write_text(source, encoding="utf-8")
         updated.append(item)
 
+    updated = _prioritize_overall_er(updated)
     dump_manifest(manifest_path, updated)
     return updated
 

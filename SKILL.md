@@ -99,7 +99,7 @@ flowchart LR
 - `workspace/references/images.yaml` 必须采用结构化字段，至少包含 `id`、`title`、`chapter`、`section`、`source`、`diagram_type`、`engine`、`purpose`、`fact_source`、`placement`、`status`、`description`、`source_file`、`output_file`、`render_status`；可选 `prompt_hint` 用于指导大模型生成源码
 - Step 4 只负责记录 `[image_N]` 与 `image-requirement` 图片需求块，Step 8 再生成 `images.yaml`、准备源码文件、由大模型填写 `.dot/.mmd/.puml`、渲染 PNG 并回填 Markdown 图片引用
 - 架构图、模块图、流程图、ER 图等 AI 图片必须先有 manifest 记录；用户提供图片必须在清单中标明 `source=user` 和待补状态
-- 图表引擎按图类型明确映射，不自由摇摆：**流程图/活动图/用例图/时序图/类图 → PlantUML (`.puml`)；ER 图 → Graphviz DOT (`.dot`)；架构图/模块图 → Mermaid (`.mmd`)；用户截图 → `user`**
+- 图表引擎按图类型明确映射，不自由摇摆：**流程图/活动图/用例图/时序图/类图 → PlantUML (`.puml`)；ER 图由 `.thesis-config.yaml` 的 `er_modeling.graph_type` 决定，默认 Graphviz DOT (`.dot`) 教科书 Chen 风格，`erd` 时输出 Mermaid `erDiagram`；总体 ER 图必须第一个展示，且仅展示实体、联系与 `1:1` / `1:N` 基数，关系菱形节点必须结合外键字段或实体语义命名，如“拥有”“包含”，不得统一写成“关联”，且不展示字段；架构图 → 用户自行生成/GPT image 后补入 (`source=user`)；模块图 → Mermaid (`.mmd`)；用户截图 → `user`**
 - **仅当流程图使用 PlantUML 生成时**，必须附加固定提示词模板，并将其中主题替换为当前图表标题或用途描述：
 
 ```text
@@ -192,7 +192,7 @@ thesis-workspace/
 | **AIGC 降低缺少自检清单** | **严重** | **必须补齐处理前计划、改写文本、自检表；自检项出现“未通过”时继续局部修正，不得交付为最终版** |
 | **章节内自建参考文献列表** | 中等 | 删除，合并阶段统一生成 |
 | **background.md 为空或未完善** | **致命** | **提示用户编辑 `thesis-workspace/references/prompt/background.md`，禁止控制台交互式输入** |
-| **ER 图事实源不一致** | **严重** | **Step 8 的 ER 图默认读取 `background.md`，仅 ER 图受 `thesis-workspace/.thesis-config.yaml` 的 `er_modeling` 配置影响，优先输出教科书风格 DOT，且 DOT 输出不要显式使用 `label=`** |
+| **ER 图事实源不一致** | **严重** | **Step 8 的 ER 图默认读取 `background.md`，仅 ER 图受 `thesis-workspace/.thesis-config.yaml` 的 `er_modeling` 配置影响；默认输出教科书 Chen 风格 DOT（实体矩形、属性椭圆、联系菱形），总体 ER 图必须第一个展示，且只展示实体、联系与 `1:1` / `1:N` 基数；关系菱形节点必须结合外键字段或实体语义命名，如“拥有”“包含”，不得统一写成“关联”；DOT 输出不要显式使用 `label=`** |
 
 ---
 

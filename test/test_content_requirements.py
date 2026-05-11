@@ -47,6 +47,9 @@ class ThesisContentRequirementTestCase(unittest.TestCase):
         self.assertIn("避免节点过于密集", content)
         self.assertIn("系统总体需求分析", content)
         self.assertIn("系统设计", content)
+        self.assertIn("usecase_modeling.layout", content)
+        self.assertIn("per_actor", content)
+        self.assertIn("一个角色一张图", content)
 
     def test_format_checker_should_accept_550_char_abstract(self):
         abstract_text = "研" * 550
