@@ -96,10 +96,10 @@ flowchart LR
 
 - 正文图片占位符统一使用 `[image_1]`、`[image_2]` 等格式
 - 图片需求清单统一记录到 `workspace/references/images.yaml`
-- `workspace/references/images.yaml` 必须采用结构化字段，至少包含 `id`、`title`、`chapter`、`section`、`source`、`diagram_type`、`engine`、`purpose`、`fact_source`、`placement`、`status`、`description`、`source_file`、`output_file`、`render_status`；可选 `prompt_hint` 用于指导大模型生成源码
+- `workspace/references/images.yaml` 必须采用结构化字段，至少包含 `id`、`title`、`chapter`、`section`、`source`、`diagram_type`、`engine`、`purpose`、`fact_source`、`placement`、`status`、`description`、`source_file`、`output_file`、`render_status`；可选 `prompt_hint` 用于指导大模型生成源码，`dot_mode` 可用于单图覆盖 ER 的 DOT 子模式
 - Step 4 只负责记录 `[image_N]` 与 `image-requirement` 图片需求块，Step 8 再生成 `images.yaml`、准备源码文件、由大模型填写 `.dot/.mmd/.puml`、渲染 PNG 并回填 Markdown 图片引用
 - 架构图、模块图、流程图、ER 图等 AI 图片必须先有 manifest 记录；用户提供图片必须在清单中标明 `source=user` 和待补状态
-- 图表引擎按图类型明确映射，不自由摇摆：**流程图/活动图/用例图/时序图/类图 → PlantUML (`.puml`)；ER 图由 `.thesis-config.yaml` 的 `er_modeling.graph_type` 决定，默认 Graphviz DOT (`.dot`) 教科书 Chen 风格，`erd` 时输出 Mermaid `erDiagram`；总体 ER 图必须第一个展示，且仅展示实体、联系与 `1:1` / `1:N` 基数，关系菱形节点必须结合外键字段或实体语义命名，如“拥有”“包含”，不得统一写成“关联”，且不展示字段；架构图 → 用户自行生成/GPT image 后补入 (`source=user`)；模块图 → Mermaid (`.mmd`)；用户截图 → `user`**
+- 图表引擎按图类型明确映射，不自由摇摆：**流程图/活动图/用例图/时序图/类图 → PlantUML (`.puml`)；ER 图由 `.thesis-config.yaml` 的 `er_modeling.graph_type` 决定，默认 Graphviz DOT (`.dot`) 教科书 Chen 风格，`erd` 时输出 Mermaid `erDiagram`；`diagram_type=overall_er` 必须第一个展示，且仅展示实体、联系与 `1:1` / `1:N` 基数，关系菱形节点必须结合外键字段或实体语义命名，如“拥有”“包含”，不得统一写成“关联”，且不展示字段；`diagram_type=entity_er` 可通过 `.thesis-config.yaml` 的 `er_modeling.dot_mode=textbook-single-entity-ring` 或 `images.yaml` 单图 `dot_mode` 启用单实体字段环绕 DOT，优先级为单图覆盖全局；架构图 → 用户自行生成/GPT image 后补入 (`source=user`)；模块图 → Mermaid (`.mmd`)；用户截图 → `user`**
 - **仅当流程图使用 PlantUML 生成时**，必须附加固定提示词模板，并将其中主题替换为当前图表标题或用途描述：
 
 ```text

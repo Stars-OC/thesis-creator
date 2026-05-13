@@ -40,14 +40,19 @@ semantic_scholar:
 # 唯一事实源：thesis-workspace/references/prompt/background.md
 # graph_type 可选值：
 # - dot: 教科书ER图（Graphviz DOT，默认）
-# - chen: 概念ER图（Mermaid flowchart LR，实体矩形+属性椭圆）
+# - chen: 概念ER图（Graphviz DOT Chen 风格）
 # - erd: 工程ERD（Mermaid erDiagram）
+# dot_mode 可选值：
+# - "": 使用现有默认 DOT 逻辑
+# - textbook-single-entity-ring: 仅对 diagram_type=entity_er 生效，生成单实体字段环绕图
+#   注意：overall_er 不受该值影响；images.yaml 单图配置可覆盖全局值
 # diagram_scope 可选值：
 # - single: 单表单图，适合逐表讲解
 # - multi: 多表同图，适合展示实体关系
 er_modeling:
   enabled: true
   graph_type: dot
+  dot_mode: ""
   diagram_scope: single
   strict_single_table: true
   line_style: straight

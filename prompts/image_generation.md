@@ -23,6 +23,7 @@
 er_modeling:
   enabled: true
   graph_type: dot           # dot | chen | erd
+  dot_mode: ""             # "" | textbook-single-entity-ring
   strict_single_table: true
   line_style: straight
   interactive_confirmation: false
@@ -36,6 +37,11 @@ er_modeling:
 - `dot`：Graphviz DOT（默认），采用教科书 Chen 风格：实体矩形、属性椭圆、联系菱形，实体通过联系节点连接实体
 - `chen`：按 Graphviz DOT 的 Chen 风格输出
 - `erd`：工程 ERD（Mermaid `erDiagram`）
+
+### `dot_mode` 映射
+
+- `""`：继续使用现有默认 DOT 逻辑
+- `textbook-single-entity-ring`：仅对 `diagram_type=entity_er` 生效，输出单实体字段环绕图；若同一图片记录中存在 `dot_mode`，则单图配置优先于全局配置
 
 ---
 
@@ -107,6 +113,11 @@ er_modeling:
 ### 3. 概念 ER 图（Conceptual ER）
 
 **生成策略**：先生成一张总体 ER 图并在数据库设计流程中第一个展示；总体 ER 图只展示实体、联系与 `1:1` / `1:N` 基数，不展示字段，且关系菱形节点必须结合外键字段或实体语义命名，如“拥有”“包含”，不得统一写成“关联”。随后再按需要为核心数据库表生成单表 ER 图。
+
+**模式边界**：
+- `diagram_type=overall_er`：只展示实体、联系与基数，不读取 `textbook-single-entity-ring`
+- `diagram_type=entity_er`：可通过 `dot_mode=textbook-single-entity-ring` 生成单实体字段环绕 DOT
+- 普通 `diagram_type=er`：第一阶段继续沿用现有默认 DOT 逻辑
 
 **适用场景**：第4章「数据库设计」
 

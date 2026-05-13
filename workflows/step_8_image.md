@@ -71,7 +71,7 @@ images:
 | source / diagram_type | 默认 engine | 源码后缀 |
 |---|---|---|
 | `source=user` | `user` | 无源码 |
-| `diagram_type=er/overall_er/dot` | `graphviz` | `.dot` |
+| `diagram_type=er/entity_er/overall_er/dot` | `graphviz` | `.dot` |
 | `diagram_type=erd` 且 `.thesis-config.yaml` 中 `er_modeling.graph_type=erd` | `mermaid` | `.mmd` |
 | `diagram_type=flowchart/flow/workflow/流程图/activity/usecase/sequence/class/plantuml` | `plantuml` | `.puml` |
 | `diagram_type=architecture` | `user` | 无源码 |
@@ -88,6 +88,8 @@ images:
 - 默认 `graph_type=dot`，输出 Graphviz DOT `.dot`，并采用教科书 Chen 风格：实体用矩形、属性用椭圆、联系用菱形，实体通过联系节点连接实体。
 - `diagram_type=overall_er` 表示总体 ER 图，必须在数据库设计流程中第一个展示，并使用 DOT 实体-联系-实体结构。
 - 总体 ER 图只展示实体、联系与 `1:1` / `1:N` 基数，不展示字段节点；关系菱形节点必须结合外键字段或实体语义命名，如“拥有”“包含”，不得统一写成“关联”。
+- `diagram_type=entity_er` 表示单实体字段图；当 `graph_type=dot` 且 `dot_mode=textbook-single-entity-ring` 时，输出 Graphviz 单实体字段环绕图：实体居中、字段椭圆环绕、使用 `graph ER`、`layout=neato` 与 `pos` 精确坐标，不生成关系菱形。
+- `dot_mode` 优先级：`images.yaml` 单图 `dot_mode` > `.thesis-config.yaml` 全局 `er_modeling.dot_mode` > 现有默认 DOT 逻辑。
 - `graph_type=erd` 时输出 Mermaid `erDiagram` `.mmd`；`graph_type=chen` 当前按 DOT Chen 风格处理。
 - 事实源：优先读取 `thesis-workspace/references/prompt/background.md`。
 - DOT 输出约束：不要显式生成 `label=` 属性，直接使用节点文本。
@@ -98,6 +100,7 @@ images:
 | 图表 | 来源 | 推荐 engine | 占位符标记 |
 |------|------|-------------|------------|
 | 总体 ER 图 | AI 生成 | `graphviz` | `[image_N]`，数据库设计流程第一个展示 |
+| 单实体字段 ER 图（`entity_er`） | AI 生成 | `graphviz` | `[image_N]`，可启用 `textbook-single-entity-ring` |
 | 系统整体架构图 | 用户自行生成；如需 AI 生成请使用 GPT image 生图后补入 | `user` | `[image_N]` |
 | 系统功能模块图 | 用户手动提供 | `user` | `[image_N]` |
 | 各模块业务流程图 | AI 生成 | `plantuml` | `[image_N]` |

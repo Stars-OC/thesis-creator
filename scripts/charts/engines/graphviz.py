@@ -26,18 +26,24 @@ def _ensure_graphviz_on_path() -> None:
         return
 
 
+def _normalize_engine(engine: str) -> str:
+    engine = engine.lower()
+    return engine if engine in GRAPHVIZ_LAYOUT_ENGINES else "dot"
+
+
 def _detect_layout_engine(code: str) -> str:
     for line in code.splitlines():
         stripped = line.strip()
         graph_attrs = re.match(r"^graph\s*\[(.*)\]", stripped)
         bare_attrs = re.match(r"^\[(.*)\]", stripped)
         attrs = graph_attrs.group(1) if graph_attrs else bare_attrs.group(1) if bare_attrs else ""
-        if not attrs:
-            continue
-        match = re.search(r"(?:^|,)\s*layout\s*=\s*\"?([A-Za-z0-9_]+)\"?\s*(?:,|$)", attrs)
+        if attrs:
+            match = re.search(r"(?:^|,)\s*layout\s*=\s*\"?([A-Za-z0-9_]+)\"?\s*(?:,|$)", attrs)
+            if match:
+                return _normalize_engine(match.group(1))
+        match = re.match(r"^layout\s*=\s*\"?([A-Za-z0-9_]+)\"?\s*;?$", stripped)
         if match:
-            engine = match.group(1).lower()
-            return engine if engine in GRAPHVIZ_LAYOUT_ENGINES else "dot"
+            return _normalize_engine(match.group(1))
     return "dot"
 
 

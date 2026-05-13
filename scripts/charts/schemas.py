@@ -42,6 +42,7 @@ class ImageItem:
     prompt_hint: str = ""
     render_error: str = ""
     placeholder_id: str = ""
+    dot_mode: str = ""
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "ImageItem":
@@ -68,6 +69,7 @@ class ImageItem:
         item["render_status"] = str(item.get("render_status") or "pending")
         item["prompt_hint"] = str(item.get("prompt_hint") or "")
         item["render_error"] = str(item.get("render_error") or "")
+        item["dot_mode"] = str(item.get("dot_mode") or "").strip().lower()
         return cls(**{field.name: item.get(field.name, "") for field in cls.__dataclass_fields__.values()})
 
     def to_dict(self) -> Dict[str, Any]:
@@ -80,7 +82,7 @@ def infer_engine(item: Dict[str, Any]) -> str:
     diagram_type = str(item.get("diagram_type", "")).strip().lower()
     if source == "user":
         return "user"
-    if diagram_type in {"er", "erd", "dot", "overall_er", "overall-er", "总体er图", "总体er"}:
+    if diagram_type in {"er", "erd", "dot", "overall_er", "overall-er", "entity_er", "entity-er", "single_entity_er", "single-entity-er", "总体er图", "总体er", "实体er图", "单实体er图"}:
         return "graphviz"
     if diagram_type in {"sequence", "usecase", "class", "activity", "plantuml", "flowchart", "flow", "workflow", "流程图"}:
         return "plantuml"

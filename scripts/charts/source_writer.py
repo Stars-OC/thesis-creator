@@ -9,9 +9,11 @@ import yaml
 
 try:
     from .er_dot_builder import build_er_dot_from_background
+    from .single_entity_er_dot_builder import build_single_entity_er_dot
     from .schemas import ImageItem, dump_manifest, load_manifest, source_suffix
 except ImportError:
     from er_dot_builder import build_er_dot_from_background
+    from single_entity_er_dot_builder import build_single_entity_er_dot
     from schemas import ImageItem, dump_manifest, load_manifest, source_suffix
 
 PLACEHOLDER_MARKER = "CHART_SOURCE_PLACEHOLDER"
@@ -81,7 +83,11 @@ def _placeholder_source(item: ImageItem) -> str:
 
 
 def _is_er_item(item: ImageItem) -> bool:
-    return item.diagram_type.strip().lower() in {"er", "erd", "dot", "overall_er", "overall-er", "总体er图", "总体er"}
+    return item.diagram_type.strip().lower() in {"er", "erd", "dot", "overall_er", "overall-er", "entity_er", "entity-er", "single_entity_er", "single-entity-er", "总体er图", "总体er", "实体er图", "单实体er图"}
+
+
+def _is_single_entity_er_item(item: ImageItem) -> bool:
+    return item.diagram_type.strip().lower() in {"entity_er", "entity-er", "single_entity_er", "single-entity-er", "实体er图", "单实体er图"}
 
 
 def _workspace_root(manifest_path: Path) -> Path:
@@ -102,17 +108,45 @@ def _resolve_fact_source(item: ImageItem, manifest_path: Path) -> Path:
     return background
 
 
-def _er_graph_type(manifest_path: Path) -> str:
+def _er_modeling_config(manifest_path: Path) -> dict:
     config = _workspace_root(manifest_path) / ".thesis-config.yaml"
     if not config.exists():
-        return "dot"
+        return {}
     data = yaml.safe_load(config.read_text(encoding="utf-8")) or {}
     if not isinstance(data, dict):
-        return "dot"
+        return {}
     er_modeling = data.get("er_modeling") or {}
     if not isinstance(er_modeling, dict):
-        return "dot"
+        return {}
+    return er_modeling
+
+
+
+def _er_graph_type(manifest_path: Path) -> str:
+    er_modeling = _er_modeling_config(manifest_path)
     return str(er_modeling.get("graph_type") or "dot").strip().lower()
+
+
+def _global_er_dot_mode(manifest_path: Path) -> str:
+    er_modeling = _er_modeling_config(manifest_path)
+    return str(er_modeling.get("dot_mode") or "").strip().lower()
+
+
+def _effective_er_dot_mode(item: ImageItem, manifest_path: Path) -> str:
+    if _er_graph_type(manifest_path) != "dot":
+        return ""
+    if item.dot_mode:
+        return item.dot_mode.strip().lower()
+    return _global_er_dot_mode(manifest_path)
+
+
+def _should_use_single_entity_ring(item: ImageItem, manifest_path: Path) -> bool:
+    return _is_single_entity_er_item(item) and _effective_er_dot_mode(item, manifest_path) in {"", "textbook-single-entity-ring"}
+
+
+def _er_diagram_scope(manifest_path: Path) -> str:
+    er_modeling = _er_modeling_config(manifest_path)
+    return str(er_modeling.get("diagram_scope") or "multi").strip().lower()
 
 
 def _build_erd_source(item: ImageItem, manifest_path: Path) -> str:
@@ -135,7 +169,20 @@ def _build_erd_source(item: ImageItem, manifest_path: Path) -> str:
 def _er_dot_source(item: ImageItem, manifest_path: Path) -> str:
     fact_source = _resolve_fact_source(item, manifest_path)
     background = fact_source.read_text(encoding="utf-8") if fact_source.exists() else ""
-    dot, warnings = build_er_dot_from_background(background, title=item.title)
+    focus_hint = ""
+    if _er_diagram_scope(manifest_path) == "single" and not _is_overall_er_item(item):
+        focus_hint = " ".join(part for part in [item.title, item.purpose, item.description] if part)
+    dot, warnings = build_er_dot_from_background(background, title=item.title, focus_hint=focus_hint)
+    if warnings:
+        item.prompt_hint = "; ".join(warnings)
+    return dot
+
+
+def _single_entity_er_dot_source(item: ImageItem, manifest_path: Path) -> str:
+    fact_source = _resolve_fact_source(item, manifest_path)
+    background = fact_source.read_text(encoding="utf-8") if fact_source.exists() else ""
+    focus_hint = " ".join(part for part in [item.title, item.purpose, item.description] if part)
+    dot, warnings = build_single_entity_er_dot(background, title=item.title, focus_hint=focus_hint)
     if warnings:
         item.prompt_hint = "; ".join(warnings)
     return dot
@@ -149,9 +196,20 @@ def _prioritize_overall_er(items: List[ImageItem]) -> List[ImageItem]:
     return [item for item in items if _is_overall_er_item(item)] + [item for item in items if not _is_overall_er_item(item)]
 
 
-def _should_write_source(item: ImageItem, source_path: Path) -> bool:
+def _should_write_source(item: ImageItem, source_path: Path, manifest_path: Path) -> bool:
     if not source_path.exists():
         return True
+    if _should_use_single_entity_ring(item, manifest_path):
+        content = source_path.read_text(encoding="utf-8") if source_path.exists() else ""
+        return (
+            "label=" in content
+            or "rank=" in content
+            or "graph ER" not in content
+            or "layout=neato" not in content
+            or 'pos="' not in content
+            or "shape=diamond" in content
+            or "->" in content
+        )
     if not _is_er_item(item):
         return False
     content = source_path.read_text(encoding="utf-8")
@@ -171,6 +229,8 @@ def _should_write_source(item: ImageItem, source_path: Path) -> bool:
                 or '"关联" [shape=diamond];' in content
                 or '"关联​" [shape=diamond];' in content
             )
+        if _er_diagram_scope(manifest_path) == "single":
+            return True
         return (
             "label=" in content
             or not stripped.startswith("digraph")
@@ -189,7 +249,9 @@ def prepare_sources(manifest_path: Path, sources_dir: Path) -> List[ImageItem]:
 
     updated: List[ImageItem] = []
     for item in items:
-        if _is_er_item(item):
+        if _is_single_entity_er_item(item):
+            _apply_engine(item, "graphviz")
+        elif _is_er_item(item):
             graph_type = _er_graph_type(manifest_path)
             if graph_type == "erd":
                 _apply_engine(item, "mermaid")
@@ -203,8 +265,10 @@ def prepare_sources(manifest_path: Path, sources_dir: Path) -> List[ImageItem]:
             updated.append(item)
             continue
         item.source_file = _manifest_source_path(item, source_path)
-        if _should_write_source(item, source_path):
-            if _is_er_item(item) and item.engine == "graphviz":
+        if _should_write_source(item, source_path, manifest_path):
+            if _should_use_single_entity_ring(item, manifest_path) and item.engine == "graphviz":
+                source = _single_entity_er_dot_source(item, manifest_path)
+            elif _is_er_item(item) and item.engine == "graphviz":
                 source = _er_dot_source(item, manifest_path)
             elif _is_er_item(item) and item.engine == "mermaid":
                 source = _build_erd_source(item, manifest_path)

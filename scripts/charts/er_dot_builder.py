@@ -115,6 +115,44 @@ def _is_overall_er(title: str) -> bool:
     return "总体ER图" in title_text or "总体 ER 图" in title_text
 
 
+
+def _normalize_match_text(text: str) -> str:
+    return re.sub(r"[^0-9A-Za-z一-鿿]+", "", _clean_cell(text)).lower()
+
+
+
+def _table_aliases(table_name: str) -> list[str]:
+    normalized_name = _clean_cell(table_name)
+    aliases = {_normalize_match_text(normalized_name)}
+
+    bracket_match = re.match(r"^(?P<label>[^（(]+?)(?:表)?\s*[（(](?P<physical>[^）)]+)[）)]\s*$", normalized_name)
+    if bracket_match:
+        label = _clean_cell(bracket_match.group("label"))
+        physical = _clean_cell(bracket_match.group("physical"))
+        if label:
+            aliases.add(_normalize_match_text(f"{label}表"))
+            aliases.add(_normalize_match_text(label))
+        if physical:
+            aliases.add(_normalize_match_text(physical))
+
+    if normalized_name.endswith("表"):
+        aliases.add(_normalize_match_text(normalized_name[:-1]))
+    return [alias for alias in aliases if alias]
+
+
+
+def _focus_tables_from_hint(focus_hint: str, tables: dict[str, ErTable]) -> set[str]:
+    normalized_hint = _normalize_match_text(focus_hint)
+    if not normalized_hint:
+        return set()
+
+    focused = set()
+    for table_name in tables:
+        if any(alias and alias in normalized_hint for alias in _table_aliases(table_name)):
+            focused.add(table_name)
+    return focused
+
+
 def _cardinality_labels(relation_name: str) -> tuple[str, str]:
     relation_text = _clean_cell(relation_name).lower()
     if relation_text.endswith("_id") or relation_text == "关联":
@@ -195,7 +233,7 @@ def _relation_node_name(start: str, end: str, relation_name: str, seen: dict[str
     return base + ("​" * count)
 
 
-def build_er_dot_from_background(background_text: str, title: str = "") -> tuple[str, list[str]]:
+def build_er_dot_from_background(background_text: str, title: str = "", focus_hint: str = "") -> tuple[str, list[str]]:
     tables: dict[str, ErTable] = {}
     warnings = []
     explicit_relations: list[tuple[str, str, str]] = []
@@ -232,7 +270,8 @@ def build_er_dot_from_background(background_text: str, title: str = "") -> tuple
                 continue
             if in_field_table and current_table and cells:
                 field_name = _clean_cell(cells[0])
-                if field_name and field_name not in {"字段名", "说明", "类型"}:
+                skip_names = {"字段名", "类型", "长度", "允许空", "主键", "说明", "备注"}
+                if field_name and field_name not in skip_names:
                     table = tables.setdefault(current_table, ErTable(current_table))
                     if field_name not in table.fields:
                         table.fields.append(field_name)
@@ -261,11 +300,26 @@ def build_er_dot_from_background(background_text: str, title: str = "") -> tuple
 
     relations = explicit_relations + [relation for relation in _parse_relations(background_text, tables) if relation not in explicit_relations]
     overall_er = _is_overall_er(title)
+
+    if focus_hint and not overall_er:
+        focused_tables = _focus_tables_from_hint(focus_hint, tables)
+        if not focused_tables:
+            warnings.append("未根据单图提示匹配到目标数据表，请在标题、用途或描述中明确写出目标表名。")
+            return "\n".join([
+                f"digraph {graph_id} {{",
+                "  graph [rankdir=LR, bgcolor=white];",
+                "  node [fontname=\"Microsoft YaHei\", shape=box];",
+                f"  {_dot_id(graph_name)} [shape=box, style=rounded];",
+                "}",
+            ]) + "\n", warnings
+        tables = {name: table for name, table in tables.items() if name in focused_tables}
+        relations = [relation for relation in relations if relation[0] in tables and relation[1] in tables]
+
     lines = [
         f"digraph {graph_id} {{",
-        "  graph [rankdir=LR, bgcolor=white, nodesep=0.5, ranksep=0.8];",
-        "  node [fontname=\"Microsoft YaHei\", color=black];",
-        "  edge [fontname=\"Microsoft YaHei\", color=black];",
+        "  graph [rankdir=LR, bgcolor=white, nodesep=0.25, ranksep=0.35, margin=0, pad=0];",
+        "  node [fontname=\"Microsoft YaHei\", color=black, fontsize=10, margin=\"0.04,0.02\"];",
+        "  edge [fontname=\"Microsoft YaHei\", color=black, fontsize=9, arrowsize=0.6];",
     ]
     for table in tables.values():
         table_id = _dot_id(table.name)

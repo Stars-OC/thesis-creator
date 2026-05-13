@@ -362,6 +362,229 @@ images:
             self.assertIn("用户表", source)
             self.assertNotIn("订单表", source)
 
+    def test_prepare_sources_uses_textbook_single_entity_ring_from_global_config(self):
+        manifest_text = """
+images:
+  - id: image_1
+    title: 图4-1 用户表单实体ER图
+    chapter: 第4章
+    section: "4.4"
+    source: ai
+    diagram_type: entity_er
+    purpose: 展示用户表字段
+    fact_source: background.md
+    placement: 数据库设计说明之后
+    status: pending
+    description: 用户表ER图
+"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            manifest = root / "workspace" / "references" / "images.yaml"
+            sources = root / "workspace" / "final" / "images" / "sources"
+            background = root / "references" / "prompt" / "background.md"
+            manifest.parent.mkdir(parents=True)
+            background.parent.mkdir(parents=True)
+            manifest.write_text(manifest_text.strip(), encoding="utf-8")
+            background.write_text("### 用户表结构\n| 字段名 | 类型 |\n| --- | --- |\n| 用户ID | BIGINT |\n| 用户名 | VARCHAR |\n| 密码 | VARCHAR |\n| 角色ID | BIGINT |\n", encoding="utf-8")
+            (root / ".thesis-config.yaml").write_text(
+                "er_modeling:\n  graph_type: dot\n  dot_mode: textbook-single-entity-ring\n",
+                encoding="utf-8",
+            )
+
+            prepare_sources(manifest, sources)
+
+            source = (sources / "image_1.dot").read_text(encoding="utf-8")
+            self.assertIn("graph ER", source)
+            self.assertIn("layout=neato", source)
+            self.assertIn("overlap=true", source)
+            self.assertIn('pos="0,0!"', source)
+            self.assertIn("shape=rectangle", source)
+            self.assertIn("shape=ellipse", source)
+            self.assertNotIn("label=", source)
+            self.assertNotIn("rank=", source)
+            self.assertNotIn("shape=diamond", source)
+            self.assertNotIn("->", source)
+
+    def test_prepare_sources_uses_textbook_single_entity_ring_from_manifest_override(self):
+        manifest_text = """
+images:
+  - id: image_1
+    title: 图4-1 用户表单实体ER图
+    chapter: 第4章
+    section: "4.4"
+    source: ai
+    diagram_type: entity_er
+    purpose: 展示用户表字段
+    fact_source: background.md
+    placement: 数据库设计说明之后
+    status: pending
+    description: 用户表ER图
+    dot_mode: textbook-single-entity-ring
+"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            manifest = root / "workspace" / "references" / "images.yaml"
+            sources = root / "workspace" / "final" / "images" / "sources"
+            background = root / "references" / "prompt" / "background.md"
+            manifest.parent.mkdir(parents=True)
+            background.parent.mkdir(parents=True)
+            manifest.write_text(manifest_text.strip(), encoding="utf-8")
+            background.write_text("### 用户表结构\n| 字段名 | 类型 |\n| --- | --- |\n| 用户ID | BIGINT |\n| 用户名 | VARCHAR |\n", encoding="utf-8")
+            (root / ".thesis-config.yaml").write_text("er_modeling:\n  graph_type: dot\n", encoding="utf-8")
+
+            prepare_sources(manifest, sources)
+
+            source = (sources / "image_1.dot").read_text(encoding="utf-8")
+            self.assertIn("graph ER", source)
+            self.assertIn("layout=neato", source)
+            self.assertIn("overlap=true", source)
+            self.assertNotIn("shape=diamond", source)
+            self.assertNotIn("->", source)
+
+    def test_prepare_sources_does_not_apply_ring_mode_to_overall_er(self):
+        manifest_text = """
+images:
+  - id: image_1
+    title: 图4-1 总体ER图
+    chapter: 第4章
+    section: "4.4"
+    source: ai
+    diagram_type: overall_er
+    purpose: 展示总体实体关系
+    fact_source: background.md
+    placement: 数据库设计开头展示
+    status: pending
+    description: 总体ER图
+"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            manifest = root / "workspace" / "references" / "images.yaml"
+            sources = root / "workspace" / "final" / "images" / "sources"
+            background = root / "references" / "prompt" / "background.md"
+            manifest.parent.mkdir(parents=True)
+            background.parent.mkdir(parents=True)
+            manifest.write_text(manifest_text.strip(), encoding="utf-8")
+            background.write_text(
+                "| 表名 | 字段 |\n| --- | --- |\n| 用户表 | 用户ID, 用户名, 角色ID |\n| 角色表 | 角色ID, 角色名 |\n\n用户表.角色ID 外键关联 角色表.角色ID。\n",
+                encoding="utf-8",
+            )
+            (root / ".thesis-config.yaml").write_text(
+                "er_modeling:\n  graph_type: dot\n  dot_mode: textbook-single-entity-ring\n",
+                encoding="utf-8",
+            )
+
+            prepare_sources(manifest, sources)
+
+            source = (sources / "image_1.dot").read_text(encoding="utf-8")
+            self.assertIn("digraph", source)
+            self.assertIn("shape=diamond", source)
+            self.assertIn('headlabel="1"', source)
+            self.assertNotIn("graph ER", source)
+            self.assertNotIn("layout=neato", source)
+
+    def test_prepare_sources_does_not_apply_ring_mode_to_plain_er(self):
+        manifest_text = """
+images:
+  - id: image_1
+    title: 图4-1 核心ER图
+    chapter: 第4章
+    section: "4.4"
+    source: ai
+    diagram_type: er
+    purpose: 展示核心实体字段与关系
+    fact_source: background.md
+    placement: 数据库设计说明之后
+    status: pending
+    description: 核心ER图
+"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            manifest = root / "workspace" / "references" / "images.yaml"
+            sources = root / "workspace" / "final" / "images" / "sources"
+            background = root / "references" / "prompt" / "background.md"
+            manifest.parent.mkdir(parents=True)
+            background.parent.mkdir(parents=True)
+            manifest.write_text(manifest_text.strip(), encoding="utf-8")
+            background.write_text(
+                "| 表名 | 字段 |\n| --- | --- |\n| 用户表 | user_id, role_id |\n| 角色表 | role_id |\n\n用户表.role_id 外键关联 角色表.role_id。\n",
+                encoding="utf-8",
+            )
+            (root / ".thesis-config.yaml").write_text(
+                "er_modeling:\n  graph_type: dot\n  dot_mode: textbook-single-entity-ring\n",
+                encoding="utf-8",
+            )
+
+            prepare_sources(manifest, sources)
+
+            source = (sources / "image_1.dot").read_text(encoding="utf-8")
+            self.assertIn("digraph", source)
+            self.assertNotIn("graph ER", source)
+
+    def test_prepare_sources_filters_single_scope_er_to_target_tables(self):
+        manifest_text = """
+images:
+  - id: image_10
+    title: 图4-8 用户与角色实体关系图
+    chapter: 第4章
+    section: "4.4"
+    source: ai
+    diagram_type: er
+    purpose: 展示用户表与角色表的实体字段及关联关系
+    fact_source: background.md
+    placement: 用户与角色实体说明之后
+    status: pending
+    description: ER 图应展示用户实体、角色实体及 role_id 关联。
+"""
+        background_text = """### 用户表结构
+关联表：角色表
+| 字段名 | 类型 |
+| --- | --- |
+| user_id | BIGINT |
+| username | VARCHAR |
+| role_id | BIGINT |
+
+### 角色表结构
+| 字段名 | 类型 |
+| --- | --- |
+| role_id | BIGINT |
+| role_name | VARCHAR |
+
+### 文档表结构
+关联表：知识库表
+| 字段名 | 类型 |
+| --- | --- |
+| doc_id | BIGINT |
+| kb_id | BIGINT |
+
+### 知识库表结构
+| 字段名 | 类型 |
+| --- | --- |
+| kb_id | BIGINT |
+| name | VARCHAR |
+"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            manifest = root / "workspace" / "references" / "images.yaml"
+            sources = root / "workspace" / "final" / "images" / "sources"
+            background = root / "references" / "prompt" / "background.md"
+            manifest.parent.mkdir(parents=True)
+            background.parent.mkdir(parents=True)
+            manifest.write_text(manifest_text.strip(), encoding="utf-8")
+            background.write_text(background_text, encoding="utf-8")
+            (root / ".thesis-config.yaml").write_text(
+                "er_modeling:\n  graph_type: dot\n  diagram_scope: single\n  strict_single_table: true\n",
+                encoding="utf-8",
+            )
+
+            prepare_sources(manifest, sources)
+
+            source = (sources / "image_10.dot").read_text(encoding="utf-8")
+            self.assertIn("用户表", source)
+            self.assertIn("角色表", source)
+            self.assertIn('"拥有" [shape=diamond];', source)
+            self.assertNotIn("文档表", source)
+            self.assertNotIn("知识库表", source)
+
     def test_prepare_sources_sorts_overall_er_first_for_existing_manifest(self):
         manifest_text = """
 images:

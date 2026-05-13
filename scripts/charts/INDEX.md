@@ -1,6 +1,6 @@
 # 图表脚本索引
 
-本目录负责论文图片生成链路：从正文占位符抽取图片需求，维护 `images.yaml`，接收大模型生成的 `.dot/.mmd/.puml` 源文件，渲染 PNG，并回填 Markdown。ER 图由 `.thesis-config.yaml` 的 `er_modeling.graph_type` 决定，默认输出教科书 Chen 风格 DOT；用例图使用固定 PlantUML 提示词；系统架构图由用户自行生成或 GPT image 后作为用户图片补入。
+本目录负责论文图片生成链路：从正文占位符抽取图片需求，维护 `images.yaml`，接收大模型生成的 `.dot/.mmd/.puml` 源文件，渲染 PNG，并回填 Markdown。ER 图由 `.thesis-config.yaml` 的 `er_modeling.graph_type` 决定，默认输出教科书 Chen 风格 DOT；`diagram_type=entity_er` 可进一步通过 `er_modeling.dot_mode=textbook-single-entity-ring` 或 `images.yaml` 单图 `dot_mode` 启用单实体字段环绕布局；用例图使用固定 PlantUML 提示词；系统架构图由用户自行生成或 GPT image 后作为用户图片补入。
 
 ## 脚本职责
 

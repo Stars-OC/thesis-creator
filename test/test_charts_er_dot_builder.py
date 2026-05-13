@@ -98,6 +98,18 @@ class ChartsErDotBuilderTest(unittest.TestCase):
         self.assertIn('"拥有" -> "角色表" [arrowhead=none];', dot)
         self.assertIn('shape=ellipse', dot)
 
+    def test_build_er_dot_uses_compact_graphviz_spacing(self):
+        dot, warnings = build_er_dot_from_background(BACKGROUND_TEXT, title="图4-1 核心ER图")
+
+        self.assertEqual([], warnings)
+        self.assertIn("nodesep=0.25", dot)
+        self.assertIn("ranksep=0.35", dot)
+        self.assertIn("margin=0", dot)
+        self.assertIn("pad=0", dot)
+        self.assertIn('margin="0.04,0.02"', dot)
+        self.assertIn("fontsize=10", dot)
+        self.assertIn("arrowsize=0.6", dot)
+
     def test_build_overall_er_dot_omits_fields_and_marks_cardinality(self):
         dot, warnings = build_er_dot_from_background(BACKGROUND_TEXT, title="图4-1 总体ER图")
 
@@ -193,6 +205,94 @@ class ChartsErDotBuilderTest(unittest.TestCase):
         self.assertEqual([], warnings)
         self.assertIn('"对应" [shape=diamond];', dot)
         self.assertNotIn('"关联" [shape=diamond];', dot)
+
+    def test_build_single_er_dot_filters_to_focus_tables(self):
+        background = """
+### 用户表结构
+关联表：角色表
+| 字段名 | 类型 |
+| --- | --- |
+| user_id | BIGINT |
+| username | VARCHAR |
+| role_id | BIGINT |
+
+### 角色表结构
+| 字段名 | 类型 |
+| --- | --- |
+| role_id | BIGINT |
+| role_name | VARCHAR |
+
+### 文档表结构
+关联表：知识库表
+| 字段名 | 类型 |
+| --- | --- |
+| doc_id | BIGINT |
+| kb_id | BIGINT |
+
+### 知识库表结构
+| 字段名 | 类型 |
+| --- | --- |
+| kb_id | BIGINT |
+| name | VARCHAR |
+"""
+
+        dot, warnings = build_er_dot_from_background(
+            background,
+            title="图4-8 用户与角色实体关系图",
+            focus_hint="用户表与角色表的实体字段及关联关系",
+        )
+
+        self.assertEqual([], warnings)
+        self.assertIn('"用户表" [shape=box];', dot)
+        self.assertIn('"角色表" [shape=box];', dot)
+        self.assertIn('"拥有" [shape=diamond];', dot)
+        self.assertNotIn('"文档表" [shape=box];', dot)
+        self.assertNotIn('"知识库表" [shape=box];', dot)
+
+    def test_build_single_er_dot_with_unmatched_focus_hint_fails_closed(self):
+        background = """
+| 表名 | 字段 | 说明 |
+| --- | --- | --- |
+| 用户表 | user_id, username, role_id | 存储用户账号信息 |
+| 角色表 | role_id, role_name | 存储角色信息 |
+| 文档表 | doc_id, kb_id | 存储文档信息 |
+
+用户表.role_id 外键关联 角色表.role_id。
+"""
+
+        dot, warnings = build_er_dot_from_background(
+            background,
+            title="图4-8 核心业务实体关系图",
+            focus_hint="权限管理核心结构",
+        )
+
+        self.assertTrue(warnings)
+        self.assertIn("未根据单图提示匹配到目标数据表", warnings[0])
+        self.assertNotIn('"用户表" [shape=box];', dot)
+        self.assertNotIn('"角色表" [shape=box];', dot)
+        self.assertNotIn('"文档表" [shape=box];', dot)
+
+    def test_build_single_er_dot_matches_tables_with_physical_name_suffixes(self):
+        background = """
+| 表名 | 字段 | 说明 |
+| --- | --- | --- |
+| 用户表（sys_user） | user_id, username, role_id | 存储用户账号信息 |
+| 角色表（sys_role） | role_id, role_name | 存储角色信息 |
+| 文档表（doc_info） | doc_id, kb_id | 存储文档信息 |
+
+用户表（sys_user）.role_id 外键关联 角色表（sys_role）.role_id。
+"""
+
+        dot, warnings = build_er_dot_from_background(
+            background,
+            title="图4-8 用户与角色实体关系图",
+            focus_hint="用户表与角色表的实体字段及关联关系",
+        )
+
+        self.assertEqual([], warnings)
+        self.assertIn('"用户表（sys_user）" [shape=box];', dot)
+        self.assertIn('"角色表（sys_role）" [shape=box];', dot)
+        self.assertNotIn('"文档表（doc_info）" [shape=box];', dot)
 
     def test_prepare_sources_honors_erd_graph_type_from_thesis_config(self):
         with tempfile.TemporaryDirectory() as tmpdir:
