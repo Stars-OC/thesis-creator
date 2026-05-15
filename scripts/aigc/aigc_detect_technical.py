@@ -1,6 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from pathlib import Path
+import sys
+
+SCRIPT_ROOT = Path(__file__).resolve().parents[1]
+if str(SCRIPT_ROOT) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_ROOT))
+
 from aigc.technical_detect import TechnicalPaperAIGCDetector, detect_file, main
 
 __all__ = ["TechnicalPaperAIGCDetector", "detect_file", "main"]

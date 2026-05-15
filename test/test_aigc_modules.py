@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import subprocess
 import sys
 import unittest
 from pathlib import Path
@@ -31,14 +32,27 @@ class AIGCModulesTestCase(unittest.TestCase):
         self.assertEqual("technical", result["mode"])
         self.assertIn("overall_score", result)
 
-    def test_legacy_wrappers_still_export_core_classes(self):
-        import aigc_detect
-        import aigc_detect_technical
+    def test_module_wrappers_still_export_core_classes(self):
+        from aigc import aigc_detect, aigc_detect_technical
         from aigc.detect import AIGCDetector
         from aigc.technical_detect import TechnicalPaperAIGCDetector
 
         self.assertIs(aigc_detect.AIGCDetector, AIGCDetector)
         self.assertIs(aigc_detect_technical.TechnicalPaperAIGCDetector, TechnicalPaperAIGCDetector)
+
+    def test_synonym_replace_help_does_not_load_synonyms_dependency(self):
+        script_path = SCRIPTS_DIR / "aigc" / "synonym_replace.py"
+        result = subprocess.run(
+            [sys.executable, str(script_path), "--help"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertIn("Usage:", result.stdout)
+        self.assertIn("--input", result.stdout)
 
     def test_aigc_index_lists_modules_and_resources(self):
         index_path = SCRIPTS_DIR / "aigc" / "INDEX.md"

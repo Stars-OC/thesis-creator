@@ -28,32 +28,37 @@ def _resolve_path(path_text: str, root: Path) -> Path:
     return root / path
 
 
-def _load_plantuml_method(root: Path) -> str:
+def _load_plantuml_config(root: Path) -> Dict[str, Any]:
     config = root / ".thesis-config.yaml"
+    default = {"method": "auto", "allow_graphviz_fallback": False}
     if not config.exists():
-        return "auto"
+        return default
     data = yaml.safe_load(config.read_text(encoding="utf-8")) or {}
     if not isinstance(data, dict):
-        return "auto"
+        return default
     plantuml_render = data.get("plantuml_render") or {}
     if not isinstance(plantuml_render, dict):
-        return "auto"
+        return default
     method = str(plantuml_render.get("method") or "auto").strip().lower()
-    if method in {"auto", "plantuml", "kroki", "official_server"}:
-        return method
-    return "auto"
+    if method not in {"auto", "plantuml", "kroki", "official_server"}:
+        method = "auto"
+    return {
+        "method": method,
+        "allow_graphviz_fallback": bool(plantuml_render.get("allow_graphviz_fallback", False)),
+    }
 
 
-def _effective_method(item, root: Path, method: str) -> str:
+def _effective_plantuml_config(item, root: Path, method: str) -> Dict[str, Any]:
     if item.engine == "plantuml" and method == "auto":
-        return _load_plantuml_method(root)
-    return method
+        return _load_plantuml_config(root)
+    return {"method": method, "allow_graphviz_fallback": False}
 
 
 def _render_item(item, root: Path, method: str) -> bool:
     source = _resolve_path(item.source_file, root)
     output = _resolve_path(item.output_file, root)
-    effective_method = _effective_method(item, root, method)
+    plantuml_config = _effective_plantuml_config(item, root, method)
+    effective_method = plantuml_config["method"]
     if item.engine == "mermaid":
         mermaid.render(source, output, method=effective_method)
         return True
@@ -61,7 +66,12 @@ def _render_item(item, root: Path, method: str) -> bool:
         graphviz.render(source, output)
         return True
     if item.engine == "plantuml":
-        plantuml.render(source, output, method=effective_method)
+        plantuml.render(
+            source,
+            output,
+            method=effective_method,
+            allow_fallback=plantuml_config["allow_graphviz_fallback"],
+        )
         return True
     return False
 

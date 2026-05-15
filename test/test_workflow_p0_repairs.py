@@ -17,8 +17,8 @@ class WorkflowP0RepairsTest(unittest.TestCase):
     def test_step_0_init_uses_direct_workspace_initialization(self):
         content = (WORKFLOWS_DIR / "step_0_init.md").read_text(encoding="utf-8")
         self.assertIn("通过脚本初始化工作区", content)
-        self.assertIn("python scripts/lifecycle.py --workspace thesis-workspace/ --prepare-runtime", content)
-        self.assertIn("python scripts/lifecycle.py --workspace thesis-workspace/ --check-workspace", content)
+        self.assertIn("python scripts/core/lifecycle.py --workspace thesis-workspace/ --prepare-runtime", content)
+        self.assertIn("python scripts/core/lifecycle.py --workspace thesis-workspace/ --check-workspace", content)
         self.assertIn(".thesis-status.json", content)
         self.assertIn("logs/", content)
         self.assertIn("scripts/charts/render.py", content)
@@ -30,7 +30,7 @@ class WorkflowP0RepairsTest(unittest.TestCase):
 
     def test_skill_entry_requires_workspace_preflight_after_init(self):
         content = SKILL_FILE.read_text(encoding="utf-8")
-        self.assertIn("python scripts/lifecycle.py --workspace thesis-workspace/ --check-workspace", content)
+        self.assertIn("python scripts/core/lifecycle.py --workspace thesis-workspace/ --check-workspace", content)
         self.assertIn("thesis-workspace/.thesis-status.json", content)
         self.assertIn("thesis-workspace/logs/", content)
         self.assertIn("thesis-workspace/scripts/charts/render.py", content)

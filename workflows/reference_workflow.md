@@ -139,6 +139,8 @@ references:
 2. 再用英文关键词搜索目标×35%数量以下的文献
 3. 合并后检查比例，不达标触发补充搜索(优先补充中文)
 4. 若 Semantic Scholar、CrossRef、OpenAlex 等自动源无法满足中文比例，必须明确提示用户从 CNKI、万方、学校图书馆等外部高质量来源人工补充真实文献；不得为了满足比例生成虚假中文文献
+5. 合并时传入论文主题关键词，例如：`--topic-keywords SpringBoot AI知识库 RAG 向量检索 智能问答`；脚本只对低相关标题发出告警，不自动删除，避免误杀真实但间接相关文献
+6. 出现“主题相关性偏低”告警时，必须人工复核；明显偏离主题的文献不得强行引用，应回流补池或替换为真实相关中文文献
 
 ### 数量控制规则
 
@@ -175,6 +177,9 @@ references:
 ```bash
 # 搜索并验证文献
 python scripts/references/reference_engine.py --query "关键词" --limit 25 --verify-doi -o workspace/references/verified_references.yaml
+
+# 合并多批搜索结果，并对偏离论文主题的文献给出告警
+python scripts/references/reference_merger.py -i workspace/references/ --top 25 -o workspace/references/verified_references.yaml --topic-keywords SpringBoot AI知识库 RAG 向量检索 智能问答
 
 # 验证单个 DOI
 python scripts/references/reference_engine.py --doi "10.xxx/yyy" --verify-doi

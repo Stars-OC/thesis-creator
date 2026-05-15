@@ -557,7 +557,14 @@ def convert_md_to_docx(input_path: str, output_path: str) -> Tuple[bool, str]:
                 # 处理图片（自动缩放）
                 img_path = elem[1]
                 alt_text = elem[2] if len(elem) > 2 else ''
-                success = add_image(doc, img_path, width_cm=None, base_dir=str(base_dir))
+                success = add_image(
+                    doc,
+                    img_path,
+                    width_cm=float(FORMAT_CONFIG.get("image_width", 12)),
+                    max_width_cm=float(FORMAT_CONFIG.get("max_image_width", 14)),
+                    max_height_cm=float(FORMAT_CONFIG.get("max_image_height", 18)),
+                    base_dir=str(base_dir),
+                )
                 if success:
                     image_count += 1
                     # 添加图注（如果有说明文字）

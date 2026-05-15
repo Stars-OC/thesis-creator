@@ -5,15 +5,17 @@
 演示如何使用新模块生成各类图表
 """
 
-import sys
 from pathlib import Path
+import sys
 
-# 添加 scripts 目录到路径
+SCRIPT_ROOT = Path(__file__).resolve().parents[1]
+if str(SCRIPT_ROOT) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_ROOT))
+
+from charts.chart_renderer_offline import OfflineChartRenderer
+from charts.llm_chart_generator import HybridChartGenerator
+
 scripts_dir = Path(__file__).parent
-sys.path.insert(0, str(scripts_dir))
-
-from chart_renderer_offline import OfflineChartRenderer
-from llm_chart_generator import HybridChartGenerator
 
 
 def demo_offline_render():

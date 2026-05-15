@@ -14,7 +14,7 @@ SCRIPTS_DIR = Path(__file__).resolve().parents[1] / "scripts"
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
-from references.reference_merger import assess_reference_quality, save_yaml, select_top  # noqa: E402
+from references.reference_merger import assess_reference_quality, load_yaml_file, save_yaml, select_top  # noqa: E402
 
 
 class ReferenceMergerTestCase(unittest.TestCase):
@@ -122,6 +122,39 @@ class ReferenceMergerTestCase(unittest.TestCase):
         self.assertEqual(3, len(selected))
         self.assertIn("CNKI", output.getvalue())
         self.assertIn("人工补充", output.getvalue())
+
+    def test_load_yaml_file_skips_empty_yaml_without_error(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            empty_file = Path(tmpdir) / "empty.yaml"
+            empty_file.write_text("", encoding="utf-8")
+
+            refs = load_yaml_file(empty_file)
+
+        self.assertEqual([], refs)
+
+    def test_load_yaml_file_skips_yaml_without_references_without_error(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            metadata_only = Path(tmpdir) / "metadata_only.yaml"
+            metadata_only.write_text("pool_id: thesis_references\ntotal: 0\n", encoding="utf-8")
+
+            refs = load_yaml_file(metadata_only)
+
+        self.assertEqual([], refs)
+
+    def test_select_top_warns_when_reference_titles_are_off_topic(self):
+        refs = [
+            self._make_ref("SpringBoot 在线 AI 知识库系统设计", "zh", 0.99, 900),
+            self._make_ref("RAG 向量检索增强生成综述", "zh", 0.98, 800),
+            self._make_ref("小学语文任务群教学实践研究", "zh", 0.97, 700),
+        ]
+
+        output = io.StringIO()
+        with redirect_stdout(output):
+            selected = select_top(refs, 3, topic_keywords=["SpringBoot", "AI知识库", "RAG", "向量检索"])
+
+        self.assertEqual(3, len(selected))
+        self.assertIn("主题相关性偏低", output.getvalue())
+        self.assertIn("小学语文任务群教学实践研究", output.getvalue())
 
 
 if __name__ == "__main__":

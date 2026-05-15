@@ -1,10 +1,15 @@
 import json
 import shutil
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-from logger import init_logger, ThesisLogger
+SCRIPTS_DIR = Path(__file__).resolve().parents[1] / "scripts"
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
+
+from core.logger import init_logger, ThesisLogger
 
 
 class LoggerReplacementTest(unittest.TestCase):

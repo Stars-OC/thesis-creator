@@ -7,11 +7,11 @@
 支持步骤级跟踪、前置条件检查和断点续写。
 
 使用方法：
-    python scripts/status_manager.py --init thesis-workspace/
-    python scripts/status_manager.py --check-step 4 thesis-workspace/
-    python scripts/status_manager.py --update-step 4 --action start thesis-workspace/
-    python scripts/status_manager.py --mark-done chapter_3 --words 3000 thesis-workspace/
-    python scripts/status_manager.py --resume thesis-workspace/
+    python scripts/core/status_manager.py --init thesis-workspace/
+    python scripts/core/status_manager.py --check-step 4 thesis-workspace/
+    python scripts/core/status_manager.py --update-step 4 --action start thesis-workspace/
+    python scripts/core/status_manager.py --mark-done chapter_3 --words 3000 thesis-workspace/
+    python scripts/core/status_manager.py --resume thesis-workspace/
 """
 
 import json

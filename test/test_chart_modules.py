@@ -11,7 +11,7 @@ if str(SCRIPTS_DIR) not in sys.path:
 
 from charts.schemas import ImageItem, load_manifest  # noqa: E402
 from charts.source_writer import PLACEHOLDER_MARKER, prepare_sources, validate_sources  # noqa: E402
-from llm_chart_generator import HybridChartGenerator  # noqa: E402
+from charts.llm_chart_generator import HybridChartGenerator  # noqa: E402
 
 
 class ChartModulesTestCase(unittest.TestCase):

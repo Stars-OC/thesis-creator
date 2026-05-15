@@ -499,33 +499,33 @@ python scripts/aigc/detect.py --input paper.md --mode full
 
 ```powershell
 # 基本替换
-python scripts/synonym_replace.py --input paper.md --output paper_replaced.md
+python scripts/aigc/synonym_replace.py --input paper.md --output paper_replaced.md
 
 # 自定义替换比例
-python scripts/synonym_replace.py --input paper.md --ratio 0.4
+python scripts/aigc/synonym_replace.py --input paper.md --ratio 0.4
 
 # 指定术语白名单
-python scripts/synonym_replace.py --input paper.md --whitelist scripts/term_whitelist.txt
+python scripts/aigc/synonym_replace.py --input paper.md --whitelist scripts/aigc/term_whitelist.txt
 ```
 
 ### 5.3 文本分析（`text_analysis.py`）
 
 ```powershell
 # 分析单个文件
-python scripts/text_analysis.py --input paper.md
+python scripts/aigc/text_analysis.py --input paper.md
 
 # 对比两个文件（改写前后对比）
-python scripts/text_analysis.py --input before.md --compare after.md
+python scripts/aigc/text_analysis.py --input before.md --compare after.md
 ```
 
 ### 5.4 格式检查（`format_checker.py`）
 
 ```powershell
 # 检查单个文件
-python scripts/format_checker.py --input workspace/final/论文终稿.md
+python scripts/content/format_checker.py --input workspace/final/论文终稿.md
 
 # 检查整个目录
-python scripts/format_checker.py --dir workspace/drafts/
+python scripts/content/format_checker.py --dir workspace/drafts/
 ```
 
 ### 5.6 图表清单与源码准备（`scripts/charts/manifest_builder.py` / `source_writer.py`）⭐ NEW
@@ -716,7 +716,7 @@ cat logs/latest/session_summary.md
 
 3. **术语保护**
    - 专业术语不会被降重工具打乱
-   - 可自定义白名单 `scripts/term_whitelist.txt`
+   - 可自定义白名单 `scripts/aigc/term_whitelist.txt`
 
 ---
 

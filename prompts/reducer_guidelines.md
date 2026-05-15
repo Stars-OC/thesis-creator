@@ -119,22 +119,22 @@ P2(可选)：数据增强 + 引用编织
 
 ### 3.3 Python 辅助替换
 
-使用 `scripts/synonym_replace.py` 进行自动同义词替换：
+使用 `scripts/aigc/synonym_replace.py` 进行自动同义词替换：
 
 ```powershell
 # 基本替换(默认 30% 替换率)
-python scripts/synonym_replace.py --input paper.md --output paper_replaced.md
+python scripts/aigc/synonym_replace.py --input paper.md --output paper_replaced.md
 
 # 自定义替换比例
-python scripts/synonym_replace.py --input paper.md --ratio 0.4
+python scripts/aigc/synonym_replace.py --input paper.md --ratio 0.4
 
 # 指定术语白名单(保护专业术语不替换)
-python scripts/synonym_replace.py --input paper.md --whitelist scripts/term_whitelist.txt
+python scripts/aigc/synonym_replace.py --input paper.md --whitelist scripts/aigc/term_whitelist.txt
 ```
 
 ### 3.4 术语保护机制
 
-**白名单示例**(`scripts/term_whitelist.txt`)：
+**白名单示例**(`scripts/aigc/term_whitelist.txt`)：
 ```
 深度学习
 卷积神经网络

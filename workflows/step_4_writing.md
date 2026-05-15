@@ -1,13 +1,13 @@
 # Step 4: 分章节撰写
 
 > **状态管理(强制执行)**：
-> 1. 启动前：`python scripts/status_manager.py thesis-workspace/ --ensure`
-> 2. 启动时：`python scripts/status_manager.py thesis-workspace/ --check-step 4`
+> 1. 启动前：`python scripts/core/status_manager.py thesis-workspace/ --ensure`
+> 2. 启动时：`python scripts/core/status_manager.py thesis-workspace/ --check-step 4`
 > 3. 前置条件通过后：`--update-step 4 --action start`
 > 4. 每章完成后：`--mark-done chapter_N --words 字数`
 > 5. 全部完成后：`--update-step 4 --action complete`
 >
-> **统一入口(推荐)**：`python scripts/lifecycle.py --workspace thesis-workspace/ --step 4 --event start|complete`
+> **统一入口(推荐)**：`python scripts/core/lifecycle.py --workspace thesis-workspace/ --step 4 --event start|complete`
 
 > **⚠️ 强制前置：文献搜索验证**
 > 在开始写作前，必须先搜索真实文献建立"文献池"，AI 只能从池中引用，禁止编造。
@@ -179,6 +179,12 @@ prompt_hint: 架构图不进入自动源码生成和渲染链路
 ## 4.1 两阶段写作法(强制执行)
 
 > **目标**：禁止直接一次性生成整章正文，必须先规划、再确认、后扩写。
+
+### 章节草稿文件命名(硬约束)
+
+- 每章最终草稿必须写入 `workspace/drafts/chapter_N.md`，其中 `N` 为章节序号。
+- 扩写、审校或补写同一章节时，必须覆盖对应 `chapter_N.md` 或先备份再回写，不得把 `第N章_xxx_扩写.md`、`chapter_N_expanded.md` 等临时文件作为最终草稿留给 Step 7 合并。
+- 若存在临时扩写文件，进入 Step 7 前必须人工确认内容已合并回 `chapter_N.md`，再删除或忽略临时文件。
 
 ### Stage 1：章节要点规划
 

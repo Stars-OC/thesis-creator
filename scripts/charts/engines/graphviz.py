@@ -57,7 +57,7 @@ def render(source: Path, output: Path) -> None:
     code = source.read_text(encoding="utf-8")
     engine = _detect_layout_engine(code)
     output.parent.mkdir(parents=True, exist_ok=True)
-    rendered = Path(Source(code, format="png", engine=engine).render(filename=output.stem, directory=str(output.parent), cleanup=True))
+    rendered = Path(Source(code, format="png", engine=engine).render(filename=str(output.with_suffix("")), directory=str(output.parent), cleanup=True))
     if rendered != output and rendered.exists():
         rendered.replace(output)
     if not output.exists():

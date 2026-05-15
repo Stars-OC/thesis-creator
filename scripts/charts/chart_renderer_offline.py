@@ -1,4 +1,11 @@
 # -*- coding: utf-8 -*-
+from pathlib import Path
+import sys
+
+SCRIPT_ROOT = Path(__file__).resolve().parents[1]
+if str(SCRIPT_ROOT) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_ROOT))
+
 """
 matplotlib 离线图表渲染器 - 纯 Python 渲染图表，无需外部工具
 
@@ -9,7 +16,7 @@ matplotlib 离线图表渲染器 - 纯 Python 渲染图表，无需外部工具
 4. 支持样式主题定制
 
 使用方法：
-    from chart_renderer_offline import OfflineChartRenderer
+    from charts.chart_renderer_offline import OfflineChartRenderer
     renderer = OfflineChartRenderer()
     renderer.render_flowchart(steps, output_path)
 """
@@ -26,7 +33,7 @@ from datetime import datetime
 
 # 导入日志模块
 try:
-    from logger import get_logger
+    from core.logger import get_logger
 except ImportError:
     import logging
     def get_logger():

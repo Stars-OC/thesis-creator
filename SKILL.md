@@ -52,7 +52,7 @@ flowchart LR
 > 状态文件路径：`thesis-workspace/.thesis-status.json`
 > 若文件不存在，`status_manager.py` 会自动创建。
 >
-> **推荐统一入口**：`scripts/lifecycle.py`（整合日志 + 状态管理）
+> **推荐统一入口**：`scripts/core/lifecycle.py`（整合日志 + 状态管理）
 
 ---
 
@@ -63,7 +63,7 @@ flowchart LR
 
 ### 不可跳过的暂停点
 
-1. **Step 0 初始化后**：必须先运行 `python scripts/lifecycle.py --workspace thesis-workspace/ --check-workspace`，并检查 `thesis-workspace/references/prompt/background.md` 是否已补全；工作区必须通过脚本初始化并生成 `thesis-workspace/.thesis-config.yaml`、`thesis-workspace/.thesis-status.json`、`thesis-workspace/logs/`、`thesis-workspace/scripts/charts/render.py`、`thesis-workspace/workspace/final/images/sources` 与 `thesis-workspace/workspace/references/images.yaml`；未完成时只能提示用户编辑，禁止直接推进到 Step 1/3。
+1. **Step 0 初始化后**：必须先运行 `python scripts/core/lifecycle.py --workspace thesis-workspace/ --check-workspace`，并检查 `thesis-workspace/references/prompt/background.md` 是否已补全；工作区必须通过脚本初始化并从 `references/templates/.thesis-config.yaml` 复制生成 `thesis-workspace/.thesis-config.yaml`，同时生成 `thesis-workspace/.thesis-status.json`、`thesis-workspace/logs/`、`thesis-workspace/scripts/charts/render.py`、`thesis-workspace/workspace/final/images/sources` 与 `thesis-workspace/workspace/references/images.yaml`；未完成时只能提示用户编辑，禁止直接推进到 Step 1/3。
 2. **Step 3 大纲确认后**：必须先询问用户文献数量（20-30 / 30-50 / 15-20），并展示搜索耗时预估后，进入 Step 3→4 之间的“文献搜索与建池”阶段；该阶段不是独立 Step，但后续在 Step 4/6/7 中如发现文献不足、语种比例失衡或文献失效，必须允许回流补池后再继续写作或检测。
 3. **Step 4 每章写作时**：必须先完成 Stage 1 要点规划，待用户确认后才能进入 Stage 2 扩写；如果当前仍停留在 Stage 1，用户回复「继续」只能视为确认本章要点，不能跳过更早的未完成门禁。
 4. **Step 7 合并检测后**：若同一 `ref_id` 在终稿中重复出现，必须硬阻断并回退修正，禁止带重复引用进入 AIGC 检测；若 AIGC 检测未通过，必须回退到 Step 5/6 继续改写与审校，禁止进入 Step 8 图片生成或 Step 9 导出。
@@ -215,7 +215,7 @@ thesis-workspace/
 | `scripts/references/reference_engine.py` | 多源搜索 + DOI验证 |
 | `scripts/references/reference_merger.py` | 文献合并去重 + 选出最相关 x 篇 |
 | `scripts/document_exporter/` | Word导出 + 图片插入 |
-| `scripts/merge_drafts.py` | 章节合并 |
+| `scripts/content/merge_drafts.py` | 章节合并 |
 | `scripts/aigc/detect.py` | AIGC检测 |
 | `scripts/aigc/technical_detect.py` | 技术论文 AIGC 检测 |
 | `scripts/charts/manifest_builder.py` | 从正文 `[image_N]` 与 `image-requirement` 生成或更新 `images.yaml` |

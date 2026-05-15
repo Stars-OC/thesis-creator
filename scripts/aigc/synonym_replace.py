@@ -18,7 +18,6 @@ from pathlib import Path
 from typing import List, Set, Tuple, Optional
 
 import jieba
-import synonyms
 import click
 from rich.console import Console
 from rich.table import Table
@@ -90,6 +89,8 @@ class SynonymReplacer:
     def _get_synonyms(self, word: str, top_k: int = 5) -> List[str]:
         """获取同义词列表"""
         try:
+            import synonyms
+
             # synonyms 库返回相似度分数
             words, scores = synonyms.nearby(word, top_k)
             # 过滤掉原词和相似度太低的词

@@ -9,10 +9,10 @@ SCRIPTS_DIR = Path(__file__).resolve().parents[1] / "scripts"
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
-import enhanced_md_to_docx
+from document_exporter import enhanced_md_to_docx
 from charts.engines import mermaid, plantuml
 from document_exporter import pdf_converter
-from terminal_encoding import get_terminal_encoding, subprocess_text_kwargs
+from core.terminal_encoding import get_terminal_encoding, subprocess_text_kwargs
 
 
 class TerminalEncodingTest(unittest.TestCase):
@@ -29,14 +29,14 @@ class TerminalEncodingTest(unittest.TestCase):
 
     def test_enhanced_pandoc_commands_use_terminal_encoding(self):
         completed = Mock(returncode=0, stderr="")
-        with patch("enhanced_md_to_docx.subprocess.run", return_value=completed) as run:
+        with patch("document_exporter.enhanced_md_to_docx.subprocess.run", return_value=completed) as run:
             enhanced_md_to_docx.check_pandoc_installed()
 
         self.assertEqual("replace", run.call_args.kwargs["errors"])
         self.assertEqual(subprocess_text_kwargs()["encoding"], run.call_args.kwargs["encoding"])
 
-        with patch("enhanced_md_to_docx.check_pandoc_installed", return_value=True), \
-                patch("enhanced_md_to_docx.subprocess.run", return_value=completed) as run:
+        with patch("document_exporter.enhanced_md_to_docx.check_pandoc_installed", return_value=True), \
+                patch("document_exporter.enhanced_md_to_docx.subprocess.run", return_value=completed) as run:
             enhanced_md_to_docx.convert_with_pandoc("input.md", "output.docx")
 
         self.assertEqual("replace", run.call_args.kwargs["errors"])

@@ -1,5 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+from pathlib import Path
+import sys
+
+SCRIPT_ROOT = Path(__file__).resolve().parents[1]
+if str(SCRIPT_ROOT) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_ROOT))
+
 """
 任务分发器 - 将耗时任务分发到 subAgent 执行
 
@@ -11,7 +18,7 @@
 
 使用方法：
     # 作为模块使用
-    from task_dispatcher import TaskDispatcher, TaskType, SubTask
+    from core.task_dispatcher import TaskDispatcher, TaskType, SubTask
 
     dispatcher = TaskDispatcher()
     task = SubTask(task_type=TaskType.AIGC_DETECT, input_data={'file_path': 'paper.md'})
@@ -19,7 +26,7 @@
     result = dispatcher.get_result(task_id)
 
     # 作为 CLI 使用
-    python scripts/task_dispatcher.py --type aigc_detect --input paper.md
+    python scripts/core/task_dispatcher.py --type aigc_detect --input paper.md
 """
 
 import json
@@ -290,7 +297,7 @@ python scripts/aigc/detect.py --input "{file_path}" --mode {mode} --format json
 
 ## 执行命令
 ```bash
-python scripts/enhanced_replace.py --input "{file_path}" --output "{output_path}" --ratio {ratio}
+python scripts/aigc/enhanced_replace.py --input "{file_path}" --output "{output_path}" --ratio {ratio}
 ```
 
 ## 输出要求
@@ -365,7 +372,7 @@ python scripts/references/reference_searcher.py --query "{query}" --year-range {
 
 ## 执行命令
 ```bash
-python scripts/chart_generator.py "{file_path}" --output {output_dir} --format md
+python scripts/charts/chart_generator.py "{file_path}" --output {output_dir} --format md
 ```
 
 ## 输出要求
@@ -405,7 +412,7 @@ python scripts/chart_generator.py "{file_path}" --output {output_dir} --format m
 
 ## 执行命令
 ```bash
-python scripts/enhanced_md_to_docx.py --input "{file_path}" --output "{output_path}"
+python scripts/document_exporter/enhanced_md_to_docx.py --input "{file_path}" --output "{output_path}"
 ```
 
 ## 输出要求
@@ -429,7 +436,7 @@ python scripts/enhanced_md_to_docx.py --input "{file_path}" --output "{output_pa
 
 ## 执行命令
 ```bash
-python scripts/format_checker.py --input "{file_path}"
+python scripts/content/format_checker.py --input "{file_path}"
 ```
 
 ## 输出要求
@@ -574,16 +581,16 @@ def generate_skill_instructions() -> str:
 
 ```powershell
 # 分发单个任务
-python scripts/task_dispatcher.py --type aigc_detect --input paper.md
+python scripts/core/task_dispatcher.py --type aigc_detect --input paper.md
 
 # 批量分发
-python scripts/task_dispatcher.py --batch tasks.json
+python scripts/core/task_dispatcher.py --batch tasks.json
 
 # 查看任务状态
-python scripts/task_dispatcher.py --list
+python scripts/core/task_dispatcher.py --list
 
 # 获取结果
-python scripts/task_dispatcher.py --result task_id_here
+python scripts/core/task_dispatcher.py --result task_id_here
 ```
 '''
 

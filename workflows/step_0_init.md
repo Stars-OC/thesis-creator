@@ -1,11 +1,11 @@
 # Step 0: 工作区初始化
 
 > **状态管理(强制执行)**：
-> 1. 启动前：`python scripts/status_manager.py thesis-workspace/ --ensure`
-> 2. 本步骤启动时执行：`python scripts/status_manager.py thesis-workspace/ --init`
-> 3. 完成后执行：`python scripts/status_manager.py thesis-workspace/ --update-step 0 --action complete`
+> 1. 启动前：`python scripts/core/status_manager.py thesis-workspace/ --ensure`
+> 2. 本步骤启动时执行：`python scripts/core/status_manager.py thesis-workspace/ --init`
+> 3. 完成后执行：`python scripts/core/status_manager.py thesis-workspace/ --update-step 0 --action complete`
 >
-> **统一入口(推荐)**：`python scripts/lifecycle.py --workspace thesis-workspace/ --step 0 --event start|complete`
+> **统一入口(推荐)**：`python scripts/core/lifecycle.py --workspace thesis-workspace/ --step 0 --event start|complete`
 
 **触发**：
 - 「初始化工作区」
@@ -47,8 +47,8 @@ flowchart TD
 ### 2. 创建工作区(如不存在)
 
 - 工作区不存在时，必须通过脚本初始化工作区，禁止大模型手工拼接目录
-- 推荐命令：`python scripts/lifecycle.py --workspace thesis-workspace/ --prepare-runtime`
-- 初始化完成后必须执行预检：`python scripts/lifecycle.py --workspace thesis-workspace/ --check-workspace`
+- 推荐命令：`python scripts/core/lifecycle.py --workspace thesis-workspace/ --prepare-runtime`
+- 初始化完成后必须执行预检：`python scripts/core/lifecycle.py --workspace thesis-workspace/ --check-workspace`
 - 预检必须覆盖 `scripts/`、`logs/`、`.thesis-status.json`、`.thesis-config.yaml`、`references/prompt/background.md`、`workspace/references/images.yaml`
 - 预检必须覆盖运行脚本子模块，例如 `scripts/charts/render.py`、`scripts/charts/source_writer.py`、`scripts/charts/engines/plantuml.py`、`scripts/charts/engines/graphviz.py`、`scripts/references/reference_engine.py`、`scripts/aigc/detect.py`
 - 自动创建完整目录结构，包括 `workspace/drafts`、`workspace/final`、`workspace/final/images`、`workspace/final/images/sources`、`workspace/reports`、`workspace/references`
@@ -83,7 +83,7 @@ flowchart TD
 4. 将写作规范放入 references/guidelines/
 5. 填写 references/prompt/background.md（必填）
 6. 将参考文献放入 references/reference/doc/
-7. 确认 `thesis-workspace/.thesis-config.yaml` 已生成，并按学校要求修改
+7. 确认 `thesis-workspace/.thesis-config.yaml` 已从 `references/templates/.thesis-config.yaml` 复制生成，并按学校要求修改
 8. 确认 `thesis-workspace/workspace/references/images.yaml` 已生成
 9. 确认 `thesis-workspace/scripts/charts/render.py` 等脚本子模块已生成
 10. 确认 `thesis-workspace/workspace/final/images/sources`、`workspace/drafts`、`workspace/reports` 已生成

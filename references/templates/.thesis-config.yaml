@@ -80,9 +80,10 @@ diagram_generation:
 # - kroki: 先尝试 Kroki，失败后再尝试 PlantUML 官方服务器
 # - official_server: 仅使用 PlantUML 官方服务器
 # 当前模板默认值为 kroki；如需改为本地优先，再手动改成 auto
-# 注意：PlantUML 图不会再跨到 Graphviz 渲染引擎
+# allow_graphviz_fallback: 仅在 method=auto 且本地/服务器均失败时，是否允许使用 Graphviz 本地兜底渲染
 plantuml_render:
   method: kroki
+  allow_graphviz_fallback: false
 
 logging:
   # 是否启用日志功能

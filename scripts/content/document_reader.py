@@ -6,9 +6,9 @@
 支持读取 PDF 和 Word 文档，提取文本内容和文档结构。
 
 使用方法：
-    python scripts/document_reader.py --input paper.pdf
-    python scripts/document_reader.py --input paper.docx
-    python scripts/document_reader.py --input paper.pdf --structure
+    python scripts/content/document_reader.py --input paper.pdf
+    python scripts/content/document_reader.py --input paper.docx
+    python scripts/content/document_reader.py --input paper.pdf --structure
 """
 
 import re

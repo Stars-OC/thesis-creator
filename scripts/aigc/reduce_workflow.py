@@ -10,7 +10,7 @@
 4. 输出报告
 
 使用方法：
-    python scripts/reduce_workflow.py --input workspace/final/论文终稿.md --output workspace/reduced/
+    python scripts/aigc/reduce_workflow.py --input workspace/final/论文终稿.md --output workspace/reduced/
 """
 
 import os

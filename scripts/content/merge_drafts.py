@@ -12,7 +12,7 @@
 6. 生成合并报告
 
 使用方法：
-    python scripts/merge_drafts.py --input ../thesis-workspace/workspace/drafts/ --output ../thesis-workspace/workspace/final/论文终稿.md --references ../thesis-workspace/workspace/references/verified_references.yaml --outline ../thesis-workspace/workspace/outline.md
+    python scripts/content/merge_drafts.py --input ../thesis-workspace/workspace/drafts/ --output ../thesis-workspace/workspace/final/论文终稿.md --references ../thesis-workspace/workspace/references/verified_references.yaml --outline ../thesis-workspace/workspace/outline.md
 """
 
 import re
@@ -662,8 +662,8 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例用法:
-    python scripts/merge_drafts.py -i ../thesis-workspace/workspace/drafts/ -o ../thesis-workspace/workspace/final/论文终稿.md
-    python scripts/merge_drafts.py --input ./drafts/ --output ./output/论文合并版.md
+    python scripts/content/merge_drafts.py -i ../thesis-workspace/workspace/drafts/ -o ../thesis-workspace/workspace/final/论文终稿.md
+    python scripts/content/merge_drafts.py --input ./drafts/ --output ./output/论文合并版.md
         """
     )
 

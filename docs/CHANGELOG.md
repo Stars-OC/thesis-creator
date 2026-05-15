@@ -14,10 +14,10 @@
 - **高密度句拆解**：新增“抽主干 → 拆动作 → 补解释层”处理方法，用于系统职责、功能说明、设计原因和测试结论等信息密度较高的句子。
 - **AIGC 文档同步**：`README.md` 与 `docs/usage_guide.md` 已同步更新单功能触发说明、Step 6 标准流程、策略一览表和清单自检格式。
 - **规则一致性修复**：主流程明确为 Step 3 大纲确认后进入文献搜索与建池，再进入 Step 4 写作；当写作阶段出现文献不足、验证异常或语种比例不达标时，可回流到文献搜索阶段补池。
-- **Step 0 初始化补齐**：`scripts/lifecycle.py` 现会在工作区初始化时自动生成 `thesis-workspace/.thesis-config.yaml` 与 `thesis-workspace/workspace/references/images.yaml`。
+- **Step 0 初始化补齐**：`scripts/core/lifecycle.py` 现会在工作区初始化时从 `references/templates/.thesis-config.yaml` 复制生成 `thesis-workspace/.thesis-config.yaml`，并初始化 `thesis-workspace/workspace/references/images.yaml`。
 - **图片清单路径统一**：图表生成脚本统一读取 `workspace/references/images.yaml`，并同步修正 CLI 提示文案。
-- **DOT ER 图输出约束收敛**：`scripts/chart_generator.py` 生成的 Graphviz DOT 概念 ER 图不再显式输出 `label=`，仅 E-R 图受 `er_modeling` 配置控制。
-- **引用规则对齐**：`scripts/references/verified_reference_pool.py` 默认推荐未占用文献；`scripts/merge_drafts.py` 在保持“按正文首次出现顺序编号”的同时，新增同一 `ref_id` 重复引用告警。
+- **DOT ER 图输出约束收敛**：`scripts/charts/chart_generator.py` 生成的 Graphviz DOT 概念 ER 图不再显式输出 `label=`，仅 E-R 图受 `er_modeling` 配置控制。
+- **引用规则对齐**：`scripts/references/verified_reference_pool.py` 默认推荐未占用文献；`scripts/content/merge_drafts.py` 在保持“按正文首次出现顺序编号”的同时，新增同一 `ref_id` 重复引用告警。
 - **ER 图测试更新**：同步调整 DOT ER 图与渲染测试，使断言与“无显式 `label=`”规则一致。
 
 ---
@@ -32,8 +32,8 @@
 - **多渲染模式**：支持 Mermaid、Graphviz 和 PlantUML 图表渲染
 - **模板化图表**：新增 `scripts/templates/charts/` 图表模板目录，提供 E-R 图、流程图、时序图等预设模板
 - **主题配置**：新增 `scripts/templates/chart_themes.yaml`，支持自定义图表配色方案
-- **智能关键词提取**：新增 `scripts/keyword_extractor.py`，从论文文本中提取关键术语用于图表标注
-- **LLM 辅助生成**：新增 `scripts/llm_chart_generator.py`，辅助生成 Mermaid、Graphviz、PlantUML 图表内容
+- **智能关键词提取**：新增 `scripts/content/keyword_extractor.py`，从论文文本中提取关键术语用于图表标注
+- **LLM 辅助生成**：新增 `scripts/charts/llm_chart_generator.py`，辅助生成 Mermaid、Graphviz、PlantUML 图表内容
 - **占位符原位替代**：图表占位符按渲染结果或用户补图状态回填，无需额外导出
 
 新增脚本：
@@ -233,17 +233,17 @@
 |------|------|
 | `scripts/aigc/detect.py` | AIGC 检测（通用入口，轻量版 + 完整版） |
 | `scripts/aigc/technical_detect.py` | 技术论文专用 AIGC 检测 |
-| `scripts/aigc_detect.py` | 兼容入口包装器 |
-| `scripts/aigc_detect_technical.py` | 技术检测兼容入口包装器 |
-| `synonym_replace.py` | 同义词替换 |
-| `enhanced_replace.py` | 增强版同义词替换 |
-| `text_analysis.py` | 文本特征分析 |
-| `format_checker.py` | 格式检查 |
-| `reduce_workflow.py` | 降重工作流 |
-| `document_exporter.py` | 文档导出 |
-| `md_to_docx.py` | Markdown 转 Word |
-| `chart_generator.py` | 图表生成 |
-| `reference_validator.py` | 参考文献验证 |
+| `scripts/aigc/aigc_detect.py` | 模块内历史包装器 |
+| `scripts/aigc/aigc_detect_technical.py` | 技术检测模块内历史包装器 |
+| `scripts/aigc/synonym_replace.py` | 同义词替换 |
+| `scripts/aigc/enhanced_replace.py` | 增强版同义词替换 |
+| `scripts/aigc/text_analysis.py` | 文本特征分析 |
+| `scripts/content/format_checker.py` | 格式检查 |
+| `scripts/aigc/reduce_workflow.py` | 降重工作流 |
+| `scripts/document_exporter/` | 文档导出 |
+| `scripts/document_exporter/md_to_docx.py` | Markdown 转 Word |
+| `scripts/charts/chart_generator.py` | 图表生成 |
+| `scripts/references/reference_validator.py` | 参考文献验证 |
 
 #### 日志系统
 

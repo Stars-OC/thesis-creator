@@ -1,6 +1,9 @@
 # 论文创作 Agent 系统 - Windows 安装脚本
 # 使用方法：在 PowerShell 中运行 .\install.ps1
 
+$SkillRoot = Split-Path -Parent $PSScriptRoot
+Set-Location $SkillRoot
+
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "  论文创作 Agent 系统 - 安装向导" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
@@ -90,28 +93,28 @@ if ($LASTEXITCODE -eq 0) {
     Write-Host "❌ scripts\\aigc\\detect.py 异常" -ForegroundColor Red
 }
 
-Write-Host "测试 synonym_replace.py..." -ForegroundColor Yellow
-python scripts\synonym_replace.py --help | Out-Null
+Write-Host "测试 scripts\aigc\synonym_replace.py..." -ForegroundColor Yellow
+python scripts\aigc\synonym_replace.py --help | Out-Null
 if ($LASTEXITCODE -eq 0) {
-    Write-Host "✅ synonym_replace.py 正常" -ForegroundColor Green
+    Write-Host "✅ scripts\aigc\synonym_replace.py 正常" -ForegroundColor Green
 } else {
-    Write-Host "❌ synonym_replace.py 异常" -ForegroundColor Red
+    Write-Host "❌ scripts\aigc\synonym_replace.py 异常" -ForegroundColor Red
 }
 
-Write-Host "测试 text_analysis.py..." -ForegroundColor Yellow
-python scripts\text_analysis.py --help | Out-Null
+Write-Host "测试 scripts\aigc\text_analysis.py..." -ForegroundColor Yellow
+python scripts\aigc\text_analysis.py --help | Out-Null
 if ($LASTEXITCODE -eq 0) {
-    Write-Host "✅ text_analysis.py 正常" -ForegroundColor Green
+    Write-Host "✅ scripts\aigc\text_analysis.py 正常" -ForegroundColor Green
 } else {
-    Write-Host "❌ text_analysis.py 异常" -ForegroundColor Red
+    Write-Host "❌ scripts\aigc\text_analysis.py 异常" -ForegroundColor Red
 }
 
-Write-Host "测试 format_checker.py..." -ForegroundColor Yellow
-python scripts\format_checker.py --help | Out-Null
+Write-Host "测试 scripts\content\format_checker.py..." -ForegroundColor Yellow
+python scripts\content\format_checker.py --help | Out-Null
 if ($LASTEXITCODE -eq 0) {
-    Write-Host "✅ format_checker.py 正常" -ForegroundColor Green
+    Write-Host "✅ scripts\content\format_checker.py 正常" -ForegroundColor Green
 } else {
-    Write-Host "❌ format_checker.py 异常" -ForegroundColor Red
+    Write-Host "❌ scripts\content\format_checker.py 异常" -ForegroundColor Red
 }
 
 Write-Host ""
@@ -127,7 +130,7 @@ Write-Host "  2. 在 Claude Code 中说：「帮我写论文，主题是...」" 
 Write-Host ""
 Write-Host "单独使用 Python 工具：" -ForegroundColor Cyan
 Write-Host "  python scripts/aigc/detect.py --input paper.md" -ForegroundColor White
-Write-Host "  python scripts/synonym_replace.py --input paper.md" -ForegroundColor White
-Write-Host "  python scripts/text_analysis.py --input paper.md" -ForegroundColor White
-Write-Host "  python scripts/format_checker.py --input paper.md" -ForegroundColor White
+Write-Host "  python scripts/aigc/synonym_replace.py --input paper.md" -ForegroundColor White
+Write-Host "  python scripts/aigc/text_analysis.py --input paper.md" -ForegroundColor White
+Write-Host "  python scripts/content/format_checker.py --input paper.md" -ForegroundColor White
 Write-Host ""

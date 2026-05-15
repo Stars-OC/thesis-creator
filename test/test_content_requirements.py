@@ -9,7 +9,7 @@ SCRIPTS_DIR = Path(__file__).resolve().parents[1] / "scripts"
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
-from format_checker import FormatChecker  # noqa: E402
+from content.format_checker import FormatChecker  # noqa: E402
 
 
 SKILL_ROOT = Path(__file__).resolve().parent.parent

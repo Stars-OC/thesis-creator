@@ -18,6 +18,8 @@
 | `docx_writer.py` | 写入 DOCX，处理字体、段落、标题、表格、图片、图注与分页符。 |
 | `pdf_converter.py` | 将 DOCX 转换为 PDF，按 `docx2pdf`、LibreOffice、Word COM 顺序尝试。 |
 | `exporter.py` | 编排 DOCX/PDF 导出流程并返回结果字典。 |
+| `md_to_docx.py` | 旧版 Markdown 转 DOCX 入口。 |
+| `enhanced_md_to_docx.py` | 增强版 Markdown 转 DOCX 入口，支持外部转换工具调用。 |
 
 ## 推荐命令
 

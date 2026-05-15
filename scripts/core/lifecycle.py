@@ -1,5 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+from pathlib import Path
+import sys
+
+SCRIPT_ROOT = Path(__file__).resolve().parents[1]
+if str(SCRIPT_ROOT) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_ROOT))
+
 """
 论文创作生命周期管理器（Thesis Lifecycle Manager）
 
@@ -15,8 +22,8 @@ import venv
 from pathlib import Path
 from typing import Dict, Any
 
-from status_manager import ThesisStatusManager, STEPS
-from logger import init_logger, get_logger
+from core.status_manager import ThesisStatusManager, STEPS
+from core.logger import init_logger, get_logger
 
 
 def _load_lifecycle_config(workspace: Path) -> Dict[str, Any]:
@@ -82,7 +89,7 @@ def _copy_tree_if_missing(source_dir: Path, target_dir: Path):
 def _ensure_workspace_references(workspace: Path):
     template_candidates = [
         workspace.parent / ".claude" / "skills" / "thesis-creator" / "references",
-        Path(__file__).resolve().parent.parent / "references",
+        Path(__file__).resolve().parents[2] / "references",
     ]
     for template_root in template_candidates:
         if template_root.exists():
@@ -98,7 +105,7 @@ def _ensure_workspace_config(workspace: Path):
 
     template_candidates = [
         workspace.parent / ".claude" / "skills" / "thesis-creator" / "references" / "templates" / ".thesis-config.yaml",
-        Path(__file__).resolve().parent.parent / "references" / "templates" / ".thesis-config.yaml",
+        Path(__file__).resolve().parents[2] / "references" / "templates" / ".thesis-config.yaml",
     ]
     for template in template_candidates:
         if template.exists():
@@ -146,7 +153,7 @@ def ensure_workspace_structure(workspace_path: str, sync_scripts: bool = True) -
         venv.create(venv_dir, with_pip=True)
 
     if sync_scripts:
-        _copy_runtime_scripts(Path(__file__).resolve().parent, scripts_dir)
+        _copy_runtime_scripts(Path(__file__).resolve().parents[1], scripts_dir)
 
     _ensure_workspace_output_dirs(workspace)
     _ensure_workspace_references(workspace)
@@ -156,7 +163,7 @@ def ensure_workspace_structure(workspace_path: str, sync_scripts: bool = True) -
         template_candidates = [
             workspace / "references" / "prompt" / "background_template.md",
             workspace.parent / ".claude" / "skills" / "thesis-creator" / "references" / "prompt" / "background_template.md",
-            Path(__file__).resolve().parent.parent / "references" / "prompt" / "background_template.md",
+            Path(__file__).resolve().parents[2] / "references" / "prompt" / "background_template.md",
         ]
         target_background.parent.mkdir(parents=True, exist_ok=True)
         for template in template_candidates:
@@ -175,7 +182,7 @@ def ensure_workspace_structure(workspace_path: str, sync_scripts: bool = True) -
 def check_workspace_preflight(workspace: Path) -> Dict[str, Any]:
     required_paths = [
         "scripts",
-        "scripts/lifecycle.py",
+        "scripts/core/lifecycle.py",
         "scripts/charts/render.py",
         "scripts/charts/source_writer.py",
         "scripts/charts/engines/plantuml.py",
@@ -198,7 +205,7 @@ def check_workspace_preflight(workspace: Path) -> Dict[str, Any]:
 
     suggestions = []
     if missing:
-        suggestions.append("python scripts/lifecycle.py --workspace thesis-workspace/ --prepare-runtime")
+        suggestions.append("python scripts/core/lifecycle.py --workspace thesis-workspace/ --prepare-runtime")
 
     return {
         "ok": not missing,

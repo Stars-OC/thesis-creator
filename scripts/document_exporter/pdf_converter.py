@@ -1,9 +1,16 @@
+from pathlib import Path
+import sys
+
+SCRIPT_ROOT = Path(__file__).resolve().parents[1]
+if str(SCRIPT_ROOT) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_ROOT))
+
 import subprocess
 import sys
 from pathlib import Path
 from typing import Tuple
 
-from terminal_encoding import subprocess_text_kwargs
+from core.terminal_encoding import subprocess_text_kwargs
 
 
 def convert_docx_to_pdf(docx_path: str, pdf_path: str) -> Tuple[bool, str]:

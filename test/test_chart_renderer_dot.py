@@ -24,7 +24,8 @@ class FakeGraphvizSource:
         self.calls.append({"code": code, "format": format, "engine": engine})
 
     def render(self, filename, directory, cleanup=True):
-        output = Path(directory) / f"{filename}.png"
+        self.calls[-1].update({"filename": filename, "directory": directory, "cleanup": cleanup})
+        output = Path(directory) / f"{Path(filename).name}.png"
         output.write_bytes(b"x")
         return str(output)
 
@@ -143,6 +144,20 @@ class ChartRendererDotTestCase(unittest.TestCase):
                 graphviz.render(source, output)
 
             self.assertEqual("dot", FakeGraphvizSource.calls[-1]["engine"])
+
+    def test_render_uses_absolute_filename_for_paths_with_spaces(self):
+        with tempfile.TemporaryDirectory(prefix="graphviz path ") as tmpdir:
+            root = Path(tmpdir)
+            source = root / "sources" / "image 8.dot"
+            output = root / "final images" / "image 8.png"
+            source.parent.mkdir(parents=True)
+            source.write_text("digraph G { A -> B; }\n", encoding="utf-8")
+
+            with self._patch_graphviz_source():
+                graphviz.render(source, output)
+
+            self.assertEqual(str(output.with_suffix("")), FakeGraphvizSource.calls[-1]["filename"])
+            self.assertEqual(str(output.parent), FakeGraphvizSource.calls[-1]["directory"])
 
 
 if __name__ == "__main__":

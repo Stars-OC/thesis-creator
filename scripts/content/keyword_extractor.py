@@ -1,4 +1,11 @@
 # -*- coding: utf-8 -*-
+from pathlib import Path
+import sys
+
+SCRIPT_ROOT = Path(__file__).resolve().parents[1]
+if str(SCRIPT_ROOT) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_ROOT))
+
 """
 关键词提取器 - 从论文上下文提取图表生成所需的关键信息
 
@@ -9,7 +16,7 @@
 4. 提取技术栈关键词
 
 使用方法：
-    from keyword_extractor import KeywordExtractor
+    from content.keyword_extractor import KeywordExtractor
     extractor = KeywordExtractor()
     entities = extractor.extract_entities(context_text)
     steps = extractor.extract_flow_steps(description)
@@ -21,7 +28,7 @@ from collections import Counter
 
 # 导入日志模块
 try:
-    from logger import get_logger
+    from core.logger import get_logger
 except ImportError:
     import logging
     def get_logger():

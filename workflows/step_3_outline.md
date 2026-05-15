@@ -1,12 +1,12 @@
 # Step 3: 生成论文大纲
 
 > **状态管理(强制执行)**：
-> 1. 启动前：`python scripts/status_manager.py thesis-workspace/ --ensure`
-> 2. 启动时：`python scripts/status_manager.py thesis-workspace/ --check-step 3`
+> 1. 启动前：`python scripts/core/status_manager.py thesis-workspace/ --ensure`
+> 2. 启动时：`python scripts/core/status_manager.py thesis-workspace/ --check-step 3`
 > 3. 前置条件通过后：`--update-step 3 --action start`
 > 4. 完成后：`--update-step 3 --action complete`
 >
-> **统一入口(推荐)**：`python scripts/lifecycle.py --workspace thesis-workspace/ --step 3 --event start|complete`
+> **统一入口(推荐)**：`python scripts/core/lifecycle.py --workspace thesis-workspace/ --step 3 --event start|complete`
 
 > **加载 Prompt**：`prompts/thesis_structure.md`
 

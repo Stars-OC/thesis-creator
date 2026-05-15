@@ -342,32 +342,38 @@ thesis-creator/
 │   └── image_generation.md          #   图片生成提示词 ⭐
 ├── scripts/                 # Python 工具
 │   ├── INDEX.md             #   scripts 总索引
+│   ├── core/                #   生命周期、状态、日志与任务分发
+│   │   ├── INDEX.md
+│   │   ├── lifecycle.py
+│   │   ├── status_manager.py
+│   │   ├── logger.py
+│   │   └── task_dispatcher.py
+│   ├── content/             #   正文读取、格式检查、关键词抽取与终稿合并
+│   │   ├── INDEX.md
+│   │   ├── merge_drafts.py
+│   │   ├── document_reader.py
+│   │   ├── format_checker.py
+│   │   └── keyword_extractor.py
 │   ├── aigc/                #   AIGC 检测与降 AIGC 子模块
-│   │   ├── INDEX.md         #   AIGC 脚本索引
-│   │   ├── detect.py        #   通用 AIGC 检测入口
-│   │   ├── technical_detect.py # 技术论文 AIGC 检测入口
-│   │   └── term_whitelist.txt  # 技术术语白名单
-│   ├── aigc_detect.py       #   兼容入口（包装器）
-│   ├── synonym_replace.py   #   同义词替换
-│   ├── text_analysis.py     #   文本分析
-│   ├── format_checker.py    #   格式检查
+│   │   ├── INDEX.md
+│   │   ├── detect.py
+│   │   ├── technical_detect.py
+│   │   ├── reduce_workflow.py
+│   │   └── term_whitelist.txt
 │   ├── charts/              #   图表生成渲染子系统
-│   │   ├── INDEX.md         #   图表脚本索引
-│   │   ├── manifest_builder.py  # 从正文占位符生成 images.yaml
-│   │   ├── source_writer.py     # 准备并校验 dot/mmd/puml 源文件
-│   │   ├── render.py            # 按 Mermaid/Graphviz/PlantUML 渲染 PNG
-│   │   ├── markdown_updater.py  # 回填 Markdown 图片引用
-│   │   └── validate.py          # 校验图表链路完整性
+│   │   ├── INDEX.md
+│   │   ├── manifest_builder.py
+│   │   ├── source_writer.py
+│   │   ├── render.py
+│   │   ├── markdown_updater.py
+│   │   └── validate.py
 │   ├── references/          #   参考文献流程子模块
-│   │   ├── INDEX.md         #   参考文献脚本索引
-│   │   ├── reference_engine.py  # 多源搜索 + DOI验证 ⭐
-│   │   ├── reference_validator.py # 参考文献验证（增强版） ⭐
-│   │   ├── reference_searcher.py  # 文献搜索
-│   │   └── verified_reference_pool.py # 已验证文献池 ⭐
-│   ├── keyword_extractor.py       #   关键词提取器 ⭐
-│   ├── document_exporter.py #   文档导出（含图片插入）
-│   ├── merge_drafts.py      #   章节合并（支持大纲匹配）
-│   └── logger.py            #   日志系统（可配置）
+│   │   ├── INDEX.md
+│   │   ├── reference_engine.py
+│   │   ├── reference_validator.py
+│   │   ├── reference_searcher.py
+│   │   └── verified_reference_pool.py
+│   └── document_exporter/   #   Word/PDF 导出与图片插入
 ├── scripts/templates/       # 图表模板
 │   ├── chart_themes.yaml    #   图表主题配置 ⭐
 │   └── charts/              #   图表模板目录 ⭐

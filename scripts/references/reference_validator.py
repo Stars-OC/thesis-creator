@@ -1,4 +1,11 @@
 # -*- coding: utf-8 -*-
+from pathlib import Path
+import sys
+
+SCRIPT_ROOT = Path(__file__).resolve().parents[1]
+if str(SCRIPT_ROOT) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_ROOT))
+
 """
 参考文献验证工具
 
@@ -28,7 +35,7 @@ import time
 # 导入日志模块
 try:
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-    from logger import get_logger, init_logger
+    from core.logger import get_logger, init_logger
 except ImportError:
     import logging
     logging.basicConfig(level=logging.INFO)

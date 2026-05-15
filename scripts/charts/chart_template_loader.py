@@ -1,4 +1,11 @@
 # -*- coding: utf-8 -*-
+from pathlib import Path
+import sys
+
+SCRIPT_ROOT = Path(__file__).resolve().parents[1]
+if str(SCRIPT_ROOT) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_ROOT))
+
 """
 图表模板加载器 - 加载和管理图表模板
 
@@ -9,7 +16,7 @@
 4. 支持模板继承和扩展
 
 使用方法：
-    from chart_template_loader import ChartTemplateLoader
+    from charts.chart_template_loader import ChartTemplateLoader
     loader = ChartTemplateLoader()
     template = loader.find_template("架构图", "Web系统前后端分离")
     mermaid_code = loader.render_template(template, variables)
@@ -24,7 +31,7 @@ from datetime import datetime
 
 # 导入日志模块
 try:
-    from logger import get_logger
+    from core.logger import get_logger
 except ImportError:
     import logging
     def get_logger():

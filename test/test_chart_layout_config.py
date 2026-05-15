@@ -100,7 +100,7 @@ description: 用户登录流程
             )
             validate_sources(manifest, root=root)
 
-            def fake_plantuml_render(source_path, output_path, method="auto"):
+            def fake_plantuml_render(source_path, output_path, method="auto", allow_fallback=False):
                 self.assertEqual(source, source_path)
                 output_path.parent.mkdir(parents=True, exist_ok=True)
                 output_path.write_bytes(b"x" * 2048)
@@ -152,7 +152,7 @@ description: 用户登录流程
             validate_sources(manifest, root=root)
             methods = []
 
-            def fake_plantuml_render(source_path, output_path, method="auto"):
+            def fake_plantuml_render(source_path, output_path, method="auto", allow_fallback=False):
                 methods.append(method)
                 output_path.parent.mkdir(parents=True, exist_ok=True)
                 output_path.write_bytes(b"x" * 2048)
@@ -205,7 +205,7 @@ description: 用户登录流程
             validate_sources(manifest, root=root)
             methods = []
 
-            def fake_plantuml_render(source_path, output_path, method="auto"):
+            def fake_plantuml_render(source_path, output_path, method="auto", allow_fallback=False):
                 methods.append(method)
                 output_path.parent.mkdir(parents=True, exist_ok=True)
                 output_path.write_bytes(b"x" * 2048)

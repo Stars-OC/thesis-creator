@@ -12,7 +12,7 @@ SCRIPTS_DIR = Path(__file__).resolve().parents[1] / "scripts"
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
-from image_manifest_builder import build_image_manifest_from_markdown  # noqa: E402
+from charts.image_manifest_builder import build_image_manifest_from_markdown  # noqa: E402
 
 
 class ImageManifestBuilderTest(unittest.TestCase):

@@ -1,12 +1,12 @@
 # Step 6: 审校润色
 
 > **状态管理(强制执行)**：
-> 1. 启动前：`python scripts/status_manager.py thesis-workspace/ --ensure`
-> 2. 启动时：`python scripts/status_manager.py thesis-workspace/ --check-step 6`
+> 1. 启动前：`python scripts/core/status_manager.py thesis-workspace/ --ensure`
+> 2. 启动时：`python scripts/core/status_manager.py thesis-workspace/ --check-step 6`
 > 3. 前置条件通过后：`--update-step 6 --action start`
 > 4. 完成后：`--update-step 6 --action complete`
 >
-> **统一入口(推荐)**：`python scripts/lifecycle.py --workspace thesis-workspace/ --step 6 --event start|complete`
+> **统一入口(推荐)**：`python scripts/core/lifecycle.py --workspace thesis-workspace/ --step 6 --event start|complete`
 
 > **目标**：在 Step 7 合并前完成引用、图表、语言风格和表达质量的集中审校，提前发现需要回退修改的问题。
 
@@ -60,7 +60,7 @@ flowchart TD
 | 场景化重写流程 | 将 AIGC 降低流程固定为“场景化重写 → 结构重组 → 细节注入 → 自然承接与轻冗余 → 高密度句拆句解释 → 语言去模板化” | `prompts/aigc_reducer_prompt.md` 第十一节 + 人工审校 | 禁止只做机械同义替换；信息不足时提示补充真实细节 |
 | 表达质量复查 | 识别机械同义替换、术语漂移、表达生硬、过度压缩和解释层缺失问题 | `scripts/aigc/detect.py` + 人工审校 | 未通过时局部修正，不得整章重写 |
 | 条款保留检查 | 原文存在（1）（2）（3）（4）等条款时，改写后必须保留编号、标题和顺序 | `reduce_workflow.py` 量化报告 + 人工核对 | 缺失条款时回退局部修正，禁止交付 |
-| AIGC 量化对比报告 | 输出改写前后整体分数、句长波动、词汇多样性、过渡词、结构模式和高风险段落变化 | `scripts/reduce_workflow.py` 输出的 `AIGC降低量化对比_*.md` | 报告缺失时补跑流程或人工补齐 |
+| AIGC 量化对比报告 | 输出改写前后整体分数、句长波动、词汇多样性、过渡词、结构模式和高风险段落变化 | `scripts/aigc/reduce_workflow.py` 输出的 `AIGC降低量化对比_*.md` | 报告缺失时补跑流程或人工补齐 |
 | 处理计划与完成自检 | AIGC 降低前应有处理计划，处理后应有自检表 | 审核 Prompt + `workspace/reports/` 报告 | 任一缺失时不得视为 Step 6 完成 |
 | 低可预测表达复查 | 减少模板化转接词，避免沿用原句骨架；允许语义接近前提下重构句子、补自然承接语和轻冗余词 | `scripts/aigc/detect.py` + 人工审校 | 若仍呈模板化结构，回退 Step 5 局部重构 |
 | 高信息密度句拆解 | 对职责、动作、目标过度集中在一句内的句子，按“抽主干 → 拆动作 → 补解释层”处理 | `prompts/aigc_reducer_prompt.md` + 人工审校 | 若解释层缺失或过度口语化，回退局部修正 |
@@ -122,7 +122,7 @@ flowchart TD
 
 ```bash
 # 1) 章节格式与基础结构检查（可按章节逐个执行）
-python scripts/format_checker.py --dir workspace/drafts/
+python scripts/content/format_checker.py --dir workspace/drafts/
 
 # 2) 基于章节关键词复核文献池候选结果，确认引用来源与 DOI 完整性
 python scripts/references/verified_reference_pool.py --recommend --keywords "章节关键词1 章节关键词2" --limit 5

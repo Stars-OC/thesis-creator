@@ -6,12 +6,14 @@ import re
 import subprocess
 import zlib
 from pathlib import Path
+import sys
 import urllib.request
 
-try:
-    from ...terminal_encoding import subprocess_text_kwargs
-except ImportError:
-    from terminal_encoding import subprocess_text_kwargs
+SCRIPT_ROOT = Path(__file__).resolve().parents[2]
+if str(SCRIPT_ROOT) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_ROOT))
+
+from core.terminal_encoding import subprocess_text_kwargs
 
 try:
     from . import graphviz as graphviz_engine
@@ -258,7 +260,7 @@ def _render_graphviz_fallback(source: Path, output: Path) -> None:
     fallback_source.unlink(missing_ok=True)
 
 
-def render(source: Path, output: Path, method: str = "auto") -> None:
+def render(source: Path, output: Path, method: str = "auto", allow_fallback: bool = False) -> None:
     if method == "plantuml":
         _render_local(source, output)
         return
@@ -273,14 +275,29 @@ def render(source: Path, output: Path, method: str = "auto") -> None:
                 return
             except Exception as exc:
                 errors.append(str(exc))
+        if allow_fallback:
+            try:
+                _render_graphviz_fallback(source, output)
+                return
+            except Exception as exc:
+                errors.append(str(exc))
         raise RuntimeError("; ".join(errors))
     if method == "graphviz":
+        if allow_fallback:
+            _render_graphviz_fallback(source, output)
+            return
         raise RuntimeError("PlantUML 图禁止使用 graphviz 渲染方法")
 
     errors = []
     for renderer in (_render_local, _render_kroki, _render_official_server):
         try:
             renderer(source, output)
+            return
+        except Exception as exc:
+            errors.append(str(exc))
+    if allow_fallback:
+        try:
+            _render_graphviz_fallback(source, output)
             return
         except Exception as exc:
             errors.append(str(exc))

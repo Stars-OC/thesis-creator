@@ -1,12 +1,12 @@
 # Step 7: 合并与检测
 
 > **状态管理(强制执行)**：
-> 1. 启动前：`python scripts/status_manager.py thesis-workspace/ --ensure`
-> 2. 启动时：`python scripts/status_manager.py thesis-workspace/ --check-step 7`
+> 1. 启动前：`python scripts/core/status_manager.py thesis-workspace/ --ensure`
+> 2. 启动时：`python scripts/core/status_manager.py thesis-workspace/ --check-step 7`
 > 3. 前置条件通过后：`--update-step 7 --action start`
 > 4. 完成后：`--update-step 7 --action complete`
 >
-> **统一入口(推荐)**：`python scripts/lifecycle.py --workspace thesis-workspace/ --step 7 --event start|complete`
+> **统一入口(推荐)**：`python scripts/core/lifecycle.py --workspace thesis-workspace/ --step 7 --event start|complete`
 
 ---
 
@@ -39,20 +39,20 @@ flowchart TD
 > - 章节顺序错误
 > - 章节拼接顺序错误
 >
-> **必须使用 `scripts/merge_drafts.py` Python 脚本合并！**
+> **必须使用 `scripts/content/merge_drafts.py` Python 脚本合并！**
 
 ---
 
 ## 7.1 章节合并
 
-使用 `scripts/merge_drafts.py` 合并各章节文件：
+使用 `scripts/content/merge_drafts.py` 合并各章节文件：
 
 ```bash
 # 合并所有章节，并完成引用重排与参考文献生成
-python scripts/merge_drafts.py -i workspace/drafts/ -o workspace/final/论文终稿.md --references workspace/references/verified_references.yaml --outline workspace/outline.md
+python scripts/content/merge_drafts.py -i workspace/drafts/ -o workspace/final/论文终稿.md --references workspace/references/verified_references.yaml --outline workspace/outline.md
 
 # 输出简要结果（不打印详细报告）
-python scripts/merge_drafts.py -i workspace/drafts/ -o workspace/final/论文终稿.md --references workspace/references/verified_references.yaml --outline workspace/outline.md --no-report
+python scripts/content/merge_drafts.py -i workspace/drafts/ -o workspace/final/论文终稿.md --references workspace/references/verified_references.yaml --outline workspace/outline.md --no-report
 ```
 
 ### 合并脚本执行的关键操作

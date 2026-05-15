@@ -6,12 +6,14 @@ import subprocess
 import tempfile
 import zlib
 from pathlib import Path
+import sys
 import urllib.request
 
-try:
-    from ...terminal_encoding import subprocess_text_kwargs
-except ImportError:
-    from terminal_encoding import subprocess_text_kwargs
+SCRIPT_ROOT = Path(__file__).resolve().parents[2]
+if str(SCRIPT_ROOT) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_ROOT))
+
+from core.terminal_encoding import subprocess_text_kwargs
 
 MAX_MERMAID_HEIGHT_PX = 800
 

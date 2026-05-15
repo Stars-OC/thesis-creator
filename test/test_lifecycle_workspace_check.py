@@ -10,8 +10,8 @@ SCRIPTS_DIR = Path(__file__).resolve().parents[1] / "scripts"
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
-from lifecycle import check_workspace_preflight, ensure_workspace_structure  # noqa: E402
-from status_manager import ThesisStatusManager  # noqa: E402
+from core.lifecycle import check_workspace_preflight, ensure_workspace_structure  # noqa: E402
+from core.status_manager import ThesisStatusManager  # noqa: E402
 
 
 class LifecycleWorkspaceCheckTest(unittest.TestCase):
@@ -35,6 +35,11 @@ class LifecycleWorkspaceCheckTest(unittest.TestCase):
         self.assertFalse((self.workspace / "scripts" / "test_lifecycle_workspace_check.py").exists())
         self.assertTrue((self.workspace / "logs").is_dir())
         self.assertTrue((self.workspace / ".thesis-config.yaml").exists())
+        skill_config_template = Path(__file__).resolve().parents[1] / "references" / "templates" / ".thesis-config.yaml"
+        self.assertEqual(
+            skill_config_template.read_text(encoding="utf-8"),
+            (self.workspace / ".thesis-config.yaml").read_text(encoding="utf-8"),
+        )
         self.assertTrue((self.workspace / "references" / "prompt" / "background.md").exists())
         self.assertTrue((self.workspace / ".thesis-status.json").exists())
         self.assertTrue((self.workspace / "workspace" / "drafts").is_dir())
@@ -54,7 +59,7 @@ class LifecycleWorkspaceCheckTest(unittest.TestCase):
         self.assertFalse(report["incomplete"])
 
     def test_init_and_check_prepares_runtime_and_passes_when_background_exists(self):
-        from lifecycle import init_and_check_workspace
+        from core.lifecycle import init_and_check_workspace
 
         report = init_and_check_workspace(str(self.workspace), sync_scripts=True)
 
@@ -79,7 +84,7 @@ class LifecycleWorkspaceCheckTest(unittest.TestCase):
         self.assertIn("workspace/final/images/sources", report["missing"])
         self.assertNotIn(".thesis-config.yaml", report["missing"])
         self.assertNotIn("workspace/references/images.yaml", report["missing"])
-        self.assertIn("python scripts/lifecycle.py --workspace thesis-workspace/ --prepare-runtime", report["suggestions"])
+        self.assertIn("python scripts/core/lifecycle.py --workspace thesis-workspace/ --prepare-runtime", report["suggestions"])
 
     def test_check_workspace_preflight_allows_unfilled_background_template(self):
         ensure_workspace_structure(str(self.workspace), sync_scripts=True)

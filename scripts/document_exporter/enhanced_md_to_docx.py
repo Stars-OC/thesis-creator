@@ -1,5 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+from pathlib import Path
+import sys
+
+SCRIPT_ROOT = Path(__file__).resolve().parents[1]
+if str(SCRIPT_ROOT) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_ROOT))
+
 """
 增强版 Markdown 转 Word 文档转换器
 
@@ -11,7 +18,7 @@
 5. 图表标题格式化
 
 使用方法：
-    python scripts/enhanced_md_to_docx.py --input paper.md --output paper.docx --template template.docx
+    python scripts/document_exporter/enhanced_md_to_docx.py --input paper.md --output paper.docx --template template.docx
 """
 
 import re
@@ -23,7 +30,7 @@ from pathlib import Path
 from datetime import datetime
 from typing import Optional, Tuple, List
 
-from terminal_encoding import subprocess_text_kwargs
+from core.terminal_encoding import subprocess_text_kwargs
 
 # 检查 python-docx 是否可用
 try:

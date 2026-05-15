@@ -11,6 +11,13 @@
 | `render.py` | 按 `engine` 调用 Mermaid、Graphviz、PlantUML 渲染 PNG；PlantUML 支持本地、Kroki 与官方服务器兜底 |
 | `markdown_updater.py` | 将正文中的 `[image_N]` 替换成 Markdown 图片引用 |
 | `validate.py` | 校验占位符、源码、PNG、路径和状态一致性 |
+| `chart_generator.py` | 旧版图表生成入口，负责从 Markdown 占位符生成图表需求和代码块 |
+| `chart_renderer.py` | 旧版图表渲染入口，优先使用 `render.py` 的新链路 |
+| `chart_renderer_offline.py` | 离线图表渲染辅助 |
+| `chart_template_loader.py` | 读取 `templates/charts/` 图表模板 |
+| `image_manifest_builder.py` | 旧版图片清单生成入口，优先使用 `manifest_builder.py` |
+| `llm_chart_generator.py` | 基于大模型提示的图表源码生成辅助 |
+| `demo_chart_generation.py` | 图表生成演示脚本 |
 
 ## 推荐顺序
 

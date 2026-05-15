@@ -177,7 +177,28 @@ def _is_language(ref: Dict, target_lang: str) -> bool:
     return lang != "zh" and not bool(re.findall(r"[一-鿿]", title))
 
 
-def select_top(refs: List[Dict], top_n: int) -> List[Dict]:
+def _normalize_topic_text(value: str) -> str:
+    return re.sub(r"[^0-9A-Za-z一-鿿]+", "", str(value or "")).lower()
+
+
+def warn_low_topic_relevance(refs: List[Dict], topic_keywords: Optional[List[str]] = None) -> None:
+    if not topic_keywords:
+        return
+
+    normalized_keywords = [_normalize_topic_text(keyword) for keyword in topic_keywords]
+    normalized_keywords = [keyword for keyword in normalized_keywords if keyword]
+    if not normalized_keywords:
+        return
+
+    for ref in refs:
+        title = str(ref.get("title") or "")
+        ref_keywords = " ".join(str(keyword) for keyword in ref.get("keywords") or [])
+        match_text = _normalize_topic_text(f"{title} {ref_keywords}")
+        if not any(keyword in match_text for keyword in normalized_keywords):
+            print(f"[警告] 主题相关性偏低: {title}")
+
+
+def select_top(refs: List[Dict], top_n: int, topic_keywords: Optional[List[str]] = None) -> List[Dict]:
     """按综合得分排序并选出 top_n 篇，同时确保中英文文献都有"""
     sorted_refs = sorted(refs, key=compute_score, reverse=True)
     selected = sorted_refs[:top_n]
@@ -222,7 +243,9 @@ def select_top(refs: List[Dict], top_n: int) -> List[Dict]:
         for suggestion in quality["suggestions"]:
             print(f"[建议] {suggestion}")
 
-    return sorted(selected, key=compute_score, reverse=True)[:top_n]
+    selected = sorted(selected, key=compute_score, reverse=True)[:top_n]
+    warn_low_topic_relevance(selected, topic_keywords)
+    return selected
 
 
 
@@ -281,6 +304,10 @@ def main():
         "--pool-id", type=str, default="thesis_references",
         help="文献池 ID",
     )
+    parser.add_argument(
+        "--topic-keywords", nargs="*", default=None,
+        help="论文主题关键词；用于提示偏离主题的低相关文献，不会自动删除",
+    )
 
     args = parser.parse_args()
 
@@ -318,7 +345,7 @@ def main():
     print(f"[去重] {total_loaded} → {len(deduped)} 条")
 
     # 3. 选出最相关的 x 篇
-    selected = select_top(deduped, args.top)
+    selected = select_top(deduped, args.top, topic_keywords=args.topic_keywords)
     print(f"[筛选] 选出最相关 {len(selected)} 篇")
 
     # 4. 中英文检查
