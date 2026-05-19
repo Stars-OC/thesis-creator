@@ -35,7 +35,7 @@ class LifecycleWorkspaceCheckTest(unittest.TestCase):
         self.assertFalse((self.workspace / "scripts" / "test_lifecycle_workspace_check.py").exists())
         self.assertTrue((self.workspace / "logs").is_dir())
         self.assertTrue((self.workspace / ".thesis-config.yaml").exists())
-        skill_config_template = Path(__file__).resolve().parents[1] / "references" / "templates" / ".thesis-config.yaml"
+        skill_config_template = Path(__file__).resolve().parents[1] / "config" / ".thesis-config.yaml"
         self.assertEqual(
             skill_config_template.read_text(encoding="utf-8"),
             (self.workspace / ".thesis-config.yaml").read_text(encoding="utf-8"),

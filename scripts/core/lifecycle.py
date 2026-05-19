@@ -104,8 +104,8 @@ def _ensure_workspace_config(workspace: Path):
         return
 
     template_candidates = [
-        workspace.parent / ".claude" / "skills" / "thesis-creator" / "references" / "templates" / ".thesis-config.yaml",
-        Path(__file__).resolve().parents[2] / "references" / "templates" / ".thesis-config.yaml",
+        workspace.parent / ".claude" / "skills" / "thesis-creator" / "config" / ".thesis-config.yaml",
+        Path(__file__).resolve().parents[2] / "config" / ".thesis-config.yaml",
     ]
     for template in template_candidates:
         if template.exists():

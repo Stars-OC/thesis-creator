@@ -377,9 +377,9 @@ thesis-creator/
 ├── scripts/templates/       # 图表模板
 │   ├── chart_themes.yaml    #   图表主题配置 ⭐
 │   └── charts/              #   图表模板目录 ⭐
+├── config/                  # Skill 配置模板
+│   └── .thesis-config.yaml  #   项目配置文件 ⭐
 ├── references/              # 参考资料
-│   └── templates/
-│       └── .thesis-config.yaml  #   项目配置文件 ⭐
 ├── workflows/               # 工作流文档 ⭐
 │   ├── step_0_init.md       #   Step 0 初始化
 │   ├── step_3_outline.md    #   Step 3 大纲生成

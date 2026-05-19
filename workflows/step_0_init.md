@@ -22,7 +22,7 @@ flowchart TD
     B --> D[创建目录结构]
     D --> E[创建 scripts/ 与运行环境]
     E --> F[创建 references/prompt/background.md]
-    F --> G[复制 templates/.thesis-config.yaml]
+    F --> G[复制 config/.thesis-config.yaml]
     G --> H[初始化 workspace/references/images.yaml]
     H --> I[创建 .thesis-status.json]
     I --> J[记录初始化日志]
@@ -57,7 +57,7 @@ flowchart TD
 - 自动创建 `logs/` 目录
 - 复制模板文件：
   - `references/prompt/background_template.md` → `references/prompt/background.md`
-  - `references/templates/.thesis-config.yaml` → `.thesis-config.yaml`
+  - `config/.thesis-config.yaml` → `.thesis-config.yaml`
 - 初始化 `workspace/references/images.yaml`（结构化图片需求清单）
 - 初始化 `.thesis-status.json`
 
@@ -83,7 +83,7 @@ flowchart TD
 4. 将写作规范放入 references/guidelines/
 5. 填写 references/prompt/background.md（必填）
 6. 将参考文献放入 references/reference/doc/
-7. 确认 `thesis-workspace/.thesis-config.yaml` 已从 `references/templates/.thesis-config.yaml` 复制生成，并按学校要求修改
+7. 确认 `thesis-workspace/.thesis-config.yaml` 已从 `config/.thesis-config.yaml` 复制生成，并按学校要求修改
 8. 确认 `thesis-workspace/workspace/references/images.yaml` 已生成
 9. 确认 `thesis-workspace/scripts/charts/render.py` 等脚本子模块已生成
 10. 确认 `thesis-workspace/workspace/final/images/sources`、`workspace/drafts`、`workspace/reports` 已生成

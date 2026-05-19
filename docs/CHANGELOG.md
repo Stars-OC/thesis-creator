@@ -14,7 +14,7 @@
 - **高密度句拆解**：新增“抽主干 → 拆动作 → 补解释层”处理方法，用于系统职责、功能说明、设计原因和测试结论等信息密度较高的句子。
 - **AIGC 文档同步**：`README.md` 与 `docs/usage_guide.md` 已同步更新单功能触发说明、Step 6 标准流程、策略一览表和清单自检格式。
 - **规则一致性修复**：主流程明确为 Step 3 大纲确认后进入文献搜索与建池，再进入 Step 4 写作；当写作阶段出现文献不足、验证异常或语种比例不达标时，可回流到文献搜索阶段补池。
-- **Step 0 初始化补齐**：`scripts/core/lifecycle.py` 现会在工作区初始化时从 `references/templates/.thesis-config.yaml` 复制生成 `thesis-workspace/.thesis-config.yaml`，并初始化 `thesis-workspace/workspace/references/images.yaml`。
+- **Step 0 初始化补齐**：`scripts/core/lifecycle.py` 现会在工作区初始化时从 `config/.thesis-config.yaml` 复制生成 `thesis-workspace/.thesis-config.yaml`，并初始化 `thesis-workspace/workspace/references/images.yaml`。
 - **图片清单路径统一**：图表生成脚本统一读取 `workspace/references/images.yaml`，并同步修正 CLI 提示文案。
 - **DOT ER 图输出约束收敛**：`scripts/charts/chart_generator.py` 生成的 Graphviz DOT 概念 ER 图不再显式输出 `label=`，仅 E-R 图受 `er_modeling` 配置控制。
 - **引用规则对齐**：`scripts/references/verified_reference_pool.py` 默认推荐未占用文献；`scripts/content/merge_drafts.py` 在保持“按正文首次出现顺序编号”的同时，新增同一 `ref_id` 重复引用告警。
@@ -58,7 +58,7 @@
 
 #### 配置化系统
 
-- **YAML 配置文件**：新增 `references/templates/.thesis-config.yaml`
+- **YAML 配置文件**：新增 `config/.thesis-config.yaml`
   - 学术搜索 API 配置（Semantic Scholar API Key、限流设置）
   - 日志级别配置（控制台/文件分级）
   - 参考文献验证配置（在线验证、自动替换）
