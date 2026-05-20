@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+
 from typing import List
 
 
@@ -10,6 +11,7 @@ from typing import List
 class ErTable:
     name: str
     fields: List[str] = field(default_factory=list)
+    field_display_names: dict[str, str] = field(default_factory=dict)
 
 
 def _clean_cell(text: str) -> str:
@@ -233,13 +235,22 @@ def _relation_node_name(start: str, end: str, relation_name: str, seen: dict[str
     return base + ("​" * count)
 
 
-def build_er_dot_from_background(background_text: str, title: str = "", focus_hint: str = "") -> tuple[str, list[str]]:
+def _field_label(table: ErTable, field_name: str, field_language: str = "english") -> str:
+    if field_language == "chinese":
+        display_name = table.field_display_names.get(field_name, "")
+        if display_name:
+            return display_name
+    return field_name
+
+
+def build_er_dot_from_background(background_text: str, title: str = "", focus_hint: str = "", field_language: str = "english") -> tuple[str, list[str]]:
     tables: dict[str, ErTable] = {}
     warnings = []
     explicit_relations: list[tuple[str, str, str]] = []
     pending_relation_targets: list[tuple[str, str]] = []
     current_table = ""
     in_field_table = False
+    field_table_headers: list[str] = []
 
     for raw_line in background_text.splitlines():
         line = raw_line.strip()
@@ -267,6 +278,7 @@ def build_er_dot_from_background(background_text: str, title: str = "", focus_hi
             cells = [_clean_cell(cell) for cell in line.strip("|").split("|")]
             if cells and cells[0] == "字段名":
                 in_field_table = True
+                field_table_headers = cells
                 continue
             if in_field_table and current_table and cells:
                 field_name = _clean_cell(cells[0])
@@ -275,6 +287,13 @@ def build_er_dot_from_background(background_text: str, title: str = "", focus_hi
                     table = tables.setdefault(current_table, ErTable(current_table))
                     if field_name not in table.fields:
                         table.fields.append(field_name)
+                    display_headers = {"显示名", "中文名", "字段中文名", "图中名称", "ER显示名"}
+                    for index, header in enumerate(field_table_headers):
+                        if header in display_headers and index < len(cells):
+                            display_name = _clean_cell(cells[index])
+                            if display_name and display_name not in skip_names:
+                                table.field_display_names[field_name] = display_name
+                            break
                     continue
 
         _parse_markdown_table_line(line, tables)
@@ -328,7 +347,11 @@ def build_er_dot_from_background(background_text: str, title: str = "", focus_hi
             continue
         for field_name in table.fields:
             field_node = _dot_id(_field_id(table.name, field_name))
-            lines.append(f"  {field_node} [shape=ellipse];")
+            display_label = _field_label(table, field_name, field_language)
+            if display_label != field_name:
+                lines.append(f"  {field_node} [shape=ellipse, label={_dot_id(display_label)}];")
+            else:
+                lines.append(f"  {field_node} [shape=ellipse];")
             lines.append(f"  {table_id} -> {field_node} [style=dotted, arrowhead=none];")
     relation_name_seen: dict[str, int] = {}
     for start, end, relation_name in relations:

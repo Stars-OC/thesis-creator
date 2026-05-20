@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 from pathlib import Path
 from typing import List
 
@@ -132,6 +133,12 @@ def _global_er_dot_mode(manifest_path: Path) -> str:
     return str(er_modeling.get("dot_mode") or "").strip().lower()
 
 
+def _field_language(manifest_path: Path) -> str:
+    er_modeling = _er_modeling_config(manifest_path)
+    value = str(er_modeling.get("field_language") or "english").strip().lower()
+    return value if value in {"english", "chinese"} else "english"
+
+
 def _effective_er_dot_mode(item: ImageItem, manifest_path: Path) -> str:
     if _er_graph_type(manifest_path) != "dot":
         return ""
@@ -172,7 +179,8 @@ def _er_dot_source(item: ImageItem, manifest_path: Path) -> str:
     focus_hint = ""
     if _er_diagram_scope(manifest_path) == "single" and not _is_overall_er_item(item):
         focus_hint = " ".join(part for part in [item.title, item.purpose, item.description] if part)
-    dot, warnings = build_er_dot_from_background(background, title=item.title, focus_hint=focus_hint)
+    field_lang = _field_language(manifest_path)
+    dot, warnings = build_er_dot_from_background(background, title=item.title, focus_hint=focus_hint, field_language=field_lang)
     if warnings:
         item.prompt_hint = "; ".join(warnings)
     return dot
@@ -182,7 +190,8 @@ def _single_entity_er_dot_source(item: ImageItem, manifest_path: Path) -> str:
     fact_source = _resolve_fact_source(item, manifest_path)
     background = fact_source.read_text(encoding="utf-8") if fact_source.exists() else ""
     focus_hint = " ".join(part for part in [item.title, item.purpose, item.description] if part)
-    dot, warnings = build_single_entity_er_dot(background, title=item.title, focus_hint=focus_hint)
+    field_lang = _field_language(manifest_path)
+    dot, warnings = build_single_entity_er_dot(background, title=item.title, focus_hint=focus_hint, field_language=field_lang)
     if warnings:
         item.prompt_hint = "; ".join(warnings)
     return dot
@@ -199,8 +208,20 @@ def _prioritize_overall_er(items: List[ImageItem]) -> List[ImageItem]:
 def _should_write_source(item: ImageItem, source_path: Path, manifest_path: Path) -> bool:
     if not source_path.exists():
         return True
+    field_lang = _field_language(manifest_path)
     if _should_use_single_entity_ring(item, manifest_path):
         content = source_path.read_text(encoding="utf-8") if source_path.exists() else ""
+        has_chinese_fields = any(cn in content for cn in ["编号", "名称", "时间", "状态", "描述", "密码", "邮箱", "手机", "地址"])
+        has_overlap_true = "overlap=true" in content
+        has_fixed_field_pos = bool(re.search(r'pos="[^"]*!"', content.replace('pos="0,0!"', "")))
+        has_field_pos = any(
+            "shape=ellipse" in attrs and "pos=" in attrs
+            for attrs in re.findall(r'\[([^\]]+)\]', content.replace(" ", ""))
+        )
+        has_overwide_edge_len = any(
+            float(value) > 4.0 for value in re.findall(r'\blen=(\d+(?:\.\d+)?)', content)
+        )
+        has_spline_curves = "splines=true" in content or "splines=curved" in content or "splines=polyline" in content
         return (
             "label=" in content
             or "rank=" in content
@@ -209,10 +230,19 @@ def _should_write_source(item: ImageItem, source_path: Path, manifest_path: Path
             or 'pos="' not in content
             or "shape=diamond" in content
             or "->" in content
+            or "fontname=" not in content
+            or has_overlap_true
+            or has_fixed_field_pos
+            or has_field_pos
+            or has_overwide_edge_len
+            or has_spline_curves
+            or (field_lang == "chinese" and not has_chinese_fields)
+            or (field_lang == "english" and has_chinese_fields)
         )
     if not _is_er_item(item):
         return False
     content = source_path.read_text(encoding="utf-8")
+    has_chinese_fields = any(cn in content for cn in ["编号", "名称", "时间", "状态", "描述", "密码", "邮箱", "手机", "地址"])
     if item.engine == "graphviz":
         stripped = content.lstrip()
         if _is_overall_er_item(item):
@@ -228,6 +258,8 @@ def _should_write_source(item: ImageItem, source_path: Path, manifest_path: Path
                 or '_id_关联_' in content
                 or '"关联" [shape=diamond];' in content
                 or '"关联​" [shape=diamond];' in content
+                or (field_lang == "chinese" and not has_chinese_fields)
+                or (field_lang == "english" and has_chinese_fields)
             )
         if _er_diagram_scope(manifest_path) == "single":
             return True
@@ -237,6 +269,8 @@ def _should_write_source(item: ImageItem, source_path: Path, manifest_path: Path
             or ("shape=box" not in content and "shape=ellipse" not in content)
             or "_关联_" in content
             or "_id_关联_" in content
+            or (field_lang == "chinese" and not has_chinese_fields)
+            or (field_lang == "english" and has_chinese_fields)
         )
     if item.engine == "mermaid":
         return "erDiagram" not in content

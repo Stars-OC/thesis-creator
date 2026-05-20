@@ -396,7 +396,7 @@ images:
             source = (sources / "image_1.dot").read_text(encoding="utf-8")
             self.assertIn("graph ER", source)
             self.assertIn("layout=neato", source)
-            self.assertIn("overlap=true", source)
+            self.assertIn("overlap=scale", source)
             self.assertIn('pos="0,0!"', source)
             self.assertIn("shape=rectangle", source)
             self.assertIn("shape=ellipse", source)
@@ -437,9 +437,103 @@ images:
             source = (sources / "image_1.dot").read_text(encoding="utf-8")
             self.assertIn("graph ER", source)
             self.assertIn("layout=neato", source)
-            self.assertIn("overlap=true", source)
+            self.assertIn("overlap=scale", source)
             self.assertNotIn("shape=diamond", source)
             self.assertNotIn("->", source)
+
+    def test_prepare_sources_rewrites_legacy_single_entity_field_pos_in_any_attribute_order(self):
+        manifest_text = """
+images:
+  - id: image_1
+    title: 图4-1 用户表单实体ER图
+    chapter: 第4章
+    section: "4.4"
+    source: ai
+    diagram_type: entity_er
+    purpose: 展示用户表字段
+    fact_source: background.md
+    placement: 数据库设计说明之后
+    status: pending
+    description: 用户表ER图
+    dot_mode: textbook-single-entity-ring
+"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            manifest = root / "workspace" / "references" / "images.yaml"
+            sources = root / "workspace" / "final" / "images" / "sources"
+            background = root / "references" / "prompt" / "background.md"
+            source_path = sources / "image_1.dot"
+            manifest.parent.mkdir(parents=True)
+            background.parent.mkdir(parents=True)
+            sources.mkdir(parents=True)
+            manifest.write_text(manifest_text.strip(), encoding="utf-8")
+            background.write_text("### 用户表结构\n| 字段名 | 类型 |\n| --- | --- |\n| 用户ID | BIGINT |\n| 用户名 | VARCHAR |\n", encoding="utf-8")
+            source_path.write_text(
+                "graph ER {\n"
+                "  graph [layout=neato, overlap=scale, splines=false];\n"
+                "  \"用户表\" [shape=rectangle, pos=\"0,0!\"];\n"
+                "  \"用户ID\" [pos=\"1,2\", color=black, shape=ellipse];\n"
+                "  \"用户表\" -- \"用户ID\";\n"
+                "}\n",
+                encoding="utf-8",
+            )
+
+            prepare_sources(manifest, sources)
+
+            source = source_path.read_text(encoding="utf-8")
+            self.assertIn('"用户ID" [shape=ellipse];', source)
+            self.assertIn('"用户表" -- "用户ID" [len=1];', source)
+            self.assertNotIn('pos="1,2"', source)
+
+    def test_prepare_sources_rewrites_legacy_single_entity_overwide_edge_len(self):
+        manifest_text = """
+images:
+  - id: image_1
+    title: 图4-1 用户表单实体ER图
+    chapter: 第4章
+    section: "4.4"
+    source: ai
+    diagram_type: entity_er
+    purpose: 展示用户表字段
+    fact_source: background.md
+    placement: 数据库设计说明之后
+    status: pending
+    description: 用户表ER图
+    dot_mode: textbook-single-entity-ring
+"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            manifest = root / "workspace" / "references" / "images.yaml"
+            sources = root / "workspace" / "final" / "images" / "sources"
+            background = root / "references" / "prompt" / "background.md"
+            source_path = sources / "image_1.dot"
+            manifest.parent.mkdir(parents=True)
+            background.parent.mkdir(parents=True)
+            sources.mkdir(parents=True)
+            manifest.write_text(manifest_text.strip(), encoding="utf-8")
+            background.write_text("### 用户表结构\n| 字段名 | 类型 |\n| --- | --- |\n| 用户ID | BIGINT |\n| 用户名 | VARCHAR |\n", encoding="utf-8")
+            source_path.write_text(
+                "graph ER {\n"
+                "  graph [layout=neato, overlap=scale, splines=false, bgcolor=white, margin=0, pad=0, nodesep=0.3, sep=\"+5\"];\n"
+                "  node [fontname=\"Microsoft YaHei\", color=black, fontsize=10, margin=\"0.08,0.04\"];\n"
+                "  edge [fontname=\"Microsoft YaHei\", color=black, fontsize=9];\n"
+                "\n"
+                "  \"用户表\" [shape=rectangle, pos=\"0,0!\"];\n"
+                "  \"用户ID\" [shape=ellipse];\n"
+                "  \"用户名\" [shape=ellipse];\n"
+                "\n"
+                "  \"用户表\" -- \"用户ID\" [len=5.25];\n"
+                "  \"用户表\" -- \"用户名\" [len=5.25];\n"
+                "}\n",
+                encoding="utf-8",
+            )
+
+            prepare_sources(manifest, sources)
+
+            source = source_path.read_text(encoding="utf-8")
+            self.assertIn('"用户表" -- "用户ID" [len=1];', source)
+            self.assertNotIn('len=5.25', source)
+            self.assertNotIn('len=3.1', source)
 
     def test_prepare_sources_does_not_apply_ring_mode_to_overall_er(self):
         manifest_text = """

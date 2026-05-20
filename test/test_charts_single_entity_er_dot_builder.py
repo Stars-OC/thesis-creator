@@ -50,8 +50,8 @@ class BuildSingleEntityErDotTest(unittest.TestCase):
         )
         self.assertEqual([], warnings)
         self.assertIn("layout=neato", dot)
-        self.assertIn("overlap=true", dot)
-        self.assertIn("splines=true", dot)
+        self.assertIn("overlap=scale", dot)
+        self.assertIn("splines=false", dot)
         self.assertNotIn("rank", dot)
 
     def test_entity_centered_with_pos(self):
@@ -62,12 +62,13 @@ class BuildSingleEntityErDotTest(unittest.TestCase):
         self.assertIn('shape=rectangle', dot)
         self.assertIn('pos="0,0!"', dot)
 
-    def test_attributes_are_ellipses_with_pos(self):
+    def test_attributes_are_ellipses_without_fixed_pos(self):
         dot, warnings = build_single_entity_er_dot(
             BACKGROUND_TEXT, title="图4-8 用户表实体图", focus_hint="用户表"
         )
         self.assertEqual([], warnings)
         self.assertIn('shape=ellipse', dot)
+        self.assertNotIn('[shape=ellipse, pos=', dot)
 
     def test_no_diamond_in_single_entity(self):
         dot, warnings = build_single_entity_er_dot(
@@ -91,21 +92,14 @@ class BuildSingleEntityErDotTest(unittest.TestCase):
         self.assertEqual([], warnings)
         self.assertNotIn("label=", dot)
 
-    def test_attributes_surround_entity_in_all_four_directions(self):
+    def test_attribute_nodes_do_not_have_fixed_positions(self):
         dot, warnings = build_single_entity_er_dot(
             BACKGROUND_TEXT, title="图4-8 用户表实体图", focus_hint="用户表"
         )
         self.assertEqual([], warnings)
-        import re
-        positions = re.findall(r'pos="(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)!"', dot)
-        has_above = any(float(y) > 0 for _, y in positions)
-        has_below = any(float(y) < 0 for _, y in positions)
-        has_left = any(float(x) < 0 for x, _ in positions)
-        has_right = any(float(x) > 0 for x, _ in positions)
-        self.assertTrue(has_above, "No attribute above entity")
-        self.assertTrue(has_below, "No attribute below entity")
-        self.assertTrue(has_left, "No attribute left of entity")
-        self.assertTrue(has_right, "No attribute right of entity")
+        self.assertIn('"用户表" [shape=rectangle, pos="0,0!"', dot)
+        self.assertIn('"user_id" [shape=ellipse];', dot)
+        self.assertNotIn('"user_id" [shape=ellipse, pos=', dot)
 
     def test_many_fields_still_surround_not_top_stacked(self):
         background = """
@@ -128,18 +122,11 @@ class BuildSingleEntityErDotTest(unittest.TestCase):
             background, title="文档表实体图", focus_hint="文档表"
         )
         self.assertEqual([], warnings)
-        import re
-        positions = re.findall(r'pos="(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)!"', dot)
-        has_above = any(float(y) > 0 for _, y in positions)
-        has_below = any(float(y) < 0 for _, y in positions)
-        has_left = any(float(x) < 0 for x, _ in positions)
-        has_right = any(float(x) > 0 for x, _ in positions)
-        self.assertTrue(has_above)
-        self.assertTrue(has_below)
-        self.assertTrue(has_left)
-        self.assertTrue(has_right)
+        self.assertIn('len=1.4', dot)
+        self.assertIn('"文档表" -- "doc_id" [len=1.4];', dot)
+        self.assertNotIn('"doc_id" [shape=ellipse, pos=', dot)
 
-    def test_single_entity_er_uses_more_compact_field_ring(self):
+    def test_single_entity_er_uses_readable_spread_field_ring(self):
         dot, warnings = build_single_entity_er_dot(
             BACKGROUND_TEXT, title="图4-8 用户表实体图", focus_hint="用户表"
         )
@@ -147,12 +134,12 @@ class BuildSingleEntityErDotTest(unittest.TestCase):
         self.assertEqual([], warnings)
         self.assertIn("margin=0", dot)
         self.assertIn("pad=0", dot)
-        self.assertIn("nodesep=0.15", dot)
-        self.assertIn("sep=0.08", dot)
+        self.assertIn("nodesep=0.3", dot)
+        self.assertIn('sep="+5"', dot)
         self.assertIn("fontsize=10", dot)
-        self.assertIn('margin="0.04,0.02"', dot)
-        self.assertIn('pos="0.0,1.8!"', dot)
-        self.assertNotIn('pos="0,3!"', dot)
+        self.assertIn('margin="0.08,0.04"', dot)
+        self.assertIn('"用户表" -- "user_id" [len=1];', dot)
+        self.assertNotIn('[shape=ellipse, pos=', dot)
 
     def test_single_table_only_no_other_tables(self):
         dot, warnings = build_single_entity_er_dot(
@@ -188,6 +175,64 @@ class BuildSingleEntityErDotTest(unittest.TestCase):
         self.assertNotIn('"用户编号" [shape=ellipse', dot)
         self.assertNotIn('"用户名" [shape=ellipse', dot)
 
+    def test_chinese_fields_use_llm_supplied_display_names_without_script_rewriting(self):
+        background = """
+### API密钥表结构
+| 字段名 | 显示名 | 类型 | 说明 |
+| --- | --- | --- | --- |
+| kb_scopes | 授权范围 | VARCHAR | 授权知识库ID列表，JSON数组 |
+| rate_limit | 每分钟调用次数上限 | INT | 接口限流配置，由大模型判断是否需要保留较长字段名 |
+| last_called_at | 最近调用时间 | DATETIME | 最近一次调用时间 |
+"""
+        dot, warnings = build_single_entity_er_dot(
+            background, title="API密钥表实体图", focus_hint="API密钥表", field_language="chinese"
+        )
+        self.assertEqual([], warnings)
+        self.assertIn('"授权范围" [shape=ellipse', dot)
+        self.assertIn('"每分钟调用次数上限" [shape=ellipse', dot)
+        self.assertIn('"最近调用时间" [shape=ellipse', dot)
+        self.assertNotIn('"授权知识库ID列表，JSON数组" [shape=ellipse', dot)
+        self.assertNotIn('"接口限流配置，由大模型判断是否需要保留较长字段名" [shape=ellipse', dot)
+
+    def test_chinese_fields_do_not_infer_names_from_description_column(self):
+        background = """
+### API密钥表结构
+| 字段名 | 类型 | 说明 |
+| --- | --- | --- |
+| kb_scopes | VARCHAR | 授权知识库ID列表，JSON数组 |
+"""
+        dot, warnings = build_single_entity_er_dot(
+            background, title="API密钥表实体图", focus_hint="API密钥表", field_language="chinese"
+        )
+        self.assertEqual([], warnings)
+        self.assertIn('"kb_scopes" [shape=ellipse', dot)
+        self.assertNotIn('"授权知识库ID列表，JSON数组" [shape=ellipse', dot)
+
+    def test_many_fields_over_eight_are_farther_from_center(self):
+        background = """
+### API密钥表结构
+| 字段名 | 类型 | 说明 |
+| --- | --- | --- |
+| key_id | BIGINT | 密钥编号 |
+| user_id | BIGINT | 用户编号 |
+| api_key | VARCHAR | API密钥 |
+| key_name | VARCHAR | 密钥名称 |
+| kb_scopes | VARCHAR | 授权知识库范围 |
+| rate_limit | INT | 每分钟调用次数上限 |
+| call_count | BIGINT | 累计调用次数 |
+| last_called_at | DATETIME | 最近一次调用时间 |
+| status | TINYINT | 密钥状态 |
+| expires_at | DATETIME | 过期时间 |
+| created_at | DATETIME | 创建时间 |
+"""
+        dot, warnings = build_single_entity_er_dot(
+            background, title="API密钥表实体图", focus_hint="API密钥表", field_language="chinese"
+        )
+        self.assertEqual([], warnings)
+        self.assertIn('len=1.4', dot)
+        self.assertIn('"API密钥表" -- "key_id" [len=1.4];', dot)
+        self.assertNotIn('[shape=ellipse, pos=', dot)
+
     def test_single_entity_er_escapes_table_and_field_dot_ids(self):
         background = """
 ### 用户"表结构
@@ -204,7 +249,7 @@ class BuildSingleEntityErDotTest(unittest.TestCase):
         self.assertIn('"用户\\"表" [shape=rectangle', dot)
         self.assertIn('"api\\\\key" [shape=ellipse', dot)
         self.assertIn('"token\\"hash" [shape=ellipse', dot)
-        self.assertIn('"用户\\"表" -- "api\\\\key";', dot)
+        self.assertIn('"用户\\"表" -- "api\\\\key" [len=1];', dot)
         self.assertNotIn('"token"hash"', dot)
 
 
@@ -242,11 +287,12 @@ images:
             dot = dot_path.read_text(encoding="utf-8")
             self.assertIn("graph ER", dot)
             self.assertIn("layout=neato", dot)
-            self.assertIn("overlap=true", dot)
+            self.assertIn("overlap=scale", dot)
             self.assertIn("margin=0", dot)
-            self.assertIn("nodesep=0.15", dot)
-            self.assertIn('pos="0.0,1.8!"', dot)
-            self.assertIn('"user_id" [shape=ellipse', dot)
+            self.assertIn("nodesep=0.3", dot)
+            self.assertIn('"用户表" -- "user_id" [len=1];', dot)
+            self.assertIn('"user_id" [shape=ellipse];', dot)
+            self.assertNotIn('[shape=ellipse, pos=', dot)
             self.assertIn('"username" [shape=ellipse', dot)
             self.assertIn('"password" [shape=ellipse', dot)
             validate_sources(manifest, root=root)

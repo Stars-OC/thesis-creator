@@ -88,13 +88,13 @@ images:
 - 默认 `graph_type=dot`，输出 Graphviz DOT `.dot`，并采用教科书 Chen 风格：实体用矩形、属性用椭圆、联系用菱形，实体通过联系节点连接实体。
 - `diagram_type=overall_er` 表示总体 ER 图，必须在数据库设计流程中第一个展示，并使用 DOT 实体-联系-实体结构。
 - 总体 ER 图只展示实体、联系与 `1:1` / `1:N` 基数，不展示字段节点；关系菱形节点必须结合外键字段或实体语义命名，如“拥有”“包含”，不得统一写成“关联”。
-- `diagram_type=entity_er` 表示单实体字段图；当 `graph_type=dot` 且 `dot_mode=textbook-single-entity-ring` 时，输出 Graphviz 单实体字段环绕图：实体居中、字段椭圆环绕、使用 `graph ER`、`layout=neato` 与 `pos` 精确坐标，不生成关系菱形。
+- `diagram_type=entity_er` 表示单实体字段图；当 `graph_type=dot` 且 `dot_mode=textbook-single-entity-ring` 时，输出 Graphviz 单实体字段环绕图：实体居中、字段椭圆环绕、使用 `graph ER` 与 `layout=neato`，仅中心实体固定 `pos="0,0!"`，字段节点不写 `pos`，通过边 `len` 控制距离，不生成关系菱形；字段超过8个时边长只适度增加，在避免重叠的同时保持紧凑感。
 - `dot_mode` 优先级：`images.yaml` 单图 `dot_mode` > `.thesis-config.yaml` 全局 `er_modeling.dot_mode` > 现有默认 DOT 逻辑。
 - `graph_type=erd` 时输出 Mermaid `erDiagram` `.mmd`；`graph_type=chen` 当前按 DOT Chen 风格处理。
 - 事实源：优先读取 `thesis-workspace/references/prompt/background.md`。
 - DOT 输出约束：不要显式生成 `label=` 属性，直接使用节点文本。
 - 图名、表名、字段节点和联系节点会使用 DOT 安全引用，以支持图号、空格、括号等常见论文写法。
-- `source_writer.py` 会优先从 `background.md` 生成真实 ER 源码，不再为 ER 图生成占位源码。
+- `source_writer.py` 会优先从 `background.md` 生成真实 ER 源码，不再为 ER 图生成占位源码；中文字段名只读取表结构中的 `显示名`/`中文名`/`字段中文名` 等大模型语义列，不从 `说明` 列脚本化截断或翻译。
 - 信息不足时：尽量生成最小 DOT 并 warning，不因字段说明缺失直接阻断。
 
 | 图表 | 来源 | 推荐 engine | 占位符标记 |
