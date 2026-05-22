@@ -24,6 +24,12 @@
 
 论文创作 Agent 系统是一个基于 Claude Code 的毕业论文写作辅助工具。通过智能化的 10 步工作流，帮助本科生高效完成毕业论文创作，同时提供降重优化、AIGC 检测和文献真实性验证功能。
 
+> [!IMPORTANT]
+> **v2.0 多学科 Beta 预告**：`main` 当前默认支持 CS / SE 学科。
+> 已在 [`multi-discipline-beta`](https://github.com/Stars-OC/thesis-creator/tree/multi-discipline-beta) 分支提供 **9 个学科模板包**（计算机/经管/法学/教育/人文/医护/工科/理科/艺术设计）+ **状态机产物对账** + **图片管线双格式**。
+> 教育学测试用例已端到端跑通（Step 0→9 全部 completed，AIGC 6.1%）。
+> 完整路线请见 [docs/ROADMAP.md](docs/ROADMAP.md#v200-beta开发中分支-multi-discipline-beta)。
+
 ## 功能特性
 
 | 特性              | 说明                                 |
