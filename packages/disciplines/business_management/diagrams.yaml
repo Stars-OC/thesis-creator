@@ -1,0 +1,43 @@
+schema_version: 1
+diagrams:
+  flowchart:
+    engine: plantuml
+    extension: puml
+  org_chart:
+    engine: plantuml
+    extension: puml
+    note: 组织架构图，使用 PlantUML 的 component 或 wbs 语法
+  bar_chart:
+    engine: graphviz
+    extension: dot
+    note: 柱状图/对比图，用于描述性统计、销售对比、政策效果对比
+  pie_chart:
+    engine: graphviz
+    extension: dot
+    note: 饼图，用于市场份额、问卷选项占比
+  line_chart:
+    engine: graphviz
+    extension: dot
+    note: 折线/趋势图，用于时间序列、绩效变化
+  radar_chart:
+    engine: graphviz
+    extension: dot
+    note: 雷达图，用于多维度能力对比（如 SWOT 综合得分、五力模型）
+  gantt:
+    engine: plantuml
+    extension: puml
+    note: 甘特图，用于研究进度安排或案例企业项目排期
+  matrix:
+    engine: plantuml
+    extension: puml
+    note: 矩阵图，如波士顿矩阵、SWOT 矩阵、安索夫矩阵
+  case_timeline:
+    engine: plantuml
+    extension: puml
+    note: 案例事件时序图，用于案例企业发展脉络
+forbidden:
+  - er
+  - overall_er
+  - entity_er
+  - class_diagram
+recommended_min_images_per_core_chapter: 3

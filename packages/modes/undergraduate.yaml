@@ -1,0 +1,10 @@
+id: undergraduate
+name: 本科毕业论文
+defaults:
+  word_count_range: [8000, 15000]
+  reference_count: [20, 30]
+  zh_reference_ratio: 0.65
+  abstract_word_count: [500, 600]
+  english_abstract_word_count: [250, 350]
+  chapter_depth: 2
+  aigc_threshold: 0.30

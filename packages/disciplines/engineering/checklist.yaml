@@ -1,0 +1,26 @@
+schema_version: 1
+checks:
+  - id: design_implementation_separated
+    level: fatal
+    description: 总体方案设计、详细设计、仿真/实验必须分章
+  - id: unit_specification_complete
+    level: fatal
+    description: 所有物理量必须标注单位（SI 或专业惯用单位）
+  - id: error_analysis_required
+    level: severe
+    description: 仿真或实验结果必须有误差分析（绝对误差、相对误差、不确定度）
+  - id: simulation_or_experiment_required
+    level: fatal
+    description: 工科论文必须有仿真或实物实验验证，禁止只做理论设计
+  - id: simulation_environment_disclosed
+    level: severe
+    description: 仿真须说明软件版本、网格类型、边界条件、收敛判据
+  - id: experiment_apparatus_disclosed
+    level: severe
+    description: 实验须说明仪器型号、精度、量程、采样频率
+  - id: parameter_traceable
+    level: severe
+    description: 设计参数必须有依据（规范/经验公式/选型手册），不得拍脑袋
+  - id: standard_cited
+    level: severe
+    description: 必要时引用国家/行业标准（如 GB/JB/JTG/JGJ），并注明标准号与版本

@@ -1,0 +1,22 @@
+schema_version: 1
+structure:
+  chapters:
+    - id: ch1
+      title: 绪论
+      required: true
+    - id: ch2
+      title: 设计调研与案例分析
+      required: true
+    - id: ch3
+      title: 设计定位与概念
+      required: true
+    - id: ch4
+      title: 设计方案与表现
+      required: true
+      is_core_chapter: true
+    - id: ch5
+      title: 作品阐释与设计反思
+      required: true
+    - id: ch6
+      title: 结语
+      required: true

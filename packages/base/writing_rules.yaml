@@ -1,0 +1,17 @@
+schema_version: 1
+writing:
+  total_word_count: [8000, 15000]
+  paragraph_word_count: [150, 300]
+  min_citations_per_1000: 2
+  citation_format: gbt7714
+abstract:
+  zh_word_count: [500, 600]
+  en_word_count: [250, 350]
+  keywords_count: [3, 5]
+aigc:
+  threshold: 0.30
+  reduction_strategy: full_pipeline
+artifacts:
+  code_required: false
+  screenshot_required: false
+  diagrams_required: false

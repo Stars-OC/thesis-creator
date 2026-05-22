@@ -1,0 +1,26 @@
+schema_version: 1
+structure:
+  chapters:
+    - id: ch1
+      title: 绪论
+      required: true
+    - id: ch2
+      title: 关键技术
+      required: true
+    - id: ch3
+      title: 需求分析
+      required: true
+    - id: ch4
+      title: 系统设计
+      required: true
+      is_core_chapter: true
+    - id: ch5
+      title: 系统实现
+      required: true
+      is_core_chapter: true
+    - id: ch6
+      title: 系统测试
+      required: true
+    - id: ch7
+      title: 总结与展望
+      required: true

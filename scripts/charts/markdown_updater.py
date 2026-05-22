@@ -24,8 +24,19 @@ def _should_replace(item) -> bool:
 
 
 def _remove_image_requirement_block(content: str, image_id: str) -> str:
-    pattern = re.compile(r"\n?<!--\s*image-requirement\b(?:(?!-->).)*?\bid\s*:\s*" + re.escape(image_id) + r"\b(?:(?!-->).)*?-->\n?", re.DOTALL)
-    return pattern.sub("\n", content)
+    # 兼容 HTML 注释格式
+    pattern_html = re.compile(
+        r"\n?<!--\s*image-requirement\b(?:(?!-->).)*?\bid\s*:\s*" + re.escape(image_id) + r"\b(?:(?!-->).)*?-->\n?",
+        re.DOTALL,
+    )
+    content = pattern_html.sub("\n", content)
+    # 兼容 ::: 容器块格式
+    pattern_fence = re.compile(
+        r"\n?:::\s*image-requirement\s*\n(?:(?!:::)(?:.))*?\bid\s*:\s*" + re.escape(image_id) + r"\b(?:(?!:::).)*?\n:::\n?",
+        re.DOTALL,
+    )
+    content = pattern_fence.sub("\n", content)
+    return content
 
 
 def _placeholder_key(item) -> str:

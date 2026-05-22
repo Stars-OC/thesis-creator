@@ -1,0 +1,17 @@
+schema_version: 1
+diagrams:
+  flowchart:
+    engine: plantuml
+    extension: puml
+  usecase:
+    engine: plantuml
+    extension: puml
+  module:
+    engine: mermaid
+    extension: mmd
+  overall_er:
+    engine: graphviz
+    extension: dot
+  entity_er:
+    engine: graphviz
+    extension: dot

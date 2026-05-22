@@ -1,0 +1,23 @@
+schema_version: 1
+checks:
+  - id: design_artifact_required
+    level: fatal
+    description: 必须有完整的设计作品（实物/数字作品/原型），论文围绕作品展开
+  - id: design_methodology_clear
+    level: severe
+    description: 必须说明设计方法论（如用户中心设计 UCD、双钻模型、HCD、服务设计）
+  - id: research_supports_design
+    level: severe
+    description: 第2章设计调研必须为后续设计方案提供依据，不得脱节
+  - id: visual_documentation_complete
+    level: fatal
+    description: 必须有设计作品的高质量图片（手稿、效果图、实物图、应用场景图）
+  - id: design_principle_cited
+    level: severe
+    description: 设计决策须基于设计原则或规范（如格式塔原则、Material Design 规范）
+  - id: target_user_clear
+    level: severe
+    description: 设计必须有明确的目标用户/使用场景
+  - id: no_pure_text_thesis
+    level: severe
+    description: 艺术设计论文禁止全部为文字论述，每核心章节须有 ≥5 张作品图

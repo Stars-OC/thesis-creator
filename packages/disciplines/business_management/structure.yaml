@@ -1,0 +1,19 @@
+schema_version: 1
+structure:
+  chapters:
+    - id: ch1
+      title: 绪论
+      required: true
+    - id: ch2
+      title: 相关理论与文献综述
+      required: true
+    - id: ch3
+      title: 研究设计
+      required: true
+    - id: ch4
+      title: 实证分析或案例分析
+      required: true
+      is_core_chapter: true
+    - id: ch5
+      title: 研究结论与建议
+      required: true

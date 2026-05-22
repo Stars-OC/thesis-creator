@@ -1,0 +1,20 @@
+schema_version: 1
+checks:
+  - id: research_method_clear
+    level: severe
+    description: 必须明确研究方法（问卷/实验/观察/案例/文本分析），交代样本与数据收集流程
+  - id: theoretical_framework_explicit
+    level: severe
+    description: 必须在第2章给出明确的理论框架（如建构主义、最近发展区、TPACK、SOLO 等）
+  - id: data_analysis_method_disclosed
+    level: severe
+    description: 实证类必须说明数据分析方法（描述性统计、t 检验、回归、扎根编码等）
+  - id: educational_implications
+    level: severe
+    description: 第5章必须给出可操作的教育对策（教师层面/学校层面/课程层面）
+  - id: ethics_when_minors
+    level: severe
+    description: 涉及未成年学生时须说明伦理处理（知情同意、匿名化等）
+  - id: no_only_policy_quote
+    level: severe
+    description: 禁止仅复述教育政策文件作为分析，须有数据或案例支撑

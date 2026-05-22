@@ -1,0 +1,27 @@
+schema_version: 1
+structure:
+  chapters:
+    - id: ch1
+      title: 绪论
+      required: true
+    - id: ch2
+      title: 相关理论与技术基础
+      required: true
+    - id: ch3
+      title: 总体方案与原理设计
+      required: true
+      is_core_chapter: true
+    - id: ch4
+      title: 详细设计与建模
+      required: true
+      is_core_chapter: true
+    - id: ch5
+      title: 仿真或实验分析
+      required: true
+      is_core_chapter: true
+    - id: ch6
+      title: 结果讨论与优化
+      required: true
+    - id: ch7
+      title: 结论与展望
+      required: true

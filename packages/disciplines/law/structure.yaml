@@ -1,0 +1,22 @@
+schema_version: 1
+structure:
+  chapters:
+    - id: ch1
+      title: 引言
+      required: true
+    - id: ch2
+      title: 基本理论概述
+      required: true
+    - id: ch3
+      title: 现状考察与案例分析
+      required: true
+      is_core_chapter: true
+    - id: ch4
+      title: 问题与原因分析
+      required: true
+    - id: ch5
+      title: 完善建议
+      required: true
+    - id: ch6
+      title: 结语
+      required: true

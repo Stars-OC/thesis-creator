@@ -1,0 +1,45 @@
+schema_version: 1
+artifacts:
+  code_required: false
+  screenshot_required: false
+  diagrams_required: true
+  required_tables:
+    - 调查样本基本情况表
+    - 信效度检验表（问卷类）
+    - 描述性统计表
+  min_charts_per_core_chapter: 2
+references:
+  zh_reference_ratio: 0.75
+  en_reference_ratio: 0.25
+  prefer_journals:
+    - 教育研究
+    - 课程·教材·教法
+    - 比较教育研究
+    - 高等教育研究
+    - 教师教育研究
+    - 中国电化教育
+    - Educational Researcher
+    - Review of Educational Research
+education:
+  require_method_description: true
+  require_ethics_statement: false
+  preferred_methods:
+    - 问卷调查
+    - 准实验
+    - 教育行动研究
+    - 课堂观察
+    - 个案研究
+    - 文本分析
+language:
+  forbid_terms:
+    - 系统设计
+    - 数据库
+    - 接口实现
+  prefer_terms:
+    - 教学策略
+    - 教育对策
+    - 课程改革
+    - 学习成效
+    - 教学干预
+aigc:
+  threshold: 0.30

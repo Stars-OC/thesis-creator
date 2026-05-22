@@ -1,0 +1,58 @@
+schema_version: 1
+artifacts:
+  code_required: false
+  screenshot_required: false
+  diagrams_required: true
+  required_tables:
+    - 一般资料/基线特征比较表（如表1）
+    - 主要结局指标统计表
+    - 不良事件统计表（临床研究）
+  min_charts_per_core_chapter: 2
+references:
+  zh_reference_ratio: 0.40
+  en_reference_ratio: 0.60
+  prefer_categories:
+    - 系统综述/Meta 分析
+    - 随机对照试验（RCT）
+    - 队列研究
+    - 病例对照研究
+    - 临床指南
+  prefer_journals:
+    - 中华医学杂志
+    - 中华护理杂志
+    - 中华内科杂志
+    - 护理学杂志
+    - 中国循证医学杂志
+    - The Lancet
+    - NEJM
+    - JAMA
+    - BMJ
+    - JAN（Journal of Advanced Nursing）
+medical:
+  require_ethics_approval: true
+  require_informed_consent: true
+  require_inclusion_exclusion_criteria: true
+  require_sample_size_calculation: true
+  require_statistical_method: true
+  reporting_guideline_by_design:
+    rct: CONSORT
+    cohort: STROBE
+    case_control: STROBE
+    cross_sectional: STROBE
+    systematic_review: PRISMA
+    qualitative: COREQ
+    diagnostic_test: STARD
+language:
+  forbid_terms:
+    - 系统设计
+    - 数据库表
+    - 接口实现
+    - 算法架构
+  prefer_terms:
+    - 临床观察
+    - 护理干预
+    - 循证依据
+    - 疗效评估
+    - 不良反应
+aigc:
+  threshold: 0.30

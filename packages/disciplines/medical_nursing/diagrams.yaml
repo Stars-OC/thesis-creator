@@ -1,0 +1,44 @@
+schema_version: 1
+diagrams:
+  flowchart:
+    engine: plantuml
+    extension: puml
+    note: 研究流程图、技术路线图、CONSORT/PRISMA 流程图
+  prisma_flowchart:
+    engine: plantuml
+    extension: puml
+    note: 文献筛选 PRISMA 流程图（系统综述/Meta 分析必有）
+  consort_flowchart:
+    engine: plantuml
+    extension: puml
+    note: 随机对照试验受试者流向图（RCT 必有）
+  bar_chart:
+    engine: graphviz
+    extension: dot
+    note: 组间疗效对比、不良事件发生率对比
+  line_chart:
+    engine: graphviz
+    extension: dot
+    note: 治疗前后时间序列、生存曲线趋势
+  forest_plot:
+    engine: user
+    extension: png
+    note: Meta 分析森林图（由 RevMan/R 输出后由用户提供）
+  funnel_plot:
+    engine: user
+    extension: png
+    note: 发表偏倚漏斗图（由用户提供）
+  kaplan_meier:
+    engine: user
+    extension: png
+    note: 生存分析 K-M 曲线（由 SPSS/R 输出后由用户提供）
+  pathway_diagram:
+    engine: plantuml
+    extension: puml
+    note: 临床路径/护理路径图
+forbidden:
+  - er
+  - overall_er
+  - entity_er
+  - class_diagram
+recommended_min_images_per_core_chapter: 2

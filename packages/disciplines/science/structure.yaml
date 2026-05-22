@@ -1,0 +1,23 @@
+schema_version: 1
+structure:
+  chapters:
+    - id: ch1
+      title: 引言
+      required: true
+    - id: ch2
+      title: 理论基础与文献综述
+      required: true
+    - id: ch3
+      title: 研究方法与材料
+      required: true
+    - id: ch4
+      title: 实验/计算/推导结果
+      required: true
+      is_core_chapter: true
+    - id: ch5
+      title: 讨论与机理分析
+      required: true
+      is_core_chapter: true
+    - id: ch6
+      title: 结论与展望
+      required: true

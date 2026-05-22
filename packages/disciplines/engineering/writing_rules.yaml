@@ -1,0 +1,49 @@
+schema_version: 1
+artifacts:
+  code_required: false
+  screenshot_required: true
+  diagrams_required: true
+  required_tables:
+    - 主要技术参数表
+    - 仿真/实验工况表
+    - 误差分析表
+  min_charts_per_core_chapter: 3
+references:
+  zh_reference_ratio: 0.55
+  en_reference_ratio: 0.45
+  prefer_journals:
+    - 机械工程学报
+    - 中国电机工程学报
+    - 土木工程学报
+    - 化工学报
+    - 材料工程
+    - 仪器仪表学报
+    - IEEE Transactions（按子学科）
+    - Energy
+    - Construction and Building Materials
+engineering:
+  require_unit_specification: true
+  require_error_analysis: true
+  require_simulation_or_experiment: true
+  preferred_simulation_tools:
+    - ANSYS
+    - ABAQUS
+    - COMSOL
+    - MATLAB/Simulink
+    - SolidWorks
+    - AutoCAD
+    - Aspen Plus
+    - Revit
+language:
+  forbid_terms:
+    - 接口实现
+    - 数据库表
+    - 前端页面
+  prefer_terms:
+    - 结构设计
+    - 工艺路线
+    - 控制策略
+    - 力学性能
+    - 仿真分析
+aigc:
+  threshold: 0.30

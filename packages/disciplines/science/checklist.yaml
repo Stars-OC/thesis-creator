@@ -1,0 +1,26 @@
+schema_version: 1
+checks:
+  - id: formula_notation_consistent
+    level: severe
+    description: 公式符号在全文一致，每个符号首次出现时解释含义与单位
+  - id: experiment_reproducible
+    level: severe
+    description: 实验描述必须能让同行复现（材料、试剂浓度、温度、时间、设备参数）
+  - id: error_bar_required
+    level: severe
+    description: 实验数据图必须有误差棒/置信区间或重复次数 n
+  - id: control_group_required
+    level: severe
+    description: 生物/化学实验须设阴性对照、阳性对照，或空白对照
+  - id: statistical_significance_marked
+    level: severe
+    description: 显著性差异须标注 P 值（*P<0.05, **P<0.01, ***P<0.001）
+  - id: math_proof_rigor
+    level: fatal
+    description: 数学论文中定理/引理须有完整证明，不得省略关键步骤
+  - id: unit_specification
+    level: fatal
+    description: 物理/化学量必须标注 SI 单位（或专业惯用）
+  - id: chemical_structure_required
+    level: severe
+    description: 涉及化合物时必须有 ChemDraw 结构式（用户提供）

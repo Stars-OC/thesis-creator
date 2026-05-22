@@ -1,0 +1,20 @@
+schema_version: 1
+checks:
+  - id: primary_source_used
+    level: fatal
+    description: 必须引用一手材料（原典/原文/史料），禁止全部转引二手文献
+  - id: textual_evidence_per_argument
+    level: severe
+    description: 每个核心论点必须有文本/史料引用支撑，禁止空泛立论
+  - id: research_review_critical
+    level: severe
+    description: 文献综述须有批判性评述，不得只罗列前人观点
+  - id: citation_completeness
+    level: severe
+    description: 引用古籍须注明版本、卷次、页码；外文须注明原文出处与译者
+  - id: theory_application_appropriate
+    level: severe
+    description: 引入西方理论分析中国文本时须说明适用性与边界
+  - id: no_modern_political_label
+    level: severe
+    description: 古代文学/哲学研究禁止用现代政治标签简单评判古人

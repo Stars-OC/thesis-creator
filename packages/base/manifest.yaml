@@ -1,0 +1,20 @@
+id: base
+name: 通用论文基础模板
+version: 1.0.0
+extends: null
+supports:
+  - undergraduate
+  - master
+capabilities:
+  - outline
+  - writing
+  - citation
+  - quality_gate
+required_files:
+  - structure.yaml
+  - writing_rules.yaml
+  - checklist.yaml
+  - prompts/writer.md
+optional_files:
+  - diagrams.yaml
+  - examples/

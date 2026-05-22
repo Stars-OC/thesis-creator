@@ -1,0 +1,19 @@
+id: law
+name: 法学
+version: 1.1.0
+extends: base
+supports:
+  - undergraduate
+  - master
+capabilities:
+  - outline
+  - writing
+  - citation
+required_files:
+  - structure.yaml
+  - writing_rules.yaml
+  - checklist.yaml
+  - prompts/writer.md
+optional_files:
+  - diagrams.yaml
+  - examples/

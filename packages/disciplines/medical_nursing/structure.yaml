@@ -1,0 +1,23 @@
+schema_version: 1
+structure:
+  chapters:
+    - id: ch1
+      title: 前言
+      required: true
+    - id: ch2
+      title: 文献综述
+      required: true
+    - id: ch3
+      title: 研究对象与方法
+      required: true
+    - id: ch4
+      title: 研究结果
+      required: true
+      is_core_chapter: true
+    - id: ch5
+      title: 讨论
+      required: true
+      is_core_chapter: true
+    - id: ch6
+      title: 结论与展望
+      required: true

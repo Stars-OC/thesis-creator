@@ -1,0 +1,26 @@
+schema_version: 1
+checks:
+  - id: legal_basis_clear
+    level: severe
+    description: 必须明确具体法条、司法解释、指导性案例或制度依据，禁止"相关法律规定"等空泛表述
+  - id: recommendation_has_basis
+    level: severe
+    description: 完善建议必须有前文问题分析支撑，且与现行法律体系衔接
+  - id: norm_citation_format
+    level: severe
+    description: 法条引用格式必须规范（如《中华人民共和国民法典》第XXX条），司法解释必须注明发布机关与文号
+  - id: case_citation_format
+    level: severe
+    description: 案例引用必须包含案号、审理法院、裁判日期；指导性案例标明"指导案例X号"
+  - id: comparative_law_disclosed
+    level: severe
+    description: 涉及域外法时必须标明国别/法域与法条出处，禁止编造外国制度
+  - id: current_law_validity
+    level: fatal
+    description: 引用法律必须为现行有效版本，已废止/已修订条款必须标注修订时间或避免引用
+  - id: no_political_overreach
+    level: severe
+    description: 完善建议须在法律框架内，不得偏离学术中立立场或作政治倡导
+  - id: thesis_central_question
+    level: severe
+    description: 每章必须服务于论文中心问题，禁止堆砌不相关法条

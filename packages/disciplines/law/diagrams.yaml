@@ -1,0 +1,30 @@
+schema_version: 1
+diagrams:
+  legal_structure:
+    engine: plantuml
+    extension: puml
+    note: 法条/规范结构图，展示某部法律的章节体系或法律渊源层级（如宪法/法律/行政法规/部门规章）
+  case_timeline:
+    engine: plantuml
+    extension: puml
+    note: 案例时序图，展示典型案例的事实经过、诉讼程序与裁判结果
+  comparison_table:
+    engine: graphviz
+    extension: dot
+    note: 制度比较图/表，用于中外制度对比、新旧法对比
+  decision_tree:
+    engine: graphviz
+    extension: dot
+    note: 法律适用决策树，展示构成要件判断逻辑
+  jurisdiction_map:
+    engine: plantuml
+    extension: puml
+    note: 管辖权/职权分配图
+forbidden:
+  - er
+  - overall_er
+  - entity_er
+  - class_diagram
+  - architecture
+optional_chart: true
+note: 法学论文以文字论证为主，图表可有可无；除非必要不强制配图

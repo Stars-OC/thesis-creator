@@ -1,0 +1,11 @@
+schema_version: 1
+artifacts:
+  code_required: true
+  screenshot_required: true
+  diagrams_required: true
+  min_database_tables: 11
+  min_test_cases: 8
+code_block:
+  enabled: true
+  max_lines: 30
+  require_comments: true

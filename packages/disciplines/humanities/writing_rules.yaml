@@ -1,0 +1,41 @@
+schema_version: 1
+artifacts:
+  code_required: false
+  screenshot_required: false
+  diagrams_required: false
+references:
+  zh_reference_ratio: 0.70
+  en_reference_ratio: 0.30
+  require_primary_sources: true
+  prefer_categories:
+    - 一手文本（原典/史料/外文原文）
+    - 权威译本
+    - 经典学术专著
+    - 核心期刊论文
+  prefer_journals:
+    - 文学评论
+    - 文学遗产
+    - 外国文学评论
+    - 历史研究
+    - 中国哲学史
+    - 哲学研究
+    - 外语教学与研究
+    - 中国翻译
+humanities:
+  require_textual_evidence: true
+  require_close_reading: true
+  citation_style: original_first
+  forbid_secondary_only: true
+language:
+  forbid_terms:
+    - 系统设计
+    - 数据库
+    - 实证检验
+  prefer_terms:
+    - 文本细读
+    - 比较分析
+    - 历史考察
+    - 概念辨析
+    - 思想脉络
+aigc:
+  threshold: 0.30

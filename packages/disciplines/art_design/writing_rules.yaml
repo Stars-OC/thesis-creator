@@ -1,0 +1,51 @@
+schema_version: 1
+artifacts:
+  code_required: false
+  screenshot_required: true
+  diagrams_required: true
+  require_design_work: true
+  required_tables:
+    - 调研对象/案例汇总表
+    - 设计要素/规范表
+  min_charts_per_core_chapter: 5
+references:
+  zh_reference_ratio: 0.65
+  en_reference_ratio: 0.35
+  prefer_categories:
+    - 设计学/艺术学专著
+    - 设计史与艺术史
+    - 行业报告与设计案例
+    - 设计规范/手册
+  prefer_journals:
+    - 装饰
+    - 美术
+    - 美术研究
+    - 美术观察
+    - 中国设计年鉴
+    - Design Studies
+    - Design Issues
+    - The Design Journal
+art_design:
+  require_design_artifact: true
+  require_visual_documentation: true
+  preferred_tools:
+    - Photoshop
+    - Illustrator
+    - Sketch
+    - Figma
+    - Rhino
+    - Cinema 4D
+    - Procreate
+language:
+  forbid_terms:
+    - 系统设计
+    - 数据库
+    - 接口实现
+  prefer_terms:
+    - 视觉表现
+    - 设计语言
+    - 用户体验
+    - 形式美感
+    - 创意理念
+aigc:
+  threshold: 0.30

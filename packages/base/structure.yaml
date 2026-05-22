@@ -1,0 +1,46 @@
+schema_version: 1
+structure:
+  abstract:
+    required: true
+    position: before_toc
+  chapters:
+    - id: ch1
+      title: 绪论
+      required: true
+      sections:
+        - id: "1.1"
+          title: 研究背景与意义
+        - id: "1.2"
+          title: 国内外研究现状
+        - id: "1.3"
+          title: 研究内容与方法
+    - id: ch2
+      title: 理论基础与相关研究
+      required: true
+      sections:
+        - id: "2.1"
+          title: 核心概念界定
+        - id: "2.2"
+          title: 理论基础
+    - id: ch3
+      title: 研究设计与分析
+      required: true
+      sections:
+        - id: "3.1"
+          title: 研究设计
+        - id: "3.2"
+          title: 分析过程
+    - id: ch4
+      title: 结论与展望
+      required: true
+      sections:
+        - id: "4.1"
+          title: 研究结论
+        - id: "4.2"
+          title: 不足与展望
+  back_matter:
+    references:
+      required: true
+      format: gbt7714
+    acknowledgement:
+      required: true

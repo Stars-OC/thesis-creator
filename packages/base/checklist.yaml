@@ -1,0 +1,14 @@
+schema_version: 1
+checks:
+  - id: background_completed
+    level: fatal
+    description: background.md 必须补全后才能进入写作流程
+  - id: references_verified
+    level: severe
+    description: 参考文献必须经过验证，禁止虚构文献
+  - id: duplicate_reference_blocked
+    level: fatal
+    description: 同一 ref_id 在全文中不得重复引用
+  - id: aigc_checklist_required
+    level: severe
+    description: AIGC 降低必须输出处理计划、改写文本和自检清单

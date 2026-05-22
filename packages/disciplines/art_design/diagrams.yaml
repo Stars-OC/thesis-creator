@@ -1,0 +1,40 @@
+schema_version: 1
+diagrams:
+  sketch:
+    engine: user
+    extension: png
+    note: 手绘草图、设计构思图（由用户提供扫描或拍照）
+  mockup:
+    engine: user
+    extension: png
+    note: 设计效果图/Mockup（由 Photoshop/Sketch/Figma 导出）
+  final_artwork:
+    engine: user
+    extension: png
+    note: 最终设计作品成果图
+  user_journey:
+    engine: plantuml
+    extension: puml
+    note: 用户旅程图、服务蓝图
+  design_flow:
+    engine: plantuml
+    extension: puml
+    note: 设计流程图、双钻模型流程
+  mood_board:
+    engine: user
+    extension: png
+    note: 情绪板/灵感板（由用户拼图后提供）
+  color_palette:
+    engine: user
+    extension: png
+    note: 色彩方案/CI 配色（由用户提供）
+  scene_application:
+    engine: user
+    extension: png
+    note: 应用场景图、产品落地效果图
+forbidden:
+  - er
+  - overall_er
+  - entity_er
+  - class_diagram
+recommended_min_images_per_core_chapter: 5

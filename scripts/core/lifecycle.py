@@ -24,6 +24,7 @@ from typing import Dict, Any
 
 from core.status_manager import ThesisStatusManager, STEPS
 from core.logger import init_logger, get_logger
+from core.config_resolver import write_runtime_config
 
 
 def _load_lifecycle_config(workspace: Path) -> Dict[str, Any]:
@@ -172,6 +173,7 @@ def ensure_workspace_structure(workspace_path: str, sync_scripts: bool = True) -
                 break
 
     _ensure_workspace_config(workspace)
+    write_runtime_config(Path(__file__).resolve().parents[2], workspace)
     _ensure_image_manifest(workspace)
     ThesisStatusManager(str(workspace)).ensure()
 
@@ -192,6 +194,7 @@ def check_workspace_preflight(workspace: Path) -> Dict[str, Any]:
         "logs",
         ".thesis-status.json",
         ".thesis-config.yaml",
+        ".thesis-runtime-config.yaml",
         "references/prompt/background.md",
         "workspace/drafts",
         "workspace/final",
@@ -244,6 +247,8 @@ class ThesisLifecycle:
 
     def step_start(self, step: int):
         if self.config["status"]["enabled"]:
+            # 启动前先做产物-状态一致性对账，防止基于错误状态做决策
+            self.status_mgr.reconcile_with_artifacts(silent=True)
             ok, missing = self.status_mgr.check_prerequisites(step)
             if not ok:
                 msg = f"步骤{step} 前置条件未满足: {'; '.join(missing)}"
@@ -256,6 +261,13 @@ class ThesisLifecycle:
 
     def step_complete(self, step: int):
         if self.config["status"]["enabled"]:
+            # complete 时校验产物，缺失则阻断（update_step 内已内置校验，此处再打一道日志）
+            ok, missing = self.status_mgr.verify_step_artifacts(step)
+            if not ok:
+                msg = f"步骤{step} 缺少产物不能 complete: {missing}"
+                self.logger.error(msg)
+                print(f"[阻断] {msg}")
+                return
             self.status_mgr.update_step(step, "complete")
         self.logger.step(f"Step {step}({STEPS.get(step, {}).get('name', 'Unknown')})", "complete")
 
@@ -289,6 +301,7 @@ def main():
     parser.add_argument("--prepare-runtime", action="store_true", help="仅准备工作区脚本目录与虚拟环境")
     parser.add_argument("--check-workspace", action="store_true", help="检查工作区初始化产物是否完整")
     parser.add_argument("--init-and-check", action="store_true", help="一键初始化工作区并执行预检")
+    parser.add_argument("--reconcile", action="store_true", help="对账产物：completed 但缺产物的步骤自动降级回 in_progress")
 
     args = parser.parse_args()
 
@@ -326,6 +339,14 @@ def main():
         return
 
     lifecycle = ThesisLifecycle(args.workspace)
+
+    if args.reconcile:
+        downgraded = lifecycle.status_mgr.reconcile_with_artifacts(silent=False)
+        if not downgraded:
+            print("[通过] 所有步骤的产物与状态一致")
+        else:
+            print(f"[降级] 共 {len(downgraded)} 个步骤被降级")
+        return
 
     if args.status:
         lifecycle.print_status()

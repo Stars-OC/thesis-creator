@@ -1,0 +1,43 @@
+schema_version: 1
+artifacts:
+  code_required: false
+  screenshot_required: false
+  diagrams_required: true
+  required_tables:
+    - 变量定义表
+    - 描述性统计表
+    - 信效度检验表（问卷类）
+  min_charts_per_core_chapter: 3
+references:
+  zh_reference_ratio: 0.70
+  en_reference_ratio: 0.30
+  prefer_journals:
+    - 管理世界
+    - 中国工业经济
+    - 经济研究
+    - 南开管理评论
+    - 会计研究
+    - Strategic Management Journal
+    - Academy of Management Journal
+    - Journal of Marketing
+chapters:
+  ch4:
+    style: empirical_or_case
+    require_data_table: true
+    require_method_description: true
+  ch5:
+    style: recommendation
+    require_layered_suggestion: true
+aigc:
+  threshold: 0.30
+language:
+  forbid_terms:
+    - 系统设计
+    - 系统实现
+    - 数据库表
+    - 接口实现
+  prefer_terms:
+    - 案例分析
+    - 实证检验
+    - 管理对策
+    - 政策建议

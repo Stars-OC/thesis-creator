@@ -1,0 +1,35 @@
+schema_version: 1
+diagrams:
+  schematic:
+    engine: user
+    extension: png
+    note: 原理示意图、机械结构图、电路图等专业图（由 SolidWorks/AutoCAD/Visio/CAD 导出后由用户提供）
+  flowchart:
+    engine: plantuml
+    extension: puml
+    note: 工艺流程、控制流程、研究技术路线图
+  block_diagram:
+    engine: plantuml
+    extension: puml
+    note: 系统/控制框图（PID 控制器、传感器-控制器-执行机构）
+  simulation_screenshot:
+    engine: user
+    extension: png
+    note: ANSYS/ABAQUS/COMSOL/MATLAB 仿真结果截图（由用户提供）
+  experiment_photo:
+    engine: user
+    extension: png
+    note: 实验台、试件、测试现场照片（由用户提供）
+  line_chart:
+    engine: graphviz
+    extension: dot
+    note: 应力-应变曲线、温度-时间曲线、伏安特性曲线
+  bar_chart:
+    engine: graphviz
+    extension: dot
+    note: 不同工况性能对比、多组实验结果对比
+forbidden:
+  - er
+  - overall_er
+  - entity_er
+recommended_min_images_per_core_chapter: 3

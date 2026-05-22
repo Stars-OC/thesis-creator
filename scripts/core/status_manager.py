@@ -19,7 +19,7 @@ import argparse
 from copy import deepcopy
 from pathlib import Path
 from datetime import datetime
-from typing import Tuple, List
+from typing import Tuple, List, Dict, Any
 
 
 # 步骤定义
@@ -36,8 +36,72 @@ STEPS = {
     9: {"name": "文档导出", "prerequisites": [5, 7, 8]},
 }
 
+
+# 产物-状态一致性规则：每个步骤声明 completed 必须存在的最低产物
+# 缺失时调用 reconcile_with_artifacts() 会自动降级回 in_progress
+STEP_ARTIFACT_REQUIREMENTS: Dict[int, Dict[str, Any]] = {
+    3: {
+        "files": ["workspace/outline.md"],
+        "description": "outline.md 必须存在",
+    },
+    4: {
+        "min_chapters": True,  # 至少 chapter_1 ~ chapter_N（按 outline 推断；默认 ≥4 章）
+        "files": [
+            "workspace/drafts/摘要.md",
+            "workspace/drafts/致谢.md",
+        ],
+        "description": "drafts/chapter_*.md 必须覆盖大纲全部章节，且摘要、致谢已生成",
+    },
+    7: {
+        "files": [
+            "workspace/final/论文终稿.md",
+            "workspace/drafts/参考文献.md",
+        ],
+        "description": "合并产物（论文终稿.md + 参考文献.md）必须存在",
+    },
+    8: {
+        "files": ["workspace/references/images.yaml"],
+        "description": "images.yaml 必须存在；占位符全部回填后才允许 completed",
+    },
+    9: {
+        "files": ["workspace/final/论文终稿.docx"],
+        "description": "导出的 docx 文件必须存在",
+    },
+}
+
+
+def _expected_chapter_count(workspace_dir: Path) -> int:
+    """从大纲文件估算应有的正文章节数；解析失败时返回兜底值 4。"""
+    outline = workspace_dir / "workspace" / "outline.md"
+    if not outline.exists():
+        return 4
+    try:
+        text = outline.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return 4
+    import re
+    chapter_titles = re.findall(r"^#+\s*第([一二三四五六七八九十\d]+)章", text, flags=re.MULTILINE)
+    if chapter_titles:
+        return len(chapter_titles)
+    h2 = re.findall(r"^##\s+", text, flags=re.MULTILINE)
+    return max(4, len(h2)) if h2 else 4
+
+
+def _scan_chapter_drafts(workspace_dir: Path) -> List[str]:
+    """扫描 drafts/chapter_*.md，返回已存在的章节文件列表。"""
+    drafts = workspace_dir / "workspace" / "drafts"
+    if not drafts.exists():
+        return []
+    import re
+    chapter_files = []
+    for path in drafts.glob("chapter_*.md"):
+        if re.match(r"^chapter_\d+(?:_.*)?\.md$", path.name):
+            chapter_files.append(path.name)
+    return sorted(chapter_files)
+
+
 DEFAULT_STATUS = {
-    "version": "2.0",
+    "version": "2.1",
     "created_at": "",
     "updated_at": "",
     "current_step": 0,
@@ -180,8 +244,16 @@ class ThesisStatusManager:
             status["steps"][step_key]["started_at"] = datetime.now().isoformat()
             status["current_step"] = step
         elif action == "complete":
+            ok, missing = self.verify_step_artifacts(step)
+            if not ok:
+                print(
+                    f"[阻断] 步骤{step}({STEPS[step]['name']}) 缺少产物: {missing}，"
+                    "不能标记 completed。请先补齐产物，或使用 --force-complete 强制覆盖（不推荐）"
+                )
+                return status
             status["steps"][step_key]["status"] = "completed"
             status["steps"][step_key]["completed_at"] = datetime.now().isoformat()
+            status["steps"][step_key]["notes"] = ""
 
         self.save(status)
         print(f"[成功] 步骤 {step}({STEPS[step]['name']}) 状态更新: {action}")
@@ -204,6 +276,87 @@ class ThesisStatusManager:
         print(f"[成功] 章节 {chapter} 已标记完成（{word_count} 字）")
         return status
 
+    def verify_step_artifacts(self, step: int) -> Tuple[bool, List[str]]:
+        """
+        校验指定步骤的产物是否真实存在。
+
+        Returns:
+            (是否完整, 缺失项列表)
+        """
+        requirement = STEP_ARTIFACT_REQUIREMENTS.get(step)
+        if not requirement:
+            return True, []
+
+        missing: List[str] = []
+
+        for relative in requirement.get("files", []):
+            target = self.workspace_dir / relative
+            if not target.exists():
+                missing.append(relative)
+
+        if requirement.get("min_chapters"):
+            expected = _expected_chapter_count(self.workspace_dir)
+            actual_files = _scan_chapter_drafts(self.workspace_dir)
+            import re
+            present_indices = set()
+            for name in actual_files:
+                m = re.match(r"^chapter_(\d+)", name)
+                if m:
+                    present_indices.add(int(m.group(1)))
+            for idx in range(1, expected + 1):
+                if idx not in present_indices:
+                    missing.append(f"workspace/drafts/chapter_{idx}.md")
+
+        return len(missing) == 0, missing
+
+    def reconcile_with_artifacts(self, silent: bool = False) -> Dict[str, Any]:
+        """
+        将状态文件与实际产物对账：
+        - 若某步骤标记为 completed 但产物缺失，则降级为 in_progress
+        - 返回降级清单 {step: missing_files}
+
+        本机制是为了防止"状态机失同步"——即 status.json 标记 completed
+        但 drafts 目录实际缺失文件的盲点（参见 流程诊断与学科适配说明.md）。
+        """
+        downgraded: Dict[str, Any] = {}
+        if not self.status_file.exists():
+            return downgraded
+
+        try:
+            with open(self.status_file, "r", encoding="utf-8") as f:
+                status = self._normalize_status_schema(json.load(f))
+        except (json.JSONDecodeError, OSError):
+            return downgraded
+
+        modified = False
+        for step in sorted(STEP_ARTIFACT_REQUIREMENTS.keys()):
+            step_key = str(step)
+            current_state = status.get("steps", {}).get(step_key, {})
+            if current_state.get("status") != "completed":
+                continue
+            ok, missing = self.verify_step_artifacts(step)
+            if ok:
+                continue
+            current_state["status"] = "in_progress"
+            current_state["completed_at"] = None
+            current_state["notes"] = (
+                f"自动降级：产物缺失 {missing}（{STEP_ARTIFACT_REQUIREMENTS[step]['description']}）"
+            )
+            status["steps"][step_key] = current_state
+            if status.get("current_step", 0) > step:
+                status["current_step"] = step
+            downgraded[step] = missing
+            modified = True
+            if not silent:
+                print(f"[警告] 步骤{step}({STEPS[step]['name']}) 标记 completed 但缺少产物：{missing}，已降级回 in_progress")
+
+        if modified:
+            status["updated_at"] = datetime.now().isoformat()
+            with open(self.status_file, "w", encoding="utf-8") as f:
+                json.dump(status, f, ensure_ascii=False, indent=2)
+
+        return downgraded
+
     def check_prerequisites(self, step: int) -> Tuple[bool, List[str]]:
         """
         检查步骤前置条件
@@ -211,6 +364,9 @@ class ThesisStatusManager:
         Returns:
             (是否满足, 未满足的前置步骤列表)
         """
+        # 进入前置检查前先做一次产物一致性同步，避免基于错误状态做决策
+        self.reconcile_with_artifacts(silent=True)
+
         status = self.load()
         if status is None:
             return False, ["状态文件不存在"]
@@ -300,6 +456,8 @@ def main():
     parser.add_argument("--resume", action="store_true", help="获取断点续写位置")
     parser.add_argument("--status", action="store_true", help="显示当前状态")
     parser.add_argument("--ensure", action="store_true", help="确保状态文件存在（不存在则初始化）")
+    parser.add_argument("--reconcile", action="store_true", help="对账产物：completed 但缺产物的步骤自动降级回 in_progress")
+    parser.add_argument("--verify-step", type=int, help="校验指定步骤的产物是否完整")
 
     args = parser.parse_args()
     manager = ThesisStatusManager(args.workspace)
@@ -308,6 +466,22 @@ def main():
         manager.init()
     elif args.ensure:
         manager.ensure()
+    elif args.reconcile:
+        downgraded = manager.reconcile_with_artifacts(silent=False)
+        if not downgraded:
+            print("[通过] 所有步骤的产物与状态一致")
+        else:
+            print(f"[降级] 共 {len(downgraded)} 个步骤被降级:")
+            for step, missing in downgraded.items():
+                print(f"  - 步骤{step}({STEPS[step]['name']}): 缺少 {missing}")
+    elif args.verify_step is not None:
+        ok, missing = manager.verify_step_artifacts(args.verify_step)
+        if ok:
+            print(f"[通过] 步骤{args.verify_step}的产物已就绪")
+        else:
+            print(f"[未就绪] 步骤{args.verify_step}缺少产物:")
+            for m in missing:
+                print(f"  - {m}")
     elif args.check_step is not None:
         ok, missing = manager.check_prerequisites(args.check_step)
         if ok:

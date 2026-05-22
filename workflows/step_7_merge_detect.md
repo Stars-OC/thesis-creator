@@ -100,6 +100,37 @@ python scripts/aigc/detect.py --input workspace/final/论文终稿.md
 
 ---
 
+## 7.5 进入 Step 8 前的硬门禁清单（强制全部通过）
+
+> **铁律**：以下五条任一未通过，禁止把 Step 7 标记为 completed，更禁止开始 Step 8。
+> 状态机会在 `--update-step 7 --action complete` 时自动校验产物是否存在，缺失即阻断。
+
+| # | 门禁项 | 校验脚本 | 不通过处理 |
+|---|--------|----------|-----------|
+| 1 | 章节合并已完成 | `workspace/final/论文终稿.md` 存在且 ≥ 大纲全部章节 | 回 Step 4 补章 |
+| 2 | 参考文献已独立生成 | `workspace/drafts/参考文献.md` 存在，GB/T 7714 格式 | 重跑 `merge_drafts.py` |
+| 3 | 单篇文献仅占用一次 | `merge_drafts.py` 自检日志无 "duplicate ref_id" | 回 Step 4 改写引用 |
+| 4 | 参考文献在线校验通过 | `python scripts/references/reference_validator.py workspace/drafts/参考文献.md --validate-online --check-404` 退出码 0 | 替换 404 文献或回 Step 6 审校 |
+| 5 | AIGC 检测通过 | `python scripts/aigc/detect.py --input workspace/final/论文终稿.md`（CS/SE 学科可选 `technical_detect.py`）；AIGC 比例 ≤ `.thesis-runtime-config.yaml` 中 `aigc.threshold`（默认 0.30） | 回 Step 5/6 改写后重新合并并复检 |
+
+### 一键自检命令
+
+```bash
+# 校验状态机产物一致性（防止 status.json 标记 completed 但产物缺失）
+python scripts/core/status_manager.py thesis-workspace/ --verify-step 7
+
+# 等价 lifecycle 入口
+python scripts/core/lifecycle.py --workspace thesis-workspace/ --reconcile
+```
+
+### 失败案例（必须避免）
+
+> 2026-05-22 thesis-workspace 案例：未执行 AIGC 检测和 reference_validator 就直接进 Step 8 图片生成，
+> 导致终稿中遗留虚假文献链接和 AI 模板词，最终交付前必须返工。
+> 后续每次 Step 7→Step 8 切换，必须先 `--verify-step 7` 通过。
+
+---
+
 ## 输出文件
 
 - `workspace/final/论文终稿.md` - 终稿(Markdown)

@@ -1,0 +1,20 @@
+schema_version: 1
+structure:
+  chapters:
+    - id: ch1
+      title: 绪论
+      required: true
+    - id: ch2
+      title: 文献综述与研究述评
+      required: true
+    - id: ch3
+      title: 文本/史料/概念分析
+      required: true
+      is_core_chapter: true
+    - id: ch4
+      title: 深度阐释与论证
+      required: true
+      is_core_chapter: true
+    - id: ch5
+      title: 结论与价值
+      required: true

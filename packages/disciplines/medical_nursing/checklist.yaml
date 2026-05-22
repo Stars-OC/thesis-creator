@@ -1,0 +1,32 @@
+schema_version: 1
+checks:
+  - id: ethics_approval_required
+    level: fatal
+    description: 涉及人体或临床研究必须报告伦理审批号与知情同意流程
+  - id: inclusion_exclusion_clear
+    level: fatal
+    description: 第3章必须明确纳入与排除标准
+  - id: sample_size_calculation
+    level: severe
+    description: 必须说明样本量计算依据（PASS 或公式），无依据时说明理由
+  - id: statistical_method_disclosed
+    level: severe
+    description: 必须说明统计软件（SPSS/R/SAS 版本）、检验方法、显著性水平 α
+  - id: reporting_guideline_followed
+    level: severe
+    description: 按研究设计遵循 CONSORT/STROBE/PRISMA/COREQ/STARD 等报告规范
+  - id: result_vs_discussion_separated
+    level: fatal
+    description: 第4章（结果）只陈述发现，不解读；第5章（讨论）才做机制解读与意义评价
+  - id: adverse_events_reported
+    level: severe
+    description: 临床干预研究必须报告不良事件（含发生率与处置）
+  - id: clinical_trial_registration
+    level: severe
+    description: 临床试验须报告注册号（如 ChiCTR / ClinicalTrials.gov）
+  - id: no_data_fabrication
+    level: fatal
+    description: 禁止伪造或粉饰数据；阴性结果同样有价值
+  - id: pico_or_pio_clarified
+    level: severe
+    description: 护理/循证研究须明确 PICO 或 PIO 要素（Population/Intervention/Comparison/Outcome）

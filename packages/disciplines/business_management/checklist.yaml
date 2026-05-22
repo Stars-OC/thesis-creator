@@ -1,0 +1,26 @@
+schema_version: 1
+checks:
+  - id: research_method_clear
+    level: severe
+    description: 必须说明研究方法（案例/实证/规范分析）、样本或案例来源
+  - id: conclusion_matches_analysis
+    level: severe
+    description: 结论必须回应前文分析结果，并提出可操作的管理建议
+  - id: data_source_traceable
+    level: severe
+    description: 所有图表数据必须标注来源（如 Wind / 国家统计局 / 案例企业年报 / 问卷调查）
+  - id: variable_definition_complete
+    level: severe
+    description: 实证类论文必须在第3-4章包含"变量定义表"和"描述性统计表"
+  - id: case_background_required
+    level: severe
+    description: 案例类论文必须在核心分析章节交代案例企业背景（行业、规模、问题）
+  - id: theory_framework_applied
+    level: severe
+    description: 理论基础章节提出的框架必须在后续章节实际被应用，不得空挂
+  - id: recommendation_actionable
+    level: severe
+    description: 完善建议必须分层（如战略层/管理层/执行层），不得空泛
+  - id: no_code_no_screenshot
+    level: info
+    description: 经管类论文默认不要求代码与系统截图，diagrams 限定为图表、流程图与组织架构图

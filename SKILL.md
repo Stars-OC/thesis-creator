@@ -61,9 +61,22 @@ flowchart LR
 > [!IMPORTANT]
 > **「继续」不是跳过按钮。** 若当前流程仍存在强制交互点、前置校验或质量门禁未完成，则必须先完成对应动作，再允许进入下一步。
 
+> [!WARNING]
+> **状态机与产物必须一致**：在任何步骤开始前，必须运行 `python scripts/core/lifecycle.py --workspace thesis-workspace/ --reconcile`，
+> 它会扫描 drafts/final 实际产物，把 `status.json` 中"标记 completed 但产物缺失"的步骤自动降级为 `in_progress`。
+> 大模型禁止仅凭 `status.json` 决定是否进入下一步，必须先看 reconcile 结果。
+>
+> **失败案例**：2026-05-22 thesis-workspace 案例中，status.json 早已标记 Step 4-7 completed，
+> 但 drafts 仅有 chapter_1-2，致谢/摘要/3-7 章全缺。若直接信任 status.json 会跳过整章撰写。
+
+> [!WARNING]
+> **必须走 lifecycle.py 统一入口**：所有 step 状态变更必须通过 `python scripts/core/lifecycle.py --workspace ... --step N --event start|complete` 触发；
+> 直接调用底层脚本（如 `merge_drafts.py`、`detect.py`）也允许，但前后必须用 lifecycle 入口同步状态。
+> 大模型禁止自行维护"已完成"心智，仅以 lifecycle 输出为准。
+
 ### 不可跳过的暂停点
 
-1. **Step 0 初始化后**：必须先运行 `python scripts/core/lifecycle.py --workspace thesis-workspace/ --check-workspace`，并检查 `thesis-workspace/references/prompt/background.md` 是否已补全；工作区必须通过脚本初始化并从 `config/.thesis-config.yaml` 复制生成 `thesis-workspace/.thesis-config.yaml`，同时生成 `thesis-workspace/.thesis-status.json`、`thesis-workspace/logs/`、`thesis-workspace/scripts/charts/render.py`、`thesis-workspace/workspace/final/images/sources` 与 `thesis-workspace/workspace/references/images.yaml`；未完成时只能提示用户编辑，禁止直接推进到 Step 1/3。
+1. **Step 0 初始化后**：必须先运行 `python scripts/core/lifecycle.py --workspace thesis-workspace/ --check-workspace`，并检查 `thesis-workspace/references/prompt/background.md` 是否已补全；工作区必须通过脚本初始化并从 `config/.thesis-config.yaml` 复制生成 `thesis-workspace/.thesis-config.yaml`，同时生成 `thesis-workspace/.thesis-status.json`、`thesis-workspace/.thesis-runtime-config.yaml`、`thesis-workspace/logs/`、`thesis-workspace/scripts/charts/render.py`、`thesis-workspace/workspace/final/images/sources` 与 `thesis-workspace/workspace/references/images.yaml`；未完成时只能提示用户编辑，禁止直接推进到 Step 1/3。
 2. **Step 3 大纲确认后**：必须先询问用户文献数量（20-30 / 30-50 / 15-20），并展示搜索耗时预估后，进入 Step 3→4 之间的“文献搜索与建池”阶段；该阶段不是独立 Step，但后续在 Step 4/6/7 中如发现文献不足、语种比例失衡或文献失效，必须允许回流补池后再继续写作或检测。
 3. **Step 4 每章写作时**：必须先完成 Stage 1 要点规划，待用户确认后才能进入 Stage 2 扩写；如果当前仍停留在 Stage 1，用户回复「继续」只能视为确认本章要点，不能跳过更早的未完成门禁。
 4. **Step 7 合并检测后**：若同一 `ref_id` 在终稿中重复出现，必须硬阻断并回退修正，禁止带重复引用进入 AIGC 检测；若 AIGC 检测未通过，必须回退到 Step 5/6 继续改写与审校，禁止进入 Step 8 图片生成或 Step 9 导出。
@@ -75,7 +88,7 @@ flowchart LR
 
 | 步骤 | 说明 | 详细文档 |
 |------|------|----------|
-| Step 0 | 工作区初始化 | `workflows/step_0_init.md` |
+| Step 0 | 工作区初始化（含模板包加载） | `workflows/step_0_init.md` |
 | Step 3 | 生成论文大纲 | `workflows/step_3_outline.md` |
 | Step 4 | 分章节撰写 | `workflows/step_4_writing.md` |
 | Step 6 | 审校润色 | `workflows/step_6_review_polish.md` |
@@ -143,6 +156,7 @@ flowchart LR
 thesis-workspace/
 ├── README.md                  # 工作区使用说明
 ├── .thesis-config.yaml        # 配置文件
+├── .thesis-runtime-config.yaml # 运行时配置（模板包合并结果）
 ├── references/                # 参考资料（用户放入）
 │   ├── templates/             # 学校模板
 │   ├── examples/              # 范文
@@ -190,6 +204,10 @@ thesis-workspace/
 | **引用复用同一 ref_id** | **严重** | **同一篇文献整篇仅允许引用一次，发现重复占用必须硬阻断并回流补池改写引用** |
 | AI模板词超标 | 中等 | 按 Step 6 的 AIGC 标准流程处理：先做处理前计划，再按“场景化重写 → 结构重组 → 细节注入 → 自然承接与轻冗余 → 高密度句拆句解释 → 语言去模板化”改写，最后输出清单自检；禁止只做同义替换、删词式压缩或只给改写结果 |
 | **AIGC 降低缺少自检清单** | **严重** | **必须补齐处理前计划、改写文本、自检表；自检项出现“未通过”时继续局部修正，不得交付为最终版** |
+| **状态机与产物失同步** | **致命** | **每步切换前必须执行 `lifecycle.py --reconcile`；status.json 标记 completed 但产物缺失时自动降级为 in_progress，禁止盲信 status.json** |
+| **Step 7→8 跳过 AIGC/404 校验** | **致命** | **AIGC 检测与 reference_validator --check-404 是 Step 7 硬门禁；未通过禁止 update-step 7 为 complete，禁止开始 Step 8** |
+| **image-requirement 格式错配** | 中等 | manifest_builder.py 兼容 `<!-- image-requirement -->` 与 `::: image-requirement :::` 两种格式，但 Step 4 必须按 step_4_writing.md 规定使用 HTML 注释格式 |
+| **图片必填字段漏写** | **严重** | **`source/status/description/fact_source/placement` 五个字段必填，按 images.yaml 字段规范完整生成，禁止留空触发 schema ValueError** |
 | **章节内自建参考文献列表** | 中等 | 删除，合并阶段统一生成 |
 | **background.md 为空或未完善** | **致命** | **提示用户编辑 `thesis-workspace/references/prompt/background.md`，禁止控制台交互式输入** |
 | **ER 图事实源不一致** | **严重** | **Step 8 的 ER 图默认读取 `background.md`，仅 ER 图受 `thesis-workspace/.thesis-config.yaml` 的 `er_modeling` 配置影响；默认输出教科书 Chen 风格 DOT（实体矩形、属性椭圆、联系菱形），总体 ER 图必须第一个展示，且只展示实体、联系与 `1:1` / `1:N` 基数；关系菱形节点必须结合外键字段或实体语义命名，如“拥有”“包含”，不得统一写成“关联”；DOT 输出不要显式使用 `label=`** |
@@ -218,11 +236,17 @@ thesis-workspace/
 | `scripts/content/merge_drafts.py` | 章节合并 |
 | `scripts/aigc/detect.py` | AIGC检测 |
 | `scripts/aigc/technical_detect.py` | 技术论文 AIGC 检测 |
-| `scripts/charts/manifest_builder.py` | 从正文 `[image_N]` 与 `image-requirement` 生成或更新 `images.yaml` |
+| `scripts/charts/manifest_builder.py` | 从正文 `[image_N]` 与 `image-requirement`（兼容 HTML 注释和 `:::` 容器块两种语法）生成或更新 `images.yaml` |
 | `scripts/charts/source_writer.py` | 根据 `images.yaml` 准备并校验 `.mmd/.dot/.puml` 源码文件 |
 | `scripts/charts/render.py` | 按 Mermaid、Graphviz、PlantUML 渲染 PNG |
 | `scripts/charts/markdown_updater.py` | 将已渲染图片回填为 Markdown 图片引用 |
 | `scripts/charts/validate.py` | 校验源码、PNG、占位符和用户待补截图状态 |
+| `scripts/charts/user_placeholder.py` | 为 `source=user` 但尚未提供真实截图的图片生成白底中文占位 PNG（Step 9 前可选） |
+| `scripts/core/package_validator.py` | 校验学科模板包 manifest 和必填文件 |
+| `scripts/core/package_loader.py` | 加载并继承合并基础模板与学科模板 |
+| `scripts/core/config_resolver.py` | 解析学科、模式与用户覆盖，生成运行时配置 |
+| `scripts/core/status_manager.py --reconcile` | 产物-状态一致性对账，自动降级"标记 completed 但产物缺失"的步骤 |
+| `scripts/core/lifecycle.py --reconcile` | 同上，作为统一入口；每步开始前都应执行一次 |
 
 ---
 

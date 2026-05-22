@@ -1,0 +1,10 @@
+id: master
+name: 硕士学位论文
+defaults:
+  word_count_range: [25000, 40000]
+  reference_count: [50, 80]
+  zh_reference_ratio: 0.50
+  abstract_word_count: [800, 1000]
+  english_abstract_word_count: [400, 600]
+  chapter_depth: 3
+  aigc_threshold: 0.20

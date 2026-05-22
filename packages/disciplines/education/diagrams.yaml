@@ -1,0 +1,32 @@
+schema_version: 1
+diagrams:
+  flowchart:
+    engine: plantuml
+    extension: puml
+    note: 研究流程图、教学设计流程图
+  bar_chart:
+    engine: graphviz
+    extension: dot
+    note: 调查结果分组对比、前后测对比
+  line_chart:
+    engine: graphviz
+    extension: dot
+    note: 学习成效变化趋势
+  radar_chart:
+    engine: graphviz
+    extension: dot
+    note: 多维度学习能力评估
+  conceptual_framework:
+    engine: plantuml
+    extension: puml
+    note: 理论框架图，展示变量之间关系（如 TPACK 三圆图、SOR 模型）
+  pretest_posttest:
+    engine: graphviz
+    extension: dot
+    note: 准实验前后测对比柱状图
+forbidden:
+  - er
+  - overall_er
+  - entity_er
+  - class_diagram
+recommended_min_images_per_core_chapter: 2

@@ -1,0 +1,11 @@
+schema_version: 1
+checks:
+  - id: design_implementation_separated
+    level: fatal
+    description: 系统设计与系统实现必须分离
+  - id: database_tables_enough
+    level: severe
+    description: 数据库表数量建议不少于 11 张
+  - id: test_cases_enough
+    level: severe
+    description: 功能测试用例建议不少于 8 条

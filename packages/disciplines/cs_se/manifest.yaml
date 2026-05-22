@@ -1,0 +1,22 @@
+id: cs_se
+name: 计算机科学与软件工程
+version: 1.0.0
+extends: base
+supports:
+  - undergraduate
+  - master
+capabilities:
+  - outline
+  - writing
+  - citation
+  - chart
+  - code_block
+  - screenshot
+required_files:
+  - structure.yaml
+  - writing_rules.yaml
+  - checklist.yaml
+  - prompts/writer.md
+optional_files:
+  - diagrams.yaml
+  - examples/

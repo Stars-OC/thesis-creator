@@ -1,0 +1,51 @@
+schema_version: 1
+artifacts:
+  code_required: false
+  screenshot_required: false
+  diagrams_required: true
+  required_tables:
+    - 实验材料/试剂表（化学/生物）
+    - 仪器参数表
+    - 主要数据汇总表
+  min_charts_per_core_chapter: 3
+references:
+  zh_reference_ratio: 0.35
+  en_reference_ratio: 0.65
+  prefer_journals:
+    - 中国科学：数学/物理/化学/生命科学
+    - 物理学报
+    - 化学学报
+    - 生态学报
+    - 地理学报
+    - 应用数学学报
+    - Nature
+    - Science
+    - PNAS
+    - JACS
+    - Physical Review Letters
+science:
+  require_formula_derivation: true
+  require_reproducibility: true
+  require_error_bar: true
+  preferred_tools:
+    - MATLAB
+    - Python (NumPy/SciPy/Matplotlib)
+    - R
+    - Origin
+    - Mathematica
+    - ChemDraw
+    - GIS
+  notation_style: LaTeX
+language:
+  forbid_terms:
+    - 系统设计
+    - 接口实现
+    - 数据库表
+  prefer_terms:
+    - 实验设计
+    - 理论推导
+    - 数值模拟
+    - 机理分析
+    - 显著性
+aigc:
+  threshold: 0.30

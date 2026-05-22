@@ -18,6 +18,10 @@ REQUIREMENT_BLOCK_PATTERN = re.compile(
     r"<!--\s*image-requirement\s*\n(.*?)\n\s*-->",
     re.DOTALL | re.IGNORECASE,
 )
+FENCE_REQUIREMENT_BLOCK_PATTERN = re.compile(
+    r":::\s*image-requirement\s*\n(.*?)\n\s*:::",
+    re.DOTALL | re.IGNORECASE,
+)
 
 
 def parse_image_placeholders(content: str) -> List[str]:
@@ -33,20 +37,28 @@ def parse_image_placeholders(content: str) -> List[str]:
 
 
 def parse_requirement_blocks(content: str) -> Dict[str, Dict[str, Any]]:
+    """同时识别 HTML 注释格式 (<!-- image-requirement ... -->) 与
+    容器块格式 (::: image-requirement ... :::) 两种语法。"""
     requirements: Dict[str, Dict[str, Any]] = {}
-    for match in REQUIREMENT_BLOCK_PATTERN.finditer(content):
-        raw_yaml = match.group(1).strip()
-        data = yaml.safe_load(raw_yaml) or {}
-        if not isinstance(data, dict):
-            continue
-        image_id = str(data.get("id", "")).strip()
-        if image_id:
-            requirements[image_id] = data
+    for pattern in (REQUIREMENT_BLOCK_PATTERN, FENCE_REQUIREMENT_BLOCK_PATTERN):
+        for match in pattern.finditer(content):
+            raw_yaml = match.group(1).strip()
+            try:
+                data = yaml.safe_load(raw_yaml) or {}
+            except yaml.YAMLError:
+                continue
+            if not isinstance(data, dict):
+                continue
+            image_id = str(data.get("id", "")).strip()
+            if image_id and image_id not in requirements:
+                requirements[image_id] = data
     return requirements
 
 
 def remove_requirement_blocks(content: str) -> str:
-    return REQUIREMENT_BLOCK_PATTERN.sub("", content)
+    content = REQUIREMENT_BLOCK_PATTERN.sub("", content)
+    content = FENCE_REQUIREMENT_BLOCK_PATTERN.sub("", content)
+    return content
 
 
 def _missing_requirement_item(image_id: str) -> ImageItem:

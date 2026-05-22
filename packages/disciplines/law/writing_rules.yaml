@@ -1,0 +1,51 @@
+schema_version: 1
+artifacts:
+  code_required: false
+  screenshot_required: false
+  diagrams_required: false
+references:
+  zh_reference_ratio: 0.85
+  en_reference_ratio: 0.15
+  require_norm_citations: true
+  require_case_citations: true
+  prefer_journals:
+    - 中国法学
+    - 法学研究
+    - 中外法学
+    - 现代法学
+    - 政法论坛
+    - 法商研究
+    - 比较法研究
+    - 清华法学
+    - 法学评论
+law:
+  require_case_analysis: true
+  require_normative_basis: true
+  require_doctrinal_discussion: true
+  citation_norms:
+    statute_format: "《中华人民共和国XX法》第X条"
+    case_format: "案号 + 审理法院 + 裁判日期"
+    judicial_interpretation_format: "《最高人民法院关于XX的解释》（法释〔YYYY〕X号）第X条"
+chapters:
+  ch3:
+    style: case_and_norm_analysis
+    require_indicative_cases: true
+  ch4:
+    style: problem_identification
+    require_root_cause_analysis: true
+  ch5:
+    style: legislative_or_judicial_suggestion
+language:
+  forbid_terms:
+    - 系统设计
+    - 数据库
+    - 算法实现
+    - 接口
+  prefer_terms:
+    - 规范解释
+    - 法律适用
+    - 立法完善
+    - 司法实务
+    - 法理基础
+aigc:
+  threshold: 0.30

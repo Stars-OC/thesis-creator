@@ -1,0 +1,39 @@
+schema_version: 1
+diagrams:
+  line_chart:
+    engine: graphviz
+    extension: dot
+    note: 拟合曲线、动力学曲线、光谱图（最终由 Origin/Matplotlib 出版级图由用户替换）
+  bar_chart:
+    engine: graphviz
+    extension: dot
+    note: 组间对比柱状图（含误差棒）
+  scatter_plot:
+    engine: user
+    extension: png
+    note: 散点图/相关性分析（由 Origin/Python 输出）
+  spectrum:
+    engine: user
+    extension: png
+    note: 光谱图（IR/NMR/UV/质谱），由仪器或专业软件导出
+  chemical_structure:
+    engine: user
+    extension: png
+    note: 化学结构式（ChemDraw 导出）
+  flowchart:
+    engine: plantuml
+    extension: puml
+    note: 实验流程图、合成路线图（简版；化学合成路线建议用 ChemDraw 由用户提供）
+  map:
+    engine: user
+    extension: png
+    note: 地理学论文的研究区域图（GIS 导出，由用户提供）
+  pathway:
+    engine: plantuml
+    extension: puml
+    note: 生物代谢通路图（基础版；专业通路图由用户提供）
+forbidden:
+  - er
+  - overall_er
+  - entity_er
+recommended_min_images_per_core_chapter: 3
