@@ -21,7 +21,7 @@ class DocumentExporterPreflightTest(unittest.TestCase):
 
     def test_parse_markdown_remains_available_for_docx_export(self):
         elements = parse_markdown("# 标题\n\n正文")
-        self.assertEqual(elements[0], ("title", "标题"))
+        self.assertEqual(elements[0], ("h1", "标题"))
         self.assertEqual(elements[1], ("para", "正文"))
 
     def test_parse_markdown_extracts_block_style_markdown_image(self):

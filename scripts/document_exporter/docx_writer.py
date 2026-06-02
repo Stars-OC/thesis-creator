@@ -49,19 +49,12 @@ def set_chinese_font(run, font_name: str = '宋体', font_size: int = 12, bold: 
 
     rFonts.set(qn('w:eastAsia'), font_name)
 
-    # 中文字体加粗需要额外设置 bCs 属性
-    if bold:
-        # 设置西文加粗
-        b_elem = rPr.find(qn('w:b'))
-        if b_elem is None:
-            b_elem = OxmlElement('w:b')
-            rPr.append(b_elem)
-
-        # 设置东亚文字加粗（关键！）
-        bCs_elem = rPr.find(qn('w:bCs'))
-        if bCs_elem is None:
-            bCs_elem = OxmlElement('w:bCs')
-            rPr.append(bCs_elem)
+    # 显式设置东亚文字加粗属性 bCs（run.font.bold 不控制 bCs，必须手动设置）
+    bCs_elem = rPr.find(qn('w:bCs'))
+    if bCs_elem is None:
+        bCs_elem = OxmlElement('w:bCs')
+        rPr.append(bCs_elem)
+    bCs_elem.set(qn('w:val'), '1' if bold else '0')
 
 
 def set_paragraph_format(para, first_line_indent: bool = True, line_spacing: float = 1.5):
@@ -87,6 +80,51 @@ def create_thesis_document() -> 'Document':
     return doc
 
 
+HEADING_FONT_SIZES = {1: 16, 2: 14, 3: 12, 4: 10.5}
+
+# 不参与自动编号的特殊章节（使用 Heading 1 样式但不显示"第X章"编号）
+UNNUMBERED_H1_SECTIONS = ['摘要', 'Abstract', '致谢', '参考文献']
+
+# 不应出现在目录中的重复标签（功能描述、界面截图等）
+NO_TOC_LABELS = {'功能描述', '界面截图', '核心代码', '效果分析'}
+ABSTRACT_H1_SECTIONS = {'摘要', 'Abstract'}
+TOC_FIELD_INSTRUCTION = 'TOC \\o "1-4" \\h \\z \\u'
+
+# 手动编号剥离正则（转换 docx 时移除，让 Word 多级列表接管）
+_NUMBERING_STRIP_PATTERNS = {
+    1: re.compile(r'^第\d+章\s+'),
+    2: re.compile(r'^\d+\.\d+\s+'),
+    3: re.compile(r'^\d+\.\d+\.\d+\s+'),
+    4: re.compile(r'^\d+\.\d+\.\d+\.\d+\s+'),
+}
+
+
+def strip_manual_numbering(text: str, level: int) -> str:
+    """剥离标题中的手动编号，让 Word 多级列表自动编号接管
+
+    示例：
+    - '# 第1章 绪论' → '绪论' (Word 自动编号为 第1章 绪论)
+    - '## 1.1 研究背景' → '研究背景' (Word 自动编号为 1.1 研究背景)
+    - '### 3.1.1 技术可行性' → '技术可行性' (Word 自动编号为 3.1.1 技术可行性)
+    """
+    pattern = _NUMBERING_STRIP_PATTERNS.get(level)
+    if pattern:
+        text = pattern.sub('', text)
+    return text
+
+
+def is_abstract_heading(text: str) -> bool:
+    return text.strip() in ABSTRACT_H1_SECTIONS
+
+
+def should_insert_toc_before_heading(text: str, level: int, seen_abstract: bool, toc_inserted: bool) -> bool:
+    if toc_inserted or level != 1:
+        return False
+    if is_abstract_heading(text):
+        return False
+    return seen_abstract
+
+
 def add_title(doc, text: str):
     """添加论文标题（居中、黑体、三号）"""
     para = doc.add_paragraph()
@@ -97,33 +135,62 @@ def add_title(doc, text: str):
 
 
 def add_heading(doc, text: str, level: int):
-    """添加章节标题"""
-    para = doc.add_paragraph()
+    """添加章节标题，使用 Word Heading 样式(支持自动目录和导航窗格)
 
-    # 根据级别设置格式
-    if level == 1:  # 一级标题（章标题）
-        para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        run = para.add_run(text)
-        set_chinese_font(run, '黑体', 14, bold=True)
-        para.paragraph_format.space_before = Pt(12)
-        para.paragraph_format.space_after = Pt(6)
-    elif level == 2:  # 二级标题（节标题）
-        run = para.add_run(text)
-        set_chinese_font(run, '黑体', 12, bold=True)
-        para.paragraph_format.first_line_indent = Cm(0)
-        para.paragraph_format.space_before = Pt(6)
-        para.paragraph_format.space_after = Pt(3)
-    elif level == 3:  # 三级标题
-        run = para.add_run(text)
-        set_chinese_font(run, '黑体', 12, bold=True)
-        para.paragraph_format.first_line_indent = Cm(0)
-        para.paragraph_format.space_before = Pt(3)
-        para.paragraph_format.space_after = Pt(3)
-    else:
-        run = para.add_run(text)
-        set_chinese_font(run, '黑体', 12, bold=True)
+    Markdown → Word Heading 映射：
+    # → Heading 1 (章级，居中)
+    ## → Heading 2 (节级，左对齐)
+    ### → Heading 3 (小节级，左对齐)
+    #### → Heading 4 (段级，左对齐，重复标签不出现在目录)
+    """
+    # 重复标签（功能描述、界面截图等）不出现在目录/导航窗格
+    # 设置大纲级别为"正文文本"(9)，保持 Heading 4 字体格式
+    if level == 4 and text in NO_TOC_LABELS:
+        heading = doc.add_paragraph()
+        heading.style = doc.styles['Heading 4']
+        run = heading.add_run(text)
+        set_chinese_font(run, '黑体', HEADING_FONT_SIZES.get(4, 10.5), bold=False)
+        run.font.color.rgb = RGBColor(0, 0, 0)
+        heading.paragraph_format.first_line_indent = Cm(0)
+        heading.paragraph_format.space_before = Pt(3)
+        heading.paragraph_format.space_after = Pt(3)
+        # 设置大纲级别为 9（正文文本），不出现在目录/导航窗格
+        pPr = heading._element.find(qn('w:pPr'))
+        if pPr is None:
+            pPr = OxmlElement('w:pPr')
+            heading._element.insert(0, pPr)
+        outlineLvl = pPr.find(qn('w:outlineLvl'))
+        if outlineLvl is None:
+            outlineLvl = OxmlElement('w:outlineLvl')
+            pPr.append(outlineLvl)
+        outlineLvl.set(qn('w:val'), '9')
+        return heading
 
-    return para
+    heading = doc.add_heading(text, level=level)
+
+    # 黑体不加粗 + 强制黑色（编号和标题文本均使用此字体）
+    font_size = HEADING_FONT_SIZES.get(level, 12)
+    for run in heading.runs:
+        set_chinese_font(run, '黑体', font_size, bold=False)
+        run.font.color.rgb = RGBColor(0, 0, 0)
+
+    # 一级标题居中对齐
+    if level == 1:
+        heading.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        heading.paragraph_format.space_before = Pt(12)
+        heading.paragraph_format.space_after = Pt(6)
+
+    # 设置段前段后间距
+    elif level == 2:
+        heading.paragraph_format.first_line_indent = Cm(0)
+        heading.paragraph_format.space_before = Pt(6)
+        heading.paragraph_format.space_after = Pt(3)
+    elif level == 3:
+        heading.paragraph_format.first_line_indent = Cm(0)
+        heading.paragraph_format.space_before = Pt(3)
+        heading.paragraph_format.space_after = Pt(3)
+
+    return heading
 
 
 def add_paragraph(doc, text: str, first_line_indent: bool = True):
@@ -490,6 +557,191 @@ def add_page_break(doc):
     doc.add_page_break()
 
 
+def enable_update_fields_on_open(doc):
+    settings = doc.settings.element
+    update_fields = settings.find(qn('w:updateFields'))
+    if update_fields is None:
+        update_fields = OxmlElement('w:updateFields')
+        settings.append(update_fields)
+    update_fields.set(qn('w:val'), 'true')
+
+
+def add_table_of_contents(doc):
+    enable_update_fields_on_open(doc)
+
+    heading_para = doc.add_paragraph()
+    heading_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    heading_para.paragraph_format.first_line_indent = Cm(0)
+
+    heading_run = heading_para.add_run('目录')
+    set_chinese_font(heading_run, '黑体', 14, bold=True)
+    heading_run.font.color.rgb = RGBColor(0, 0, 0)
+
+    toc_para = doc.add_paragraph()
+    toc_para.paragraph_format.first_line_indent = Cm(0)
+
+    begin_run = toc_para.add_run()
+    fld_begin = OxmlElement('w:fldChar')
+    fld_begin.set(qn('w:fldCharType'), 'begin')
+    fld_begin.set(qn('w:dirty'), 'true')
+    begin_run._r.append(fld_begin)
+
+    instr_run = toc_para.add_run()
+    instr_text = OxmlElement('w:instrText')
+    instr_text.set(qn('xml:space'), 'preserve')
+    instr_text.text = TOC_FIELD_INSTRUCTION
+    instr_run._r.append(instr_text)
+
+    separate_run = toc_para.add_run()
+    fld_separate = OxmlElement('w:fldChar')
+    fld_separate.set(qn('w:fldCharType'), 'separate')
+    separate_run._r.append(fld_separate)
+
+    placeholder_run = toc_para.add_run('右键更新目录')
+    set_chinese_font(placeholder_run, '宋体', 10.5)
+
+    end_run = toc_para.add_run()
+    fld_end = OxmlElement('w:fldChar')
+    fld_end.set(qn('w:fldCharType'), 'end')
+    end_run._r.append(fld_end)
+
+    add_page_break(doc)
+
+
+def setup_heading_numbering(doc):
+    """设置论文标题多级列表自动编号
+
+    编号格式：
+    - Heading 1: 第1章, 第2章, ...
+    - Heading 2: 1.1, 1.2, ...
+    - Heading 3: 1.1.1, 1.2.1, ...
+    - Heading 4: 1.1.1.1, ...
+
+    摘要/Abstract/致谢/参考文献 使用 Heading 1 样式但不编号（numId=0）
+    """
+    try:
+        numbering_part = doc.part.numbering_part
+        numbering_elm = numbering_part.element
+    except (KeyError, AttributeError):
+        print("[警告] 无法访问 numbering part，标题编号功能不可用")
+        return None
+
+    # 查找已存在的 abstractNum ID
+    existing_ids = [
+        int(an.get(qn('w:abstractNumId')))
+        for an in numbering_elm.findall(qn('w:abstractNum'))
+        if an.get(qn('w:abstractNumId')) is not None
+    ]
+    new_abstract_num_id = max(existing_ids) + 1 if existing_ids else 0
+
+    # 创建 abstractNum
+    abstract_num = OxmlElement('w:abstractNum')
+    abstract_num.set(qn('w:abstractNumId'), str(new_abstract_num_id))
+
+    multi_level_type = OxmlElement('w:multiLevelType')
+    multi_level_type.set(qn('w:val'), 'multilevel')
+    abstract_num.append(multi_level_type)
+
+    # 定义各编号级别
+    levels = [
+        (0, 'Heading1', 'decimal', '第%1章'),
+        (1, 'Heading2', 'decimal', '%1.%2'),
+        (2, 'Heading3', 'decimal', '%1.%2.%3'),
+        (3, 'Heading4', 'decimal', '%1.%2.%3.%4'),
+    ]
+
+    for ilvl, pStyle, numFmt, lvlText in levels:
+        lvl = OxmlElement('w:lvl')
+        lvl.set(qn('w:ilvl'), str(ilvl))
+
+        start = OxmlElement('w:start')
+        start.set(qn('w:val'), '1')
+        lvl.append(start)
+
+        numFmt_elem = OxmlElement('w:numFmt')
+        numFmt_elem.set(qn('w:val'), numFmt)
+        lvl.append(numFmt_elem)
+
+        pStyle_elem = OxmlElement('w:pStyle')
+        pStyle_elem.set(qn('w:val'), pStyle)
+        lvl.append(pStyle_elem)
+
+        lvlText_elem = OxmlElement('w:lvlText')
+        lvlText_elem.set(qn('w:val'), lvlText)
+        lvl.append(lvlText_elem)
+
+        lvlJc_elem = OxmlElement('w:lvlJc')
+        lvlJc_elem.set(qn('w:val'), 'left')
+        lvl.append(lvlJc_elem)
+
+        suff_elem = OxmlElement('w:suff')
+        suff_elem.set(qn('w:val'), 'space')
+        lvl.append(suff_elem)
+
+        abstract_num.append(lvl)
+
+    # abstractNum 必须在 num 元素之前
+    first_num = numbering_elm.find(qn('w:num'))
+    if first_num is not None:
+        first_num.addprevious(abstract_num)
+    else:
+        numbering_elm.insert(0, abstract_num)
+
+    # 创建 num 引用
+    existing_num_ids = [
+        int(n.get(qn('w:numId')))
+        for n in numbering_elm.findall(qn('w:num'))
+        if n.get(qn('w:numId')) is not None
+    ]
+    new_num_id = max(existing_num_ids) + 1 if existing_num_ids else 1
+
+    num = OxmlElement('w:num')
+    num.set(qn('w:numId'), str(new_num_id))
+    abstract_num_id_ref = OxmlElement('w:abstractNumId')
+    abstract_num_id_ref.set(qn('w:val'), str(new_abstract_num_id))
+    num.append(abstract_num_id_ref)
+    numbering_elm.append(num)
+
+    return new_num_id
+
+
+def apply_numbering_to_headings(doc, num_id):
+    """为标题段落应用编号
+
+    正常章节自动编号，摘要/Abstract/致谢/参考文献 禁用编号（numId=0）
+    """
+    if num_id is None:
+        return
+
+    for para in doc.paragraphs:
+        style_name = para.style.name
+        if not style_name or not style_name.startswith('Heading'):
+            continue
+
+        pPr = para._element.find(qn('w:pPr'))
+        if pPr is None:
+            pPr = OxmlElement('w:pPr')
+            para._element.insert(0, pPr)
+
+        # 检查是否为不编号的特殊章节
+        is_unnumbered = (
+            style_name == 'Heading 1' and
+            any(section in para.text for section in UNNUMBERED_H1_SECTIONS)
+        )
+
+        # 移除已有的 numId
+        existing_numId = pPr.find(qn('w:numId'))
+        if existing_numId is not None:
+            pPr.remove(existing_numId)
+
+        numId_elem = OxmlElement('w:numId')
+        if is_unnumbered:
+            numId_elem.set(qn('w:val'), '0')
+        else:
+            numId_elem.set(qn('w:val'), str(num_id))
+        pPr.append(numId_elem)
+
+
 def convert_md_to_docx(input_path: str, output_path: str) -> Tuple[bool, str]:
     """
     将 Markdown 转换为 Word 文档
@@ -529,6 +781,8 @@ def convert_md_to_docx(input_path: str, output_path: str) -> Tuple[bool, str]:
         # 统计信息
         image_count = 0
         image_failed = []
+        seen_abstract = False
+        toc_inserted = False
 
         # 处理各元素
         for elem in elements:
@@ -536,12 +790,15 @@ def convert_md_to_docx(input_path: str, output_path: str) -> Tuple[bool, str]:
 
             if elem_type == 'title':
                 add_title(doc, elem[1])
-            elif elem_type == 'h1':
-                add_heading(doc, elem[1], 1)
-            elif elem_type == 'h2':
-                add_heading(doc, elem[1], 2)
-            elif elem_type == 'h3':
-                add_heading(doc, elem[1], 3)
+            elif elem_type in {'h1', 'h2', 'h3', 'h4'}:
+                level = int(elem_type[1])
+                heading_text = elem[1]
+                if should_insert_toc_before_heading(heading_text, level, seen_abstract, toc_inserted):
+                    add_table_of_contents(doc)
+                    toc_inserted = True
+                add_heading(doc, heading_text, level)
+                if level == 1 and is_abstract_heading(heading_text):
+                    seen_abstract = True
             elif elem_type == 'para':
                 add_paragraph(doc, elem[1])
             elif elem_type == 'code':

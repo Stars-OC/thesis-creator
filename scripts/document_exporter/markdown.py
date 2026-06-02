@@ -83,14 +83,14 @@ def parse_markdown(content: str) -> list:
             elements.append(('image', img_path, alt_text))
             continue
 
-        if line.startswith('# ') and not line.startswith('## '):
-            elements.append(('title', line[2:].strip()))
-        elif line.startswith('## '):
-            elements.append(('h1', line[3:].strip()))
-        elif line.startswith('### '):
-            elements.append(('h2', line[4:].strip()))
-        elif line.startswith('#### '):
-            elements.append(('h3', line[5:].strip()))
+        if line.startswith('#### '):
+            elements.append(('h4', line[5:].strip()))
+        elif line.startswith('### ') and not line.startswith('#### '):
+            elements.append(('h3', line[4:].strip()))
+        elif line.startswith('## ') and not line.startswith('### '):
+            elements.append(('h2', line[3:].strip()))
+        elif line.startswith('# ') and not line.startswith('## '):
+            elements.append(('h1', line[2:].strip()))
         elif line.startswith('- ') or line.startswith('* '):
             elements.append(('list', line[2:].strip(), False))
         elif re.match(r'^\d+\.\s', line):
